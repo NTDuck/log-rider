@@ -1,0 +1,5 @@
+- Language: Rust. Tech stack is chosen based on suitability/applicability -> performance -> ease of integration (e.g. boilerplates doesn't matter as long as everything's performant)
+- [Structured Logging] Currently log content fixed as String ("Message" field). If a client needs their log to contain certain fields e.g. { "foo": {i32}, "bar": {bool}, {other dynamic values} }, should the system supports structured logging?
+- "Manages log processing status (Raw log just received, Normalized, Stored)": state tracked via current position in pipeline, not DB field
+- "high-load API for other software to continuously send logs to the system": exposes both HTTP/HTTPS & gRPC/OTLP (Grafana Alloy-like?) endpoints (client can choose)
+-
