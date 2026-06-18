@@ -2,4 +2,5 @@
 - [Structured Logging] Currently log content fixed as String ("Message" field). If a client needs their log to contain certain fields e.g. { "foo": {i32}, "bar": {bool}, {other dynamic values} }, should the system supports structured logging?
 - "Manages log processing status (Raw log just received, Normalized, Stored)": state tracked via current position in pipeline, not DB field
 - "high-load API for other software to continuously send logs to the system": exposes both HTTP/HTTPS & gRPC/OTLP (Grafana Alloy-like?) endpoints (client can choose)
--
+- MQ: Redis Stream/Kafka/Rabbit? (suggest other alternatives; compare & choose). It would be best if MQ can be parameterized/abstracted (via traits) and swapped (cold, not hot)
+- 
