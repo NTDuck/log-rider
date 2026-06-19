@@ -1,0 +1,60 @@
+name: Security & Vulnerability scanning
+
+on:
+  workflow_call:
+
+jobs:
+  cargo-deny:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+        channel:
+          - stable
+        check:
+          # - advisories
+          # - bans licenses sources
+          - bans
+          - sources
+
+    # Prevent sudden announcement of a new advisory from failing CI:
+    continue-on-error: ${{ matrix.check == 'advisories' }}
+      
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.channel }}
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check ${{ matrix.check }}
+
+  cargo-audit:
+    needs:
+      - cargo-deny
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+        channel:
+          - stable
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.channel }}
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - run: cargo audit
