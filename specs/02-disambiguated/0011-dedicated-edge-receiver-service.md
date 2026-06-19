@@ -4,12 +4,19 @@
 Accepted
 
 ## Context
-Logs arrive via HTTP/HTTPS and gRPC/OTLP endpoints. Combining network connection handling and protocol translation with CPU-intensive log normalization in the same Worker couples I/O wait times with processing limits.
+The high-load ingestion API must allow external client applications to continuously send logs using both HTTP/HTTPS and gRPC/OTLP protocols. 
+However, the primary ingestion broker (Redpanda/Kafka) does not natively speak OTLP or standard HTTP/HTTPS. Allowing thousands of external client applications to open native TCP connections directly to the infrastructure broker is a massive security and connection-pooling risk.
+Furthermore, if we combined the HTTP/gRPC API termination into the same custom Rust Worker responsible for the heavy lifting (JSON normalization, policy enforcement, and database batch insertions), we would tightly couple network I/O wait times with CPU-bound processing limits. A spike in external connections or a DDoS attack could starve the workers of the CPU needed to process the logs.
 
 ## Decision
-We will introduce a dedicated Edge Receiver service. This lightweight Rust service will handle the raw network ingestion and protocol translation, pushing standardized payloads to a `logs-raw` topic.
+We will introduce a dedicated, lightweight Edge Receiver service (API Gateway) built in Rust (utilizing Axum for HTTP and Tonic for gRPC). 
+This service will be strictly responsible for:
+1. Terminating external connections and accepting payloads.
+2. Authenticating clients (e.g., verifying API keys).
+3. Acting as a pure, high-speed Kafka Producer that instantly proxies raw payloads into the Redpanda broker and returns a `202 Accepted` response.
 
 ## Consequences
-- **Positive**: Keeps the core Worker pure and focused strictly on business logic and normalization.
-- **Positive**: Allows independent scaling of the network ingress layer vs. the CPU-heavy normalization layer.
-- **Negative**: Adds an additional microservice and topic (`logs-raw`) to the deployment footprint.
+- **Positive**: Keeps the core Worker pure and focused strictly on CPU-heavy business logic, normalization, and DB insertions.
+- **Positive**: Provides horizontal scalability specifically for the network ingress layer, independent of the processing layer.
+- **Positive**: Protects internal infrastructure from direct external access, improving security and connection management resilience.
+- **Negative**: Adds an additional microservice to maintain and introduces a `logs-raw` topic to the deployment footprint, slightly increasing infrastructure complexity.
