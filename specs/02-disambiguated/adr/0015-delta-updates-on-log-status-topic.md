@@ -1,7 +1,7 @@
 # 0015. Delta Updates on Log Status Topic
 
 ## Status
-Accepted
+Superseded by ADR-0022
 
 ## Context
 Our log processing pipeline involves multiple stages: a single log progresses from `Raw` to `Processed`, then to `Stored`, and potentially `Categorized` by the AI system. The Viewer subsystem needs to display these lifecycle transitions in real-time. The architectural plan relies on an event-driven status pipeline where services publish status updates to a dedicated `log-status` compacted topic in Redpanda.

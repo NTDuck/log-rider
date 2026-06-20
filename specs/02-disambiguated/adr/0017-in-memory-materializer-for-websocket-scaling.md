@@ -6,7 +6,7 @@ Accepted
 ## Context
 A critical functional requirement is the "Real-time Log Viewer Subsystem": a live dashboard for operations engineers to monitor a continuous, real-time log stream filtered by application or error level without page reloads. The system must support high concurrency, potentially up to 500+ connected engineers.
 
-Our Live Stream View relies on a WebSocket server acting as an in-memory materializer, reading from the `log-status` topic. The challenge arises when we scale this WebSocket edge tier.
+Our Live Stream View relies on a WebSocket server acting as an in-memory materializer, reading from the `logs-normalized` topic. The challenge arises when we scale this WebSocket edge tier.
 
 ## Alternatives Considered & The Debate
 We analyzed how the WebSocket server instances should consume the Redpanda stream when scaled horizontally behind a load balancer.
@@ -20,7 +20,7 @@ We analyzed how the WebSocket server instances should consume the Redpanda strea
    *Why it was rejected:* Kafka/Redpanda are not designed to handle thousands of ephemeral consumers. This would immediately overwhelm the broker with connection state and consumer group rebalancing overhead.
 
 3. **Broadcast Consumer Pattern (Accepted)**
-   When a WebSocket container boots up, it must generate a completely **unique, ephemeral Consumer Group ID** (e.g., `viewer-group-<uuid>`). Redpanda treats every single WebSocket server as a completely independent application. Redpanda pushes 100% of the `log-status` topic traffic to Server 1, 100% to Server 2, and 100% to Server 3. 
+   When a WebSocket container boots up, it must generate a completely **unique, ephemeral Consumer Group ID** (e.g., `viewer-group-<uuid>`). Redpanda treats every single WebSocket server as a completely independent application. Redpanda pushes 100% of the `logs-normalized` topic traffic to Server 1, 100% to Server 2, and 100% to Server 3. 
 
 ## Decision
 We will enforce the **Broadcast Consumer** pattern for our real-time streaming servers. Each replica of the Viewer's WebSocket server will generate a unique, ephemeral consumer group ID upon boot.

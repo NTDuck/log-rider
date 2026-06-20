@@ -1,7 +1,7 @@
 # 0007. Event-Driven Compacted Topic for Live Stream
 
 ## Status
-Accepted
+Superseded by ADR-0022
 
 ## Context
 The functional requirements specify a "Real-time Log Viewer Subsystem" that displays a continuous, real-time live stream of logs, supporting quick filtering without page reloads.
