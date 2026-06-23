@@ -249,7 +249,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await;
     } else if args.role == "alert-consumer" {
-        use logger::alert_consumer::adapters::{HttpConfigSubscriber, RedisRateLimiter, TelegramNotifier};
+        use logger::alert_consumer::adapters::{
+            HttpConfigSubscriber, RedisRateLimiter, TelegramNotifier,
+        };
         use logger::alert_consumer::config_loop::run_config_listener_task;
         use logger::alert_consumer::run_loop::{run_fetcher_task, run_processor_task};
         use prometheus::IntCounter;
@@ -266,8 +268,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let consumer = Arc::new(consumer);
 
         let rate_limiter = Arc::new(RedisRateLimiter::new(&args.redis_url)?);
-        let notifier = Arc::new(TelegramNotifier::new(args.telegram_token, args.telegram_chat_id));
-        let config_subscriber = Arc::new(HttpConfigSubscriber::new(args.admin_api_url, &args.redis_url)?);
+        let notifier = Arc::new(TelegramNotifier::new(
+            args.telegram_token,
+            args.telegram_chat_id,
+        ));
+        let config_subscriber = Arc::new(HttpConfigSubscriber::new(
+            args.admin_api_url,
+            &args.redis_url,
+        )?);
 
         let config_cache = Arc::new(RwLock::new(None));
 
@@ -277,7 +285,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &["stage", "status"],
         )?;
         let alerts_fired_total = IntCounter::new("logger_alerts_fired_total", "Alerts Fired")?;
-        let config_reconciliations_total = IntCounter::new("logger_config_reconciliations_total", "Config reloads")?;
+        let config_reconciliations_total =
+            IntCounter::new("logger_config_reconciliations_total", "Config reloads")?;
 
         registry.register(Box::new(events_processed_total.clone()))?;
         registry.register(Box::new(alerts_fired_total.clone()))?;
@@ -286,7 +295,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let config_token = cancel_token.clone();
         let config_cache_clone = config_cache.clone();
         let config_task = tokio::spawn(async move {
-            run_config_listener_task(config_subscriber, config_cache_clone, config_token, config_reconciliations_total).await;
+            run_config_listener_task(
+                config_subscriber,
+                config_cache_clone,
+                config_token,
+                config_reconciliations_total,
+            )
+            .await;
         });
 
         let (tx, rx) = tokio::sync::mpsc::channel(100);
@@ -308,7 +323,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 events_processed_total,
                 alerts_fired_total,
                 processor_token,
-            ).await;
+            )
+            .await;
         });
 
         let _ = tokio::join!(config_task, fetcher_task, processor_task);

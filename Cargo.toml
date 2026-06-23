@@ -63,3 +63,7 @@ harness = false
 [[test]]
 name = "alert_consumer"
 harness = false
+
+[[test]]
+name = "websocket_server"
+harness = false
