@@ -40,18 +40,12 @@ impl LogProducer for MockLogProducer {
 }
 
 #[derive(Debug, Default, World)]
-#[world(init = Self::new)]
+
 pub struct EdgeWorld {
     pub raw_payload: Option<Vec<u8>>,
     pub jwt_token: Option<String>,
     pub response_status: Option<u16>,
     pub produced_domain_log: Option<DomainLog>,
-}
-
-impl EdgeWorld {
-    pub fn new() -> Self {
-        Self::default()
-    }
 }
 
 const PRIV_KEY: &str = include_str!("../private_key.pem");

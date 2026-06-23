@@ -1268,6 +1268,7 @@ dependencies = [
  "cucumber",
  "http",
  "jsonwebtoken",
+ "parking_lot",
  "prometheus",
  "rdkafka",
  "regex",
