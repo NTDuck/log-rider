@@ -1,11 +1,37 @@
 ---
-name: "speckit-plan"
-description: "Execute the implementation planning workflow using the plan template to generate design artifacts."
-compatibility: "Requires spec-kit project structure with .specify/ directory"
+name: speckit-plan
+description: Execute the implementation planning workflow using the plan template
+  to generate design artifacts.
+compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: "github-spec-kit"
-  source: "templates/commands/plan.md"
+  author: github-spec-kit
+  source: preset:agent-parity-governance
 ---
+
+# Speckit Plan Skill
+
+Before continuing, apply the Agent Parity Governance preset:
+
+- plan an atomic update across all maintained agent surfaces
+- plan synchronised updates to project templates and the local
+  `.specify/memory/constitution.md`
+- plan a parity-verification artefact for the change
+
+Before continuing, apply the Architecture Governance preset:
+
+- plan explicit architecture evidence work
+- plan threat-model and ADR updates when boundaries, integrations, or flows
+  change
+- surface Zero Trust and SAMM work explicitly when relevant
+- surface BSI C3A cloud autonomy work explicitly for cloud services and
+  provider-dependent deployments
+
+Before continuing, apply the Security Governance preset:
+
+- plan explicit MSL applicability or non-MSL justification work when relevant
+- plan explicit secure-development verification work
+- plan dependency and supply-chain evidence updates where relevant
+- surface security review checkpoints instead of leaving them implicit
 
 
 ## User Input
@@ -58,6 +84,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 2. **Load context**: Read FEATURE_SPEC and `.specify/memory/constitution.md`. Load IMPL_PLAN template (already copied).
 
 3. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
+   - Include a `## Table of Contents` section immediately after the title and initial metadata lines (Branch, Date, Spec, Input, Note) and before the `## Summary` section. List every `##`-level heading in the final document as a markdown anchor link using GitHub-style anchors (lowercase, spaces to hyphens, strip special characters). Do **not** include a self-referencing entry for `## Table of Contents` itself. Only include headings that actually appear in the final document.
    - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
    - Fill Constitution Check section from constitution
    - Evaluate gates (ERROR if violations unjustified)
@@ -66,43 +93,37 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Phase 1: Update agent context by running the agent script
    - Re-evaluate Constitution Check post-design
 
-## Mandatory Post-Execution Hooks
+4. **Stop and report**: Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts.
 
-**You MUST complete this section before reporting completion to the user.**
+5. **Check for extension hooks**: After reporting, check if `.specify/extensions.yml` exists in the project root.
+   - If it exists, read it and look for entries under the `hooks.after_plan` key
+   - If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
+   - Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
+   - For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+     - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+     - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+   - When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
+   - For each executable hook, output the following based on its `optional` flag:
+     - **Optional hook** (`optional: true`):
+       ```
+       ## Extension Hooks
 
-Check if `.specify/extensions.yml` exists in the project root.
-- If it does not exist, or no hooks are registered under `hooks.after_plan`, skip to the Completion Report.
-- If it exists, read it and look for entries under the `hooks.after_plan` key.
-- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue to the Completion Report.
-- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
-- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
-  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
-  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-- When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
-- For each executable hook, output the following based on its `optional` flag:
-  - **Mandatory hook** (`optional: false`) — **You MUST emit `EXECUTE_COMMAND:` for each mandatory hook**:
-    ```
-    ## Extension Hooks
+       **Optional Hook**: {extension}
+       Command: `/{command}`
+       Description: {description}
 
-    **Automatic Hook**: {extension}
-    Executing: `/{command}`
-    EXECUTE_COMMAND: {command}
-    ```
-  - **Optional hook** (`optional: true`):
-    ```
-    ## Extension Hooks
+       Prompt: {prompt}
+       To execute: `/{command}`
+       ```
+     - **Mandatory hook** (`optional: false`):
+       ```
+       ## Extension Hooks
 
-    **Optional Hook**: {extension}
-    Command: `/{command}`
-    Description: {description}
-
-    Prompt: {prompt}
-    To execute: `/{command}`
-    ```
-
-## Completion Report
-
-Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts.
+       **Automatic Hook**: {extension}
+       Executing: `/{command}`
+       EXECUTE_COMMAND: {command}
+       ```
+   - If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
 
 ## Phases
 
@@ -144,25 +165,37 @@ Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generate
    - Examples: public APIs for libraries, command schemas for CLI tools, endpoints for web services, grammars for parsers, UI contracts for applications
    - Skip if project is purely internal (build scripts, one-off tools, etc.)
 
-3. **Create quickstart validation guide** → `quickstart.md`:
-   - Document runnable validation scenarios that prove the feature works end-to-end
-   - Include prerequisites, setup commands, test/run commands, and expected outcomes
-   - Use links or references to contracts and data model details instead of duplicating them
-   - Do not include full implementation code, model/service/controller bodies, migrations, or complete test suites
-   - Keep this artifact as a validation/run guide; implementation details belong in `tasks.md` and the implementation phase
+3. **Agent context update**:
+   - Run `{AGENT_SCRIPT}`
+   - These scripts detect which AI agent is in use
+   - Update the appropriate agent-specific context file
+   - Add only new technology from current plan
+   - Preserve manual additions between markers
 
-4. **Agent context update**:
-   - Update the plan reference between the `<!-- SPECKIT START -->` and `<!-- SPECKIT END -->` markers in `AGENTS.md` to point to the plan file created in step 1 (the IMPL_PLAN path)
-
-**Output**: data-model.md, /contracts/*, quickstart.md, updated agent context file
+**Output**: data-model.md, /contracts/*, quickstart.md, agent-specific file
 
 ## Key rules
 
-- Use absolute paths for filesystem operations; use project-relative paths for references in documentation and agent context files
+- Use absolute paths
 - ERROR on gate failures or unresolved clarifications
 
-## Done When
 
-- [ ] Plan workflow executed and design artifacts generated
-- [ ] Extension hooks dispatched or skipped according to the rules in Mandatory Post-Execution Hooks above
-- [ ] Completion reported to user with branch, plan path, and generated artifacts
+Audit-ready evidence requirement:
+
+- Ensure this plan wrapper requires concrete Markdown evidence/checklist updates for every applicable checkpoint.
+- If a checkpoint does not apply in the current Spec-Kit run, require `N/A` with a short rationale instead of omitting it.
+- If a checkpoint is undecided, require `Open` with owner, follow-up, and re-evaluation trigger.
+
+
+Audit-ready evidence requirement:
+
+- Ensure this plan wrapper requires concrete Markdown evidence/checklist updates for every applicable checkpoint.
+- If a checkpoint does not apply in the current Spec-Kit run, require `N/A` with a short rationale instead of omitting it.
+- If a checkpoint is undecided, require `Open` with owner, follow-up, and re-evaluation trigger.
+
+
+Audit-ready evidence requirement:
+
+- Ensure this plan wrapper requires concrete Markdown evidence/checklist updates for every applicable checkpoint.
+- If a checkpoint does not apply in the current Spec-Kit run, require `N/A` with a short rationale instead of omitting it.
+- If a checkpoint is undecided, require `Open` with owner, follow-up, and re-evaluation trigger.

@@ -1,11 +1,35 @@
 ---
-name: "speckit-analyze"
-description: "Perform a non-destructive cross-artifact consistency and quality analysis across spec.md, plan.md, and tasks.md after task generation."
-compatibility: "Requires spec-kit project structure with .specify/ directory"
+name: speckit-analyze
+description: Wrap core analysis with behavior-first vertical consistency checks.
+compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: "github-spec-kit"
-  source: "templates/commands/analyze.md"
+  author: github-spec-kit
+  source: preset:workflow-preset
 ---
+
+# Speckit Analyze Skill
+
+## Change Scope Granularity
+
+Check that tasks preserve the planned `M + U` scope. Report missing, widened, or ambiguous scope boundaries as blockers.
+
+## Behavior Vertical Consistency
+
+Analyze whether the feature artifacts close the `spec -> BDD/UIF intent -> contracts -> tasks` loop. This command checks planning consistency only; it does not inspect implementation code or infer interaction flows from built code.
+
+Check:
+
+- spec.md user stories have BDD coverage.
+- BDD Given steps map to fixtures.
+- BDD When steps map to UIF events or API requests.
+- BDD Then steps map to feedback or behavior assertions.
+- behavior/uif.intent.json is formalized into contracts/uif/*.expected.json.
+- behavior drafts exist but formal contracts are missing, without a matching `N/A or blocker` explanation tied to the source draft and missing planning input.
+- UIF API calls exist in contracts/api/.
+- behavior contracts cover scenarios, fixtures, and assertions.
+- tasks.md covers BDD, UIF, API, fixtures, and quickstart validation paths.
+
+Report missing, inconsistent, or stale links by source artifact and target artifact. Keep findings actionable and separate blockers from warnings.
 
 
 ## User Input
@@ -255,3 +279,8 @@ After reporting, check if `.specify/extensions.yml` exists in the project root.
 ## Context
 
 $ARGUMENTS
+
+
+## Behavior Analysis Reporting
+
+Before finishing, report whether the vertical consistency chain is closed and list blockers that should be resolved before implementation continues.

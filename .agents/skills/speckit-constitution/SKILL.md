@@ -1,11 +1,19 @@
 ---
-name: "speckit-constitution"
-description: "Create or update the project constitution from interactive or provided principle inputs, ensuring all dependent templates stay in sync."
-compatibility: "Requires spec-kit project structure with .specify/ directory"
+name: speckit-constitution
+description: Wrap core constitution updates with change scope granularity governance.
+compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: "github-spec-kit"
-  source: "templates/commands/constitution.md"
+  author: github-spec-kit
+  source: preset:workflow-preset
 ---
+
+# Speckit Constitution Skill
+
+## Change Scope Granularity
+
+Always preserve the Change Scope Granularity principle in `.specify/memory/constitution.md`.
+
+Constitution updates must not remove, weaken, or contradict the principle's R/M/U/O model, boundary timing, or context-gap rule. Keep the principle normative, including `Planning locks M + U`.
 
 
 ## User Input
@@ -152,3 +160,8 @@ Check if `.specify/extensions.yml` exists in the project root.
     EXECUTE_COMMAND: {command}
     ```
 - If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+
+
+## Change Scope Granularity Reporting
+
+Before finishing, report whether the constitution includes the Change Scope Granularity principle and still states `Planning locks M + U`.

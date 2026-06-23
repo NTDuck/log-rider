@@ -4,9 +4,9 @@ This directory contains the granular, formalized coding conventions, standards, 
 
 ## Conventions Index
 
-1. **[01-architecture-ddd.md](file:///home/ayin/projs/logger/specs/00-conventions/01-architecture-ddd.md)**
-   - Domain-Driven Design (DDD) & Clean/Hexagonal Architecture.
-   - Boundaries, Interactors, Entities, and Value Objects.
+1. **[01-architecture-soa.md](file:///D:/_dev/logger/specs/00-conventions/01-architecture-soa.md)**
+   - Concrete Service-Oriented Architecture (SoA) and Local Abstractions.
+   - Pragmatic Performance Optimizations (Arc for async, Cow/Rc for sync paths).
 2. **[02-rust-syntax-style.md](file:///home/ayin/projs/logger/specs/00-conventions/02-rust-syntax-style.md)**
    - Fully Qualified Names (FQN) and prefixing imports/calls with `::`.
    - FQN on derive macros (e.g., `#[derive(::core::fmt::Debug)]`).
@@ -26,3 +26,5 @@ This directory contains the granular, formalized coding conventions, standards, 
 6. **[06-ci-cd-devops.md](file:///home/ayin/projs/logger/specs/00-conventions/06-ci-cd-devops.md)**
    - Continuous Integration and Deployment configurations.
    - Detailed formatting (`.rustfmt.toml`), linting (`.clippy.toml`), and workflow definitions.
+7. **[07-constitution-principles.md](07-constitution-principles.md)**
+   - High-level synthesized principles regarding Code Quality, Testing, UX, and Performance.

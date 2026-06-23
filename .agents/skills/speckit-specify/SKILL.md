@@ -1,11 +1,41 @@
 ---
-name: "speckit-specify"
-description: "Create or update the feature specification from a natural language feature description."
-compatibility: "Requires spec-kit project structure with .specify/ directory"
+name: speckit-specify
+description: Create or update the feature specification from a natural language feature
+  description.
+compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: "github-spec-kit"
-  source: "templates/commands/specify.md"
+  author: github-spec-kit
+  source: preset:agent-parity-governance
 ---
+
+# Speckit Specify Skill
+
+Before continuing, apply the Agent Parity Governance preset:
+
+- identify whether shared agent guidance, project templates, or
+  `.specify/memory/constitution.md` is affected
+- list every maintained agent surface that must be updated together
+- record any intentional deviation explicitly
+
+Before continuing, apply the Architecture Governance preset:
+
+- identify whether runtime or hardware constraints affect memory-safe language
+  choice
+- identify trust boundaries affected by the requested work
+- determine whether threat modeling, ADR updates, or Zero Trust review apply
+- determine whether BSI C3A cloud autonomy applicability applies for cloud
+  services or provider-dependent deployments
+- document `N/A` decisions with rationale
+
+Before continuing, apply the Security Governance preset:
+
+- determine whether the primary implementation language is memory-safe
+- document a short justification if the language is not memory-safe
+- determine whether `NIST SSDF`, `CWE Top 25`, `OWASP ASVS`, `SBOM`, `VEX`,
+  `AI-SBOM`, and `SLSA` are relevant
+- document `N/A` decisions with rationale
+- identify which security evidence artefacts should be created or updated under
+  `docs/security/`
 
 
 ## User Input
@@ -53,11 +83,11 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-The text the user typed after `/speckit-specify` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
+The text the user typed after `/speckit.specify` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
 
 Given that feature description, do this:
 
-1. **Generate a concise short name** (2-4 words) for the feature:
+1. **Generate a concise short name** (2-4 words) for the branch:
    - Analyze the feature description and extract the most meaningful keywords
    - Create a 2-4 word short name that captures the essence of the feature
    - Use action-noun format when possible (e.g., "add-user-auth", "fix-payment-bug")
@@ -69,51 +99,30 @@ Given that feature description, do this:
      - "Create a dashboard for analytics" → "analytics-dashboard"
      - "Fix payment processing timeout bug" → "fix-payment-timeout"
 
-2. **Branch creation** (optional, via hook):
+2. **Create the feature branch** by running the script with `--short-name` (and `--json`). In sequential mode, do NOT pass `--number` — the script auto-detects the next available number. In timestamp mode, the script generates a `YYYYMMDD-HHMMSS` prefix automatically:
 
-   If a `before_specify` hook ran successfully in the Pre-Execution Checks above, it will have created/switched to a git branch and output JSON containing `BRANCH_NAME` and `FEATURE_NUM`. Note these values for reference, but the branch name does **not** dictate the spec directory name.
+   **Branch numbering mode**: Before running the script, check if `.specify/init-options.json` exists and read the `branch_numbering` value.
+   - If `"timestamp"`, add `--timestamp` (Bash) or `-Timestamp` (PowerShell) to the script invocation
+   - If `"sequential"` or absent, do not add any extra flag (default behavior)
 
-   If the user explicitly provided `GIT_BRANCH_NAME`, pass it through to the hook so the branch script uses the exact value as the branch name (bypassing all prefix/suffix generation).
-
-3. **Create the spec feature directory**:
-
-   Specs live under the default `specs/` directory unless the user explicitly provides `SPECIFY_FEATURE_DIRECTORY`.
-
-   **Resolution order for `SPECIFY_FEATURE_DIRECTORY`**:
-   1. If the user explicitly provided `SPECIFY_FEATURE_DIRECTORY` (e.g., via environment variable, argument, or configuration), use it as-is
-   2. Otherwise, auto-generate it under `specs/`:
-      - Check `.specify/init-options.json` for `feature_numbering` (preferred) or `branch_numbering` (deprecated, migration only — will be removed in a future release)
-      - If `"timestamp"`: prefix is `YYYYMMDD-HHMMSS` (current timestamp)
-      - If `"sequential"` or absent: prefix is `NNN` (next available 3-digit number after scanning existing directories in `specs/`)
-      - Construct the directory name: `<prefix>-<short-name>` (e.g., `003-user-auth` or `20260319-143022-user-auth`)
-      - Set `SPECIFY_FEATURE_DIRECTORY` to `specs/<directory-name>`
-      - If `branch_numbering` was used (and `feature_numbering` was absent), emit a one-line warning: "⚠️ `branch_numbering` in init-options.json is deprecated. Rename to `feature_numbering`."
-
-   **Create the directory and spec file**:
-   - `mkdir -p SPECIFY_FEATURE_DIRECTORY`
-   - Resolve the active `spec-template` through the Spec Kit preset/template resolution stack (equivalent to `specify preset resolve spec-template`)
-   - Copy the resolved `spec-template` file to `SPECIFY_FEATURE_DIRECTORY/spec.md` as the starting point
-   - Set `SPEC_FILE` to `SPECIFY_FEATURE_DIRECTORY/spec.md`
-   - Persist the resolved path to `.specify/feature.json`:
-     ```json
-     {
-       "feature_directory": "<resolved feature dir>"
-     }
-     ```
-     Write the actual resolved directory path value (for example, `specs/003-user-auth`), not the literal string `SPECIFY_FEATURE_DIRECTORY`.
-     This allows downstream commands (`/speckit-plan`, `/speckit-tasks`, etc.) to locate the feature directory without relying on git branch name conventions.
+   - Bash example: `.specify/scripts/bash/create-new-feature.sh "$ARGUMENTS" --json --short-name "user-auth" "Add user authentication"`
+   - Bash (timestamp): `.specify/scripts/bash/create-new-feature.sh "$ARGUMENTS" --json --timestamp --short-name "user-auth" "Add user authentication"`
+   - PowerShell example: `.specify/scripts/bash/create-new-feature.sh "$ARGUMENTS" -Json -ShortName "user-auth" "Add user authentication"`
+   - PowerShell (timestamp): `.specify/scripts/bash/create-new-feature.sh "$ARGUMENTS" -Json -Timestamp -ShortName "user-auth" "Add user authentication"`
 
    **IMPORTANT**:
-   - You must only create one feature per `/speckit-specify` invocation
-   - The spec directory name and the git branch name are independent — they may be the same but that is the user's choice
-   - The spec directory and file are always created by this command, never by the hook
+   - Do NOT pass `--number` — the script determines the correct next number automatically
+   - Always include the JSON flag (`--json` for Bash, `-Json` for PowerShell) so the output can be parsed reliably
+   - You must only ever run this script once per feature
+   - The JSON is provided in the terminal as output - always refer to it to get the actual content you're looking for
+   - The JSON output will contain BRANCH_NAME and SPEC_FILE paths
+   - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot")
 
-4. Load the resolved active `spec-template` file to understand required sections.
+3. Load `.specify/templates/spec-template.md` to understand required sections.
 
-5. **IF EXISTS**: Load `.specify/memory/constitution.md` for project principles and governance constraints.
+4. Follow this execution flow:
 
-6. Follow this execution flow:
-    1. Parse user description from arguments
+    1. Parse user description from Input
        If empty: ERROR "No feature description provided"
     2. Extract key concepts from description
        Identify: actors, actions, data, constraints
@@ -137,11 +146,18 @@ Given that feature description, do this:
     7. Identify Key Entities (if data involved)
     8. Return: SUCCESS (spec ready for planning)
 
-6. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
+5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
 
-7. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
+   **Table of Contents**: Include a `## Table of Contents` section immediately after the title and initial metadata lines (Feature Branch, Created, Status, Input) and before the first content section. The TOC must:
+   - List every `##`-level heading in the final document as a markdown anchor link
+   - Use GitHub-style anchors: lowercase, spaces to hyphens, strip `*`, `(`, `)`, and other special characters. Example: `## Requirements *(mandatory)*` becomes `- [Requirements](#requirements-mandatory)`
+   - Do **not** include a self-referencing entry for `## Table of Contents` itself
+   - Only include headings that actually appear in the final document
+   - If the `/speckit.clarify` command later rewrites the spec, it must regenerate the TOC to reflect any added or removed sections
 
-   a. **Create Spec Quality Checklist**: Generate a checklist file at `SPECIFY_FEATURE_DIRECTORY/checklists/requirements.md` using the checklist template structure with these validation items:
+6. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
+
+   a. **Create Spec Quality Checklist**: Generate a checklist file at `FEATURE_DIR/checklists/requirements.md` using the checklist template structure with these validation items:
 
       ```markdown
       # Specification Quality Checklist: [FEATURE NAME]
@@ -177,7 +193,7 @@ Given that feature description, do this:
       
       ## Notes
       
-      - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
+      - Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
       ```
 
    b. **Run Validation Check**: Review the spec against each checklist item:
@@ -186,7 +202,7 @@ Given that feature description, do this:
 
    c. **Handle Validation Results**:
 
-      - **If all items pass**: Mark checklist complete and proceed to the Mandatory Post-Execution Hooks section
+      - **If all items pass**: Mark checklist complete and proceed to step 7
 
       - **If items fail (excluding [NEEDS CLARIFICATION])**:
         1. List the failing items and specific issues
@@ -231,49 +247,39 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-## Mandatory Post-Execution Hooks
+7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
 
-**You MUST complete this section before reporting completion to the user.**
+8. **Check for extension hooks**: After reporting completion, check if `.specify/extensions.yml` exists in the project root.
+   - If it exists, read it and look for entries under the `hooks.after_specify` key
+   - If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
+   - Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
+   - For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+     - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+     - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+   - When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
+   - For each executable hook, output the following based on its `optional` flag:
+     - **Optional hook** (`optional: true`):
+       ```
+       ## Extension Hooks
 
-Check if `.specify/extensions.yml` exists in the project root.
-- If it does not exist, or no hooks are registered under `hooks.after_specify`, skip to the Completion Report.
-- If it exists, read it and look for entries under the `hooks.after_specify` key.
-- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue to the Completion Report.
-- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
-- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
-  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
-  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-- When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
-- For each executable hook, output the following based on its `optional` flag:
-  - **Mandatory hook** (`optional: false`) — **You MUST emit `EXECUTE_COMMAND:` for each mandatory hook**:
-    ```
-    ## Extension Hooks
+       **Optional Hook**: {extension}
+       Command: `/{command}`
+       Description: {description}
 
-    **Automatic Hook**: {extension}
-    Executing: `/{command}`
-    EXECUTE_COMMAND: {command}
-    ```
-  - **Optional hook** (`optional: true`):
-    ```
-    ## Extension Hooks
+       Prompt: {prompt}
+       To execute: `/{command}`
+       ```
+     - **Mandatory hook** (`optional: false`):
+       ```
+       ## Extension Hooks
 
-    **Optional Hook**: {extension}
-    Command: `/{command}`
-    Description: {description}
+       **Automatic Hook**: {extension}
+       Executing: `/{command}`
+       EXECUTE_COMMAND: {command}
+       ```
+   - If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
 
-    Prompt: {prompt}
-    To execute: `/{command}`
-    ```
-
-## Completion Report
-
-Report completion to the user with:
-- `SPECIFY_FEATURE_DIRECTORY` — the feature directory path
-- `SPEC_FILE` — the spec file path
-- Checklist results summary
-- Readiness for the next phase (`/speckit-clarify` or `/speckit-plan`)
-
-**NOTE:** Branch creation is handled by the `before_specify` hook (git extension). Spec directory and file creation are always handled by this core command.
+**NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
 
 ## Quick Guidelines
 
@@ -336,8 +342,23 @@ Success criteria must be:
 - "React components render efficiently" (framework-specific)
 - "Redis cache hit rate above 80%" (technology-specific)
 
-## Done When
 
-- [ ] Specification written to `SPEC_FILE` and validated against quality checklist
-- [ ] Extension hooks dispatched or skipped according to the rules in Mandatory Post-Execution Hooks above
-- [ ] Completion reported to user with feature directory, spec file path, and checklist results
+Audit-ready evidence requirement:
+
+- Ensure this specify wrapper requires concrete Markdown evidence/checklist updates for every applicable checkpoint.
+- If a checkpoint does not apply in the current Spec-Kit run, require `N/A` with a short rationale instead of omitting it.
+- If a checkpoint is undecided, require `Open` with owner, follow-up, and re-evaluation trigger.
+
+
+Audit-ready evidence requirement:
+
+- Ensure this specify wrapper requires concrete Markdown evidence/checklist updates for every applicable checkpoint.
+- If a checkpoint does not apply in the current Spec-Kit run, require `N/A` with a short rationale instead of omitting it.
+- If a checkpoint is undecided, require `Open` with owner, follow-up, and re-evaluation trigger.
+
+
+Audit-ready evidence requirement:
+
+- Ensure this specify wrapper requires concrete Markdown evidence/checklist updates for every applicable checkpoint.
+- If a checkpoint does not apply in the current Spec-Kit run, require `N/A` with a short rationale instead of omitting it.
+- If a checkpoint is undecided, require `Open` with owner, follow-up, and re-evaluation trigger.
