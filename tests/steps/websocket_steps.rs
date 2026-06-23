@@ -2,6 +2,7 @@ use cucumber::{given, then, when, World};
 // use logger::ws::models::BroadcastMessage;
 
 #[derive(Debug, Default, World)]
+#[allow(dead_code)]
 pub struct WSWorld {
     pub client_grants: Vec<String>,
     // pub broadcast_tx: Option<tokio::sync::broadcast::Sender<BroadcastMessage>>,
