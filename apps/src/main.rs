@@ -328,6 +328,75 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         let _ = tokio::join!(config_task, fetcher_task, processor_task);
+    } else if args.role == "ws-server" {
+        use axum::{routing::get, Router};
+        use jsonwebtoken::DecodingKey;
+        use logger::ws::handler::{ws_upgrade_handler, AppState};
+        use logger::ws::ingestion::ingestion_loop;
+        use prometheus::{IntCounterVec, IntGauge};
+        use rdkafka::consumer::{Consumer, StreamConsumer};
+        use std::sync::Arc;
+        use tap::TapFallible;
+        use tokio::net::TcpListener;
+        use tokio::sync::broadcast;
+
+        let (broadcast_tx, _rx) = broadcast::channel(1024);
+
+        let group_id = format!("ws-server-cg-{}", uuid::Uuid::new_v4());
+        let consumer: StreamConsumer = ClientConfig::new()
+            .set("bootstrap.servers", &args.kafka_brokers)
+            .set("group.id", &group_id)
+            .set("enable.auto.commit", "false")
+            .create()?;
+        consumer.subscribe(&["logs-normalized"])?;
+        let consumer = Arc::new(consumer);
+
+        let registry = Registry::new();
+        let active_connections = IntGauge::new(
+            "logger_active_connections",
+            "Number of active WebSocket connections",
+        )?;
+        let events_processed_total = IntCounterVec::new(
+            prometheus::Opts::new("logger_events_processed_total", "Total events processed"),
+            &["stage", "status"],
+        )?;
+
+        registry.register(Box::new(active_connections.clone()))?;
+        registry.register(Box::new(events_processed_total.clone()))?;
+
+        // Just a dummy decoding key for the monolith. In real life it'd come from a config.
+        let decoding_key = Arc::new(DecodingKey::from_secret("secret".as_ref()));
+
+        let state = AppState {
+            broadcast_tx: broadcast_tx.clone(),
+            decoding_key,
+            active_connections,
+            events_processed_total,
+            cancel_token: cancel_token.clone(),
+        };
+
+        let ingestion_cancel = cancel_token.clone();
+        tokio::spawn(async move {
+            let _ = ingestion_loop(consumer, broadcast_tx, ingestion_cancel)
+                .await
+                .tap_err(|e| ::tracing::error!(error = %e, "WS ingestion loop terminated"));
+        });
+
+        let app = Router::new()
+            .route("/v1/ws", get(ws_upgrade_handler))
+            .route("/metrics", get(|| async { "metrics" }))
+            .with_state(state);
+
+        let listener = TcpListener::bind("0.0.0.0:8081")
+            .await
+            .tap_err(|e| ::tracing::error!(error = %e, "WS Axum server bind failed"))?;
+
+        let server_cancel = cancel_token.clone();
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async move {
+                server_cancel.cancelled().await;
+            })
+            .await?;
     }
 
     Ok(())

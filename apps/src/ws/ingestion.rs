@@ -30,7 +30,7 @@ pub async fn ingestion_loop(
                                         .payload(raw_payload)
                                         .build();
 
-                                    if let Err(_) = broadcast_tx.send(bmsg) {
+                                    if broadcast_tx.send(bmsg).is_err() {
                                         ::tracing::debug!("Broadcast send skipped, no active receivers");
                                     }
                                 }

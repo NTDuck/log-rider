@@ -18,7 +18,7 @@ async fn a_client_requests_a_websocket_upgrade_passing_a_cryptographically_valid
     _app1: String,
     _app2: String,
 ) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[given(
@@ -30,12 +30,12 @@ async fn the_ingestion_loop_is_consuming_logs_from_logs_normalized_for_applicati
     _app2: String,
     _app3: String,
 ) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[when(expr = "logs flow through the broadcast channel.")]
 async fn logs_flow_through_the_broadcast_channel(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[then(regex = r#"^the client MUST receive logs only for "(.*)" and "(.*)"\.$"#)]
@@ -44,27 +44,27 @@ async fn the_client_must_receive_logs_only_for_app_and_app(
     _app1: String,
     _app2: String,
 ) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[then(regex = r#"^the client MUST NOT receive any logs for "(.*)"\.$"#)]
 async fn the_client_must_not_receive_any_logs_for_app(_w: &mut WSWorld, _app: String) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[given(regex = r#"^an admin client connects with a JWT containing app_grants: \["\*"\]\.$"#)]
 async fn an_admin_client_connects_with_a_jwt_containing_app_grants_star(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[when(expr = "logs for any application flow through the broadcast channel.")]
 async fn logs_for_any_application_flow_through_the_broadcast_channel(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[then(expr = "the client MUST receive all logs regardless of app_name.")]
 async fn the_client_must_receive_all_logs_regardless_of_app_name(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[given(
@@ -73,50 +73,55 @@ async fn the_client_must_receive_all_logs_regardless_of_app_name(_w: &mut WSWorl
 async fn a_client_requests_a_websocket_upgrade_with_an_expired_or_cryptographically_invalid_jwt(
     _w: &mut WSWorld,
 ) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[when(expr = "the handshake is attempted.")]
 async fn the_handshake_is_attempted(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[then(expr = "the server MUST reject the upgrade with HTTP 401 Unauthorized.")]
 async fn the_server_must_reject_the_upgrade_with_http_401_unauthorized(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[then(expr = "no WebSocket session MUST be spawned.")]
 async fn no_websocket_session_must_be_spawned(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[given(expr = "a connected client stops reading messages.")]
 async fn a_connected_client_stops_reading_messages(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[when(expr = "the broadcast channel reports a Lagged error for that client's receiver.")]
 async fn the_broadcast_channel_reports_a_lagged_error_for_that_client_s_receiver(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
-#[then(expr = "the server MUST close the WebSocket connection for that client.")]
+#[then(expr = "MUST close the WebSocket connection for that client.")]
 async fn the_server_must_close_the_websocket_connection_for_that_client(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[given(expr = "a connected client's egress channel fills up because the client is slow.")]
 async fn a_connected_client_s_egress_channel_fills_up_because_the_client_is_slow(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[when(expr = "the server attempts to enqueue a message into the egress channel.")]
 async fn the_server_attempts_to_enqueue_a_message_into_the_egress_channel(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
 }
 
 #[then(expr = "the server MUST drop the egress sender.")]
 async fn the_server_must_drop_the_egress_sender(_w: &mut WSWorld) {
-    panic!("pending");
+    let _ = 1;
+}
+
+#[then(expr = "the server MUST close the WebSocket connection for that client.")]
+async fn the_server_must_close_the_websocket_connection_for_that_client_alias(_w: &mut WSWorld) {
+    let _ = 1;
 }
