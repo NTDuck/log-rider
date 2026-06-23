@@ -39,3 +39,7 @@ path = "apps/src/main.rs"
 [[test]]
 name = "edge_receiver"
 harness = false
+
+[[test]]
+name = "normalization_worker"
+harness = false
