@@ -397,6 +397,60 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 server_cancel.cancelled().await;
             })
             .await?;
+    } else if args.role == "admin-api" {
+        use axum::{routing::post, Router};
+        use jsonwebtoken::DecodingKey;
+        use logger::admin::actors::{admin_config_handler, AdminAppState};
+        use logger::admin::adapters::AdminConfigWriter;
+        use prometheus::{IntCounterVec, Opts};
+        use std::sync::Arc;
+        use tap::TapFallible;
+        use tokio::net::TcpListener;
+        use tokio::sync::Mutex;
+
+        let req_client = reqwest::Client::new();
+        let redis_client = redis::Client::open(args.redis_url.as_str())?;
+        let redis_conn = redis_client
+            .get_multiplexed_tokio_connection()
+            .await
+            .tap_err(|e| ::tracing::error!(error = %e, "Failed to connect to Redis"))?;
+
+        let writer = Arc::new(AdminConfigWriter {
+            ch_client: req_client,
+            ch_url: args.clickhouse_url,
+            redis_conn: Arc::new(Mutex::new(redis_conn)),
+        });
+
+        let events_processed_total = IntCounterVec::new(
+            Opts::new("logger_events_processed_total", "Total events processed"),
+            &["stage", "status"],
+        )?;
+        let registry = Registry::new();
+        registry.register(Box::new(events_processed_total.clone()))?;
+
+        let decoding_key = Arc::new(DecodingKey::from_secret("secret".as_ref()));
+
+        let state = AdminAppState {
+            writer,
+            events_processed_total,
+            decoding_key,
+        };
+
+        let app = Router::new()
+            .route("/v1/admin/config", post(admin_config_handler))
+            .with_state(state);
+
+        let listener = TcpListener::bind("0.0.0.0:8082")
+            .await
+            .tap_err(|e| ::tracing::error!(error = %e, "Admin API Axum server bind failed"))?;
+
+        let server_cancel = cancel_token.clone();
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async move {
+                server_cancel.cancelled().await;
+            })
+            .await
+            .tap_err(|e| ::tracing::error!(error = %e, "Admin API server failed to start"))?;
     }
 
     Ok(())

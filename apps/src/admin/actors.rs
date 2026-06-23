@@ -26,16 +26,12 @@ pub async fn admin_config_handler(
 ) -> Response {
     let auth_header = headers.get("Authorization").and_then(|h| h.to_str().ok());
     let token = if let Some(h) = auth_header {
-        if h.starts_with("Bearer ") {
-            &h[7..]
-        } else {
-            h
-        }
+        h.strip_prefix("Bearer ").unwrap_or(h)
     } else {
         ""
     };
 
-    if let Err(_) = validate_admin_claims(token, &state.decoding_key) {
+    if validate_admin_claims(token, &state.decoding_key).is_err() {
         state
             .events_processed_total
             .with_label_values(&["admin", "error"])
