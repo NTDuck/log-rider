@@ -8,12 +8,12 @@ All domain and use-case modules must replace native types with the corresponding
 
 | Conceptual Type | Native Rust Underlying Type | `axiom` Qualified Alias |
 |---|---|---|
-| **String** | `::std::string::String` | `::axiom::string::String` |
+| **String** | `::std::borrow::Cow<'static, str>` | `::axiom::string::String` |
 | **Fallible Result** | `::core::result::Result<T, ::anyhow::Error>` | `::axiom::result::Fallible<T = ()>` |
 | **Timestamp** | `::chrono::DateTime<::chrono::Utc>` | `::axiom::time::Timestamp` |
 | **Interval** | `::chrono::Duration` | `::axiom::time::Interval` |
 
-Standard `String` is preferred for general domain entities to prevent lifetime contagion, reserving `Cow` specifically for zero-copy hot paths (ADR-0021).
+Using `Cow<'static, str>` as the default string representation allows for memory-efficient, zero-copy operations on static string slices, owned heap allocations, and shared references.
 
 ---
 

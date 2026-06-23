@@ -40,10 +40,7 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- [ ] **Architecture Check**: Follows Concrete SoA? Are traits/abstractions defined locally within the service rather than globally?
-- [ ] **Performance Check**: Are allocations pragmatically balanced? Is `Arc` used for `Send` async boundaries, reserving `Cow`/`Rc` for synchronous hot paths?
-- [ ] **Testing Check**: BDD integration tests planned via Cucumber natively on multi-threaded runtimes?
-- [ ] **UX Check**: Uses structured `Erratum` JSON for predictable frontend developer experience?
+[Gates determined based on constitution file]
 
 ## Project Structure
 

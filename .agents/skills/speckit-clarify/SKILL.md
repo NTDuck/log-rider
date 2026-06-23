@@ -1,19 +1,11 @@
 ---
-name: speckit-clarify
-description: Wrap core clarification with spec-only ambiguity resolution.
-compatibility: Requires spec-kit project structure with .specify/ directory
+name: "speckit-clarify"
+description: "Identify underspecified areas in the current feature spec by asking up to 5 highly targeted clarification questions and encoding answers back into the spec."
+compatibility: "Requires spec-kit project structure with .specify/ directory"
 metadata:
-  author: github-spec-kit
-  source: preset:workflow-preset
+  author: "github-spec-kit"
+  source: "templates/commands/clarify.md"
 ---
-
-# Speckit Clarify Skill
-
-## Spec-Only Clarification Policy
-
-Use `spec.md` as the clarification source. Ask and record clarification only for requirement ambiguity that affects product behavior, constraints, acceptance criteria, user roles, permissions, entity states, data semantics, exceptions, validation rules, or boundaries.
-
-Do not read or update behavior draft artifacts. Do not use behavior drafts as clarification inputs, and do not open a separate behavior-question channel. Product requirements stay in `spec.md`; update `spec.md` only after user-provided answers make the requirement clear.
 
 
 ## User Input
@@ -289,8 +281,3 @@ Report completion (after questioning loop ends or early termination):
 - [ ] Spec quality checklist re-validated against updated spec (if `FEATURE_DIR/checklists/requirements.md` exists)
 - [ ] Extension hooks dispatched or skipped according to the rules in Mandatory Post-Execution Hooks above
 - [ ] Completion reported to user with questions answered, sections touched, checklist status, and coverage summary
-
-
-## Clarification Reporting
-
-Before finishing, report answered questions, `spec.md` sections updated, and any unresolved requirement ambiguity that still blocks checklist readiness.

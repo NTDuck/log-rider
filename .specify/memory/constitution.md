@@ -1,44 +1,50 @@
-<!--
-Sync Impact Report
-- Version: [CONSTITUTION_VERSION] -> 1.0.0
-- Modified principles: N/A
-- Added sections: Core Principles, DevOps and Operational Readiness
-- Removed sections: N/A
-- Templates requiring updates: 
-  - .specify/templates/plan-template.md: ✅ updated
-- Follow-up TODOs: None
--->
-# logger Constitution
+# [PROJECT_NAME] Constitution
+<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
 
 ## Core Principles
 
-### I. Architecture and Correctness (Concrete Service-Oriented Architecture)
-The `logger` ecosystem strictly adheres to a **Concrete Service-Oriented Architecture (SoA)** (ADR-0020). Our architectural philosophy fundamentally rejects the dogmatic enforcement of pure, workspace-wide Clean Architecture. While global abstraction layers isolate the domain, they inherently produce "leaky abstractions" when interacting with specialized infrastructure (e.g., Redpanda stream processing, ClickHouse columnar aggregations). Hiding these technologies behind lowest-common-denominator interfaces destroys our leverage over their unique capabilities. Instead, we enforce correctness, multi-core scalability, and modularity through pragmatic, localized boundaries:
-- **Concrete Services over Global Layers**: The workspace is partitioned into discrete, bounded contexts.
-- **Consumer-Driven Local Traits**: Abstraction is mandatory, but it must be defined *locally*. Services define the boundary traits and Higher-Ranked Trait Bounds (HRTBs) they require from their dependencies. 
-- **Monomorphization over Dynamic Dispatch**: Dynamic dispatch (`dyn Trait`) is strictly forbidden unless heterogeneous collections are architecturally unavoidable.
+### [PRINCIPLE_1_NAME]
+<!-- Example: I. Library-First -->
+[PRINCIPLE_1_DESCRIPTION]
+<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
 
-### II. Rust Engineering and Performance
-We optimize for multi-core scalability under Tokio’s work-stealing executor without introducing pervasive borrow-checker contagion.
-- **Pragmatic Concurrency**: Shared state and dependencies MUST default to `::std::sync::Arc` to guarantee `Send` and `Sync` bounds. The use of `::std::rc::Rc` is strictly quarantined to fully synchronous algorithms.
-- **Targeted Zero-Copy**: Default to owned `String` and `Vec`. `::std::borrow::Cow` is aggressively reserved **only** for empirically proven hot-path boundaries.
-- **Bifurcated Error Segregation**: A robust system never conflates a broken infrastructure with user-error. We enforce a strict semantic divide using the double-wrapped boundary pattern: `::axiom::result::Fallible<::core::result::Result<T, ::std::vec::Vec<E>>>`.
-- **Syntactic Hygiene**: All types MUST be invoked via Fully Qualified Names prefixed with `::`. All struct constructions must utilize `bon` builders, and side-effects must use `tap` chaining.
+### [PRINCIPLE_2_NAME]
+<!-- Example: II. CLI Interface -->
+[PRINCIPLE_2_DESCRIPTION]
+<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
 
-### III. Testing Standards (Behavior-Driven Development)
-We treat tests not just as verification mechanisms, but as living documentation.
-- All integration and boundary testing must be driven by natural-language Gherkin feature files (`cucumber` crate).
-- Integration test suites (`suite!`) must be parameterized. This allows the exact same BDD scenarios to execute against multiple gateway implementations natively within multi-threaded Tokio runtimes.
+### [PRINCIPLE_3_NAME]
+<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
+[PRINCIPLE_3_DESCRIPTION]
+<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
 
-## DevOps and Operational Readiness
+### [PRINCIPLE_4_NAME]
+<!-- Example: IV. Integration Testing -->
+[PRINCIPLE_4_DESCRIPTION]
+<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
 
-The `logger` project treats continuous integration, deployment, and observability as non-negotiable architectural constraints.
-- **CI/CD Strictness and Security**: Quality assurance is enforced entirely via automated, modular CI/CD pipelines (matrix compilation checks, `nextest`, `cargo deny`).
-- **Infrastructure-Driven Operations**: We acknowledge that high-throughput systems cannot be abstracted indefinitely. Operational readiness dictates that we explicitly embrace our foundational infrastructure—Redpanda for message streaming and ClickHouse for analytical storage.
-- **Observability**: Unpredictable infrastructural faults must bubble up via the `Fallible` wrapper to trigger immediate operational alerts. Expected domain failures are gracefully accumulated as `Erratum`-derived JSON responses.
-- **Zero-Downtime Evolution**: Services must handle graceful termination, cleanly draining in-flight async Tokio tasks and safely committing Redpanda offsets without data loss.
+### [PRINCIPLE_5_NAME]
+<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
+[PRINCIPLE_5_DESCRIPTION]
+<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+
+## [SECTION_2_NAME]
+<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+
+[SECTION_2_CONTENT]
+<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+
+## [SECTION_3_NAME]
+<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+
+[SECTION_3_CONTENT]
+<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
 
 ## Governance
-All PRs must verify compliance with Concrete SoA and Pragmatic Performance principles. Changes require an update to `specs/00-conventions` and this Constitution.
+<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-20 | **Last Amended**: 2026-06-20
+[GOVERNANCE_RULES]
+<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+
+**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
+<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
