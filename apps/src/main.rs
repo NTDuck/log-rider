@@ -16,8 +16,11 @@ struct Args {
     #[arg(long, default_value = "127.0.0.1:9092")]
     kafka_brokers: String,
 
-    #[arg(long, env = "JWT_PUBLIC_KEY")]
+    #[arg(long, env = "JWT_PUBLIC_KEY", default_value = "")]
     jwt_public_key: String,
+
+    #[arg(long, env = "CLICKHOUSE_URL", default_value = "http://localhost:8123")]
+    clickhouse_url: String,
 }
 
 #[tokio::main]
@@ -128,6 +131,69 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Block on tasks and wait for shutdown signal handling here if needed
         let _ = tokio::join!(fetcher_handle, processor_handle);
+    } else if args.role == "db-writer" {
+        use logger::db_writer::actors::{run_fetcher_task, run_processor_task, DbWriterMetrics};
+        use logger::db_writer::adapters::ClickHouseHttpWriter;
+        use rdkafka::consumer::{Consumer, StreamConsumer};
+
+        let consumer: StreamConsumer = ClientConfig::new()
+            .set("bootstrap.servers", &args.kafka_brokers)
+            .set("group.id", "db-writer-group")
+            .set("enable.auto.commit", "false")
+            .create()?;
+        consumer.subscribe(&["logs-normalized"])?;
+        let consumer = Arc::new(consumer);
+
+        let reqwest_client = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(30))
+            .build()?;
+
+        let clickhouse_writer = ClickHouseHttpWriter::new(
+            args.clickhouse_url,
+            "default".to_string(),
+            "logs".to_string(),
+            reqwest_client,
+        );
+
+        let registry = Registry::new();
+        let events_processed_total = IntCounterVec::new(
+            prometheus::Opts::new("logger_events_processed_total", "Events processed"),
+            &["stage", "status"],
+        )?;
+        registry.register(Box::new(events_processed_total.clone()))?;
+
+        let metrics = DbWriterMetrics {
+            events_processed_total,
+        };
+
+        let (tx, rx) = tokio::sync::mpsc::channel(1000);
+
+        let fetcher_token = cancel_token.clone();
+        let fetcher_consumer = consumer.clone();
+        let fetcher_metrics = metrics.clone();
+        let fetcher_handle = tokio::spawn(async move {
+            run_fetcher_task(fetcher_consumer, tx, fetcher_metrics, fetcher_token).await;
+        });
+
+        let processor_token = cancel_token.clone();
+        let processor_consumer = consumer.clone();
+        let processor_handle = tokio::spawn(async move {
+            run_processor_task(
+                processor_consumer,
+                clickhouse_writer,
+                metrics,
+                rx,
+                processor_token,
+            )
+            .await;
+        });
+
+        let (fetcher_res, processor_res) = tokio::join!(fetcher_handle, processor_handle);
+        if fetcher_res.is_err() || processor_res.is_err() {
+            ::tracing::error!("A db-writer task exited unexpectedly");
+            cancel_token.cancel();
+        }
     }
 
     Ok(())
