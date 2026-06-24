@@ -23,6 +23,38 @@ This single binary contains 8 distinctly decoupled roles. They communicate exclu
 - **ClickHouse**
 - **Redis**
 
+## Configuration Setup
+
+Before building or running the monolith, configure your environment variables.
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+```
+
+### 1. Generating a JWT Public Key
+The Edge Receiver and WebSocket Server enforce Role-Based Access Control (RBAC) purely through mathematical JWT signature validation. To generate an RSA keypair for signing and verifying tokens:
+
+```bash
+# Generate a private key (Used by your auth service to sign tokens)
+openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+
+# Extract the public key (Used by this monolith to verify tokens)
+openssl rsa -pubout -in private_key.pem -out public_key.pem
+```
+Copy the entire contents of `public_key.pem` (including the `-----BEGIN PUBLIC KEY-----` and `-----END PUBLIC KEY-----` headers) and paste it into the `JWT_PUBLIC_KEY` variable in your `.env` file. Enclose it in quotes if necessary.
+
+### 2. Setting up Telegram Alerts
+The Alert Consumer deduplicates and forwards `ERROR` and `CRITICAL` logs to a Telegram chat.
+
+1. **Obtain a Bot Token**: Open Telegram and search for `@BotFather`. Send the `/newbot` command and follow the prompts. BotFather will provide an HTTP API Token. Paste this into `TELEGRAM_TOKEN` in your `.env` file.
+2. **Obtain a Chat ID**: 
+   - Create a Telegram group or channel.
+   - Add your newly created bot to the group.
+   - Send a test message in the group.
+   - Open your browser to `https://api.telegram.org/bot<YOUR_TELEGRAM_TOKEN>/getUpdates`.
+   - Find the `"chat":{"id": -123456789}` field in the JSON response. Paste that exact number into `TELEGRAM_CHAT_ID` in your `.env` file.
+
 ## Building & Installation
 
 To reliably build the project, use the provided `docker-compose.yml` environment, which requires zero manual intervention and provides all necessary dependencies, topic provisioning, and ClickHouse tables automatically.
@@ -59,32 +91,31 @@ Each component of the system is launched using the `--role` flag. The monolith u
 - `--telegram-chat-id` / `TELEGRAM_CHAT_ID`
 - `--admin-api-url` / `ADMIN_API_URL` (Default: `http://localhost:8081`)
 
-### Starting the Services:
+### Starting the Services Manually:
+
+If you are running manually via Cargo (not using `docker-compose`), the application will automatically read the `.env` file for configuration. You only need to specify the `--role`.
 
 ```bash
 # 1. Edge Receiver (Listens on 0.0.0.0:8080)
-cargo run --release -- --role edge --jwt-public-key "<your_key>"
+cargo run --release -- --role edge
 
 # 2. Normalization Worker
-cargo run --release -- --role normalization --kafka-brokers "localhost:9092"
+cargo run --release -- --role normalization
 
 # 3. DB Writer
-cargo run --release -- --role db-writer --clickhouse-url "http://localhost:8123"
+cargo run --release -- --role db-writer
 
 # 4. AI Consumer (Requires ONNX model)
 cargo run --release -- --role ai-consumer
 
 # 5. Alert Consumer
-cargo run --release -- --role alert-consumer \
-    --redis-url "redis://localhost:6379" \
-    --telegram-token "<BOT_TOKEN>" \
-    --telegram-chat-id "<CHAT_ID>"
+cargo run --release -- --role alert-consumer
 
 # 6. WebSocket Server (Listens on 0.0.0.0:8081)
 cargo run --release -- --role ws-server
 
 # 7. Admin API (Listens on 0.0.0.0:8082)
-cargo run --release -- --role admin-api --redis-url "redis://localhost:6379" --clickhouse-url "http://localhost:8123"
+cargo run --release -- --role admin-api
 
 # 8. AI Tag Projection
 cargo run --release -- --role ai-tag-projection

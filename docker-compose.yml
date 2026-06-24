@@ -58,7 +58,7 @@ services:
   logger-edge:
     build: .
     command: ["--role", "edge"]
-    env_file: .env.example
+    env_file: .env
     environment:
       - KAFKA_BROKERS=redpanda:29092
     ports:
@@ -70,7 +70,7 @@ services:
   logger-normalization:
     build: .
     command: ["--role", "normalization"]
-    env_file: .env.example
+    env_file: .env
     environment:
       - KAFKA_BROKERS=redpanda:29092
     depends_on:
@@ -80,7 +80,7 @@ services:
   logger-db-writer:
     build: .
     command: ["--role", "db-writer"]
-    env_file: .env.example
+    env_file: .env
     environment:
       - KAFKA_BROKERS=redpanda:29092
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -93,7 +93,7 @@ services:
   logger-ai-consumer:
     build: .
     command: ["--role", "ai-consumer"]
-    env_file: .env.example
+    env_file: .env
     environment:
       - KAFKA_BROKERS=redpanda:29092
     depends_on:
@@ -103,7 +103,7 @@ services:
   logger-alert-consumer:
     build: .
     command: ["--role", "alert-consumer"]
-    env_file: .env.example
+    env_file: .env
     environment:
       - KAFKA_BROKERS=redpanda:29092
       - REDIS_URL=redis://redis:6379/
@@ -116,7 +116,7 @@ services:
   logger-ws-server:
     build: .
     command: ["--role", "ws-server"]
-    env_file: .env.example
+    env_file: .env
     environment:
       - KAFKA_BROKERS=redpanda:29092
     ports:
@@ -128,7 +128,7 @@ services:
   logger-admin-api:
     build: .
     command: ["--role", "admin-api"]
-    env_file: .env.example
+    env_file: .env
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
       - REDIS_URL=redis://redis:6379/
@@ -143,7 +143,7 @@ services:
   logger-ai-tag-projection:
     build: .
     command: ["--role", "ai-tag-projection"]
-    env_file: .env.example
+    env_file: .env
     environment:
       - KAFKA_BROKERS=redpanda:29092
       - CLICKHOUSE_URL=http://clickhouse:8123
