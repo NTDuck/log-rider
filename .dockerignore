@@ -1,0 +1,12 @@
+target/
+.git/
+.gemini/
+.env
+.agents/
+specs/
+README.md
+docs/
+docker-compose.yml
+Dockerfile
+init.sql
+init-topics.sh

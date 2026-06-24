@@ -1,5 +1,5 @@
 # Build Stage
-FROM rust:1.77-bookworm as builder
+FROM rust:bookworm AS builder
 WORKDIR /app
 
 # Install build dependencies for rdkafka-sys and reqwest
