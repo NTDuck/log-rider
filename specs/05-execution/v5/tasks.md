@@ -4,7 +4,7 @@
 
 **Purpose**: Establish the LLM Code Generation Strategy based on the Playbook.
 
-- [ ] T001 Verify `cargo nextest` is installed and the `tests/features/` directory is prepared.
+- [x] T001 Verify `cargo nextest` is installed and the `tests/features/` directory is prepared.
 
 ---
 
@@ -15,10 +15,10 @@
 
 ### Tests for Track 1 ⚠️
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
-- [ ] T002 [US1] Feed `specs/05-execution/v3/track-01-edge-receiver-tasks.md` (Phase A) to coding agent and run `cargo nextest run` to confirm tests fail.
+- [x] T002 [US1] Feed `specs/05-execution/v3/track-01-edge-receiver-tasks.md` (Phase A) to coding agent and run `cargo nextest run` to confirm tests fail.
 
 ### Implementation for Track 1
-- [ ] T003 [US1] Feed `specs/05-execution/v3/track-01-edge-receiver-tasks.md` (Phase B, C, D) to coding agent. Verify `serde_json::Value` and `WireLog` are NOT used, and `.tap_err()` is applied. (depends on T002)
+- [x] T003 [US1] Feed `specs/05-execution/v3/track-01-edge-receiver-tasks.md` (Phase B, C, D) to coding agent. Verify `serde_json::Value` and `WireLog` are NOT used, and `.tap_err()` is applied. (depends on T002)
 
 **Checkpoint**: Track 1 should be fully functional and testable independently
 
@@ -30,10 +30,10 @@
 **Independent Test**: Run `cargo nextest run` to verify BDD tests.
 
 ### Tests for Track 2 ⚠️
-- [ ] T004 [US2] Feed `specs/05-execution/v3/track-02-normalization-worker-tasks.md` (Phase A) to coding agent and run tests to fail.
+- [x] T004 [US2] Feed `specs/05-execution/v3/track-02-normalization-worker-tasks.md` (Phase A) to coding agent and run tests to fail.
 
 ### Implementation for Track 2
-- [ ] T005 [US2] Feed `specs/05-execution/v3/track-02-normalization-worker-tasks.md` (Phase B, C, D) to coding agent. Verify `.tap_err()` is applied. (depends on T004)
+- [x] T005 [US2] Feed `specs/05-execution/v3/track-02-normalization-worker-tasks.md` (Phase B, C, D) to coding agent. Verify `.tap_err()` is applied. (depends on T004)
 
 **Checkpoint**: Track 2 should be fully functional and testable independently
 
@@ -45,10 +45,10 @@
 **Independent Test**: Run `cargo nextest run` to verify BDD tests.
 
 ### Tests for Track 3 ⚠️
-- [ ] T006 [US3] Feed `specs/05-execution/v3/track-03-db-writer-tasks.md` (Phase A) to coding agent and run tests to fail.
+- [x] T006 [US3] Feed `specs/05-execution/v3/track-03-db-writer-tasks.md` (Phase A) to coding agent and run tests to fail.
 
 ### Implementation for Track 3
-- [ ] T007 [US3] Feed `specs/05-execution/v3/track-03-db-writer-tasks.md` (Phase B, C, D) to coding agent. Verify ClickHouse `UPDATE/DELETE` queries are strictly forbidden. Verify `.tap_err()` is applied. (depends on T006)
+- [x] T007 [US3] Feed `specs/05-execution/v3/track-03-db-writer-tasks.md` (Phase B, C, D) to coding agent. Verify ClickHouse `UPDATE/DELETE` queries are strictly forbidden. Verify `.tap_err()` is applied. (depends on T006)
 
 **Checkpoint**: Track 3 should be fully functional and testable independently
 
@@ -60,10 +60,10 @@
 **Independent Test**: Run `cargo nextest run` to verify BDD tests.
 
 ### Tests for Track 4 ⚠️
-- [ ] T008 [US4] Feed `specs/05-execution/v3/track-04-ai-consumer-tasks.md` (Phase A) to coding agent and run tests to fail.
+- [x] T008 [US4] Feed `specs/05-execution/v3/track-04-ai-consumer-tasks.md` (Phase A) to coding agent and run tests to fail.
 
 ### Implementation for Track 4
-- [ ] T009 [US4] Feed `specs/05-execution/v3/track-04-ai-consumer-tasks.md` (Phase B, C, D) to coding agent. Verify `.tap_err()` is applied. (depends on T008)
+- [x] T009 [US4] Feed `specs/05-execution/v3/track-04-ai-consumer-tasks.md` (Phase B, C, D) to coding agent. Verify `.tap_err()` is applied. (depends on T008)
 
 **Checkpoint**: Track 4 should be fully functional and testable independently
 
@@ -75,10 +75,10 @@
 **Independent Test**: Run `cargo nextest run` to verify BDD tests.
 
 ### Tests for Track 5 ⚠️
-- [ ] T010 [US5] Feed `specs/05-execution/v3/track-05-alert-consumer-tasks.md` (Phase A) to coding agent and run tests to fail.
+- [x] T010 [US5] Feed `specs/05-execution/v3/track-05-alert-consumer-tasks.md` (Phase A) to coding agent and run tests to fail.
 
 ### Implementation for Track 5
-- [ ] T011 [US5] Feed `specs/05-execution/v3/track-05-alert-consumer-tasks.md` (Phase B, C, D) to coding agent. Verify Redis `window_seconds + 10` TTL and `tokio::time::sleep` retry loops are implemented. Verify `.tap_err()` is applied. (depends on T010)
+- [x] T011 [US5] Feed `specs/05-execution/v3/track-05-alert-consumer-tasks.md` (Phase B, C, D) to coding agent. Verify Redis `window_seconds + 10` TTL and `tokio::time::sleep` retry loops are implemented. Verify `.tap_err()` is applied. (depends on T010)
 
 **Checkpoint**: Track 5 should be fully functional and testable independently
 
@@ -90,10 +90,10 @@
 **Independent Test**: Run `cargo nextest run` to verify BDD tests.
 
 ### Tests for Track 6 ⚠️
-- [ ] T012 [US6] Feed `specs/05-execution/v3/track-06-websocket-server-tasks.md` (Phase A) to coding agent and run tests to fail.
+- [x] T012 [US6] Feed `specs/05-execution/v3/track-06-websocket-server-tasks.md` (Phase A) to coding agent and run tests to fail.
 
 ### Implementation for Track 6
-- [ ] T013 [US6] Feed `specs/05-execution/v3/track-06-websocket-server-tasks.md` (Phase B, C, D) to coding agent. Verify `.tap_err()` is applied. (depends on T012)
+- [x] T013 [US6] Feed `specs/05-execution/v3/track-06-websocket-server-tasks.md` (Phase B, C, D) to coding agent. Verify `.tap_err()` is applied. (depends on T012)
 
 **Checkpoint**: Track 6 should be fully functional and testable independently
 
@@ -105,10 +105,10 @@
 **Independent Test**: Run `cargo nextest run` to verify BDD tests.
 
 ### Tests for Track 7 ⚠️
-- [ ] T014 [US7] Feed `specs/05-execution/v3/track-07-admin-api-tasks.md` (Phase A) to coding agent and run tests to fail.
+- [x] T014 [US7] Feed `specs/05-execution/v3/track-07-admin-api-tasks.md` (Phase A) to coding agent and run tests to fail.
 
 ### Implementation for Track 7
-- [ ] T015 [US7] Feed `specs/05-execution/v3/track-07-admin-api-tasks.md` (Phase B, C, D) to coding agent. Verify ClickHouse `UPDATE/DELETE` queries are strictly forbidden. Verify `.tap_err()` is applied. (depends on T014)
+- [x] T015 [US7] Feed `specs/05-execution/v3/track-07-admin-api-tasks.md` (Phase B, C, D) to coding agent. Verify ClickHouse `UPDATE/DELETE` queries are strictly forbidden. Verify `.tap_err()` is applied. (depends on T014)
 
 **Checkpoint**: Track 7 should be fully functional and testable independently
 
@@ -120,10 +120,10 @@
 **Independent Test**: Run `cargo nextest run` to verify BDD tests.
 
 ### Tests for Track 8 ⚠️
-- [ ] T016 [US8] Feed `specs/05-execution/v3/track-08-ai-tag-projection-tasks.md` (Phase A) to coding agent and run tests to fail.
+- [x] T016 [US8] Feed `specs/05-execution/v3/track-08-ai-tag-projection-tasks.md` (Phase A) to coding agent and run tests to fail.
 
 ### Implementation for Track 8
-- [ ] T017 [US8] Feed `specs/05-execution/v3/track-08-ai-tag-projection-tasks.md` (Phase B, C, D) to coding agent. Verify `logger_events_processed_total` metric is incremented explicitly outside retry loops. Verify ClickHouse `UPDATE/DELETE` queries are strictly forbidden. Verify `.tap_err()` is applied. (depends on T016)
+- [x] T017 [US8] Feed `specs/05-execution/v3/track-08-ai-tag-projection-tasks.md` (Phase B, C, D) to coding agent. Verify `logger_events_processed_total` metric is incremented explicitly outside retry loops. Verify ClickHouse `UPDATE/DELETE` queries are strictly forbidden. Verify `.tap_err()` is applied. (depends on T016)
 
 **Checkpoint**: Track 8 should be fully functional and testable independently
 
