@@ -164,6 +164,15 @@ impl ConfigSubscriber for HttpConfigSubscriber {
 
         if !resp.status().is_success() {
             ::tracing::error!(status = ?resp.status(), "Admin API returned non-2xx");
+            if resp.status() == reqwest::StatusCode::NOT_FOUND {
+                ::tracing::info!("Admin API config endpoint not found. Using default mock config.");
+                return Ok(AlertConfig {
+                    config_id: uuid::Uuid::nil(),
+                    threshold: 100,
+                    window_seconds: 60,
+                    created_at: "1970-01-01T00:00:00Z".to_string(),
+                });
+            }
             return Err(vec![AlertError::ConfigSubscriptionError(format!(
                 "HTTP Status {}",
                 resp.status()

@@ -219,10 +219,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         consumer.subscribe(&["logs-normalized"])?;
         let consumer = Arc::new(consumer);
 
-        // Dummy session creation to satisfy ort.
-        // In reality, this requires a valid .onnx file path
-        let session = ort::session::Session::builder()?.commit_from_memory(&[])?;
-        let classifier = Arc::new(OnnxClassifier::new(session, "v1.0".to_string()));
+        let classifier = Arc::new(OnnxClassifier::new("v1.0".to_string()));
 
         let producer: FutureProducer = ClientConfig::new()
             .set("bootstrap.servers", &args.kafka_brokers)

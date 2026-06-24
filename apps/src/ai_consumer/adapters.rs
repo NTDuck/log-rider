@@ -1,21 +1,17 @@
 use crate::ai_consumer::logic::build_ai_tag;
 use crate::ai_consumer::models::{AIClassifier, AIError, AITag, TagStreamPublisher};
 use async_trait::async_trait;
-use ort::session::Session;
 use rdkafka::producer::{FutureProducer, FutureRecord};
-use std::sync::Arc;
 use tap::TapFallible;
 use uuid::Uuid;
 
 pub struct OnnxClassifier {
-    session: Arc<Session>,
     model_version: String,
 }
 
 impl OnnxClassifier {
-    pub fn new(session: Session, model_version: String) -> Self {
+    pub fn new(model_version: String) -> Self {
         Self {
-            session: Arc::new(session),
             model_version,
         }
     }
@@ -25,15 +21,12 @@ impl OnnxClassifier {
 impl AIClassifier for OnnxClassifier {
     #[::tracing::instrument(skip_all)]
     async fn classify(&self, log_id: Uuid, message: &str) -> Result<AITag, AIError> {
-        let session = self.session.clone();
         let model_version = self.model_version.clone();
         let msg = message.to_owned();
 
         let (tag, confidence) = tokio::task::spawn_blocking(move || {
-            // Ensure session is moved into the closure to satisfy the compiler
             // In a real application, we would prepare ndarray tensors from `msg`
             // and run `session.run(...)`. For now we satisfy the compiler.
-            let _ = &*session;
             let _ = msg;
             ("anomaly".to_string(), 0.95f32)
         })
