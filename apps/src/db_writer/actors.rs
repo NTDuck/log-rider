@@ -52,10 +52,7 @@ pub async fn run_fetcher_task(
                     }
                     Err(e) => {
                         ::tracing::error!(error = %e, "Kafka consumer error");
-                        tokio::select! {
-                            _ = cancel_token.cancelled() => break,
-                            _ = sleep(Duration::from_millis(100)) => continue,
-                        }
+                        continue;
                     }
                 }
             }

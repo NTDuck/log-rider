@@ -25,7 +25,14 @@ This single binary contains 8 distinctly decoupled roles. They communicate exclu
 
 ## Building & Installation
 
-To reliably build the project, use the provided `nix-shell` environment. It ensures that system dependencies like `librdkafka` and `openssl` are present.
+To reliably build the project, use the provided `docker-compose.yml` environment, which requires zero manual intervention and provides all necessary dependencies, topic provisioning, and ClickHouse tables automatically.
+
+```bash
+# Start the entire monolith and all databases
+docker compose up --build
+```
+
+For local development without Docker, use the provided `nix-shell` environment. It ensures that system dependencies like `librdkafka` and `openssl` are present.
 
 ```bash
 # Enter the nix shell

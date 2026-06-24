@@ -28,10 +28,7 @@ pub async fn run_fetcher_task(
                         }
                     }
                     Err(_) => {
-                        tokio::select! {
-                            _ = cancel_token.cancelled() => break,
-                            _ = sleep(Duration::from_millis(100)) => continue,
-                        }
+                        continue;
                     }
                 }
             }

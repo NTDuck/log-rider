@@ -90,7 +90,10 @@ pub async fn ingest_logs(
                     Err(e) => {
                         if attempt < 3 {
                             attempt += 1;
-                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                            tokio::select! {
+                                _ = cancel_token.cancelled() => return Err(EdgeError::KafkaProduceError("Cancelled".into())),
+                                _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => {}
+                            }
                             continue;
                         }
                         break Err(e);

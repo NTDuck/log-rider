@@ -30,6 +30,7 @@ impl ClickHouseWriter for ClickHouseHttpWriter {
         let mut payload = String::with_capacity(batch.len() * 256);
         for log in batch {
             let json = serde_json::to_string(log)
+                .tap_err(|e| ::tracing::error!(error = %e, "JSON serialization failed"))
                 .map_err(|e| DbWriterError::BatchInsertFailed(e.to_string()))?;
             payload.push_str(&json);
             payload.push('\n');

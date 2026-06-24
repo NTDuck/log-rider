@@ -31,7 +31,6 @@ pub async fn run_tag_fetcher_task(
                     }
                     Err(e) => {
                         ::tracing::error!(error = %e, "Kafka consume error");
-                        tokio::time::sleep(Duration::from_millis(100)).await;
                     }
                 }
             }

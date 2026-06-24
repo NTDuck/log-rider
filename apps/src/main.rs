@@ -13,7 +13,7 @@ struct Args {
     #[arg(long)]
     role: String,
 
-    #[arg(long, default_value = "127.0.0.1:9092")]
+    #[arg(long, env = "KAFKA_BROKERS", default_value = "127.0.0.1:9092")]
     kafka_brokers: String,
 
     #[arg(long, env = "JWT_PUBLIC_KEY", default_value = "")]

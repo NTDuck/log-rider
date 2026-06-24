@@ -11,7 +11,9 @@ pub struct RedisRateLimiter {
 
 impl RedisRateLimiter {
     pub fn new(redis_url: &str) -> Result<Self, String> {
-        let client = redis::Client::open(redis_url).map_err(|e| e.to_string())?;
+        let client = redis::Client::open(redis_url)
+            .tap_err(|e| ::tracing::error!(error = %e, "Failed to open Redis client"))
+            .map_err(|e| e.to_string())?;
         Ok(Self { client })
     }
 }
