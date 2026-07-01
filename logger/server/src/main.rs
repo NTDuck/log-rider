@@ -7,14 +7,13 @@ use axum::{
     middleware::{self, Next},
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
+    Router,
 };
 use clap::{Parser, ValueEnum};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 use uuid::Uuid;
