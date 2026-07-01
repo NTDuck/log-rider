@@ -8,9 +8,9 @@ services:
     container_name: cadmium-cloud
     restart: always
     ports:
-      - "8080:8080"
+      - "8082:8082"
     environment:
-      - RUST_LOG=info 
+      - RUST_LOG=info
       - MONGODB_URI=mongodb://mongodb:27017/cadmium-cloud # Updated for local container MongoDB connection
       - MONGODB_DB=cadmium-cloud
     depends_on:
@@ -18,32 +18,32 @@ services:
         condition: service_healthy # Wait for MongoDB to be ready
 
   mongodb:
-      image: mongo:latest
-      container_name: mongodb
-      restart: always
-      ports:
-        - "27017:27017"
-      volumes:
-        - /mnt/block-volume:/data/db
-        - ./mongod.conf:/etc/mongod.conf:ro
-      command: ["mongod", "--config", "/etc/mongod.conf"]
-      ulimits:
-        nofile:
-          soft: 64000
-          hard: 64000
-      deploy:
-        resources:
-          limits:
-            cpus: '3'
-            memory: 16G
-          reservations:
-            cpus: '2'
-            memory: 12G
-      healthcheck:
-        test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-        interval: 10s
-        timeout: 10s
-        retries: 3
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db # Use the named local volume instead
+      - ./mongod.conf:/etc/mongod.conf:ro
+    command: ["mongod", "--config", "/etc/mongod.conf"]
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
+    deploy:
+      resources:
+        limits:
+          cpus: "3"
+          memory: 16G
+        reservations:
+          cpus: "2"
+          memory: 12G
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
 
   nginx:
     image: nginx:latest
@@ -59,7 +59,6 @@ services:
     depends_on:
       cadmium-cloud:
         condition: service_started
-
 
 volumes:
   mongodb-data:

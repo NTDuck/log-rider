@@ -54,7 +54,7 @@ async fn main() -> std::io::Result<()> {
             .configure(routes::init)
             .route("/graphql", web::post().to(graphql_handler))
     })
-    .bind(("0.0.0.0", 8080))?;
+    .bind(("0.0.0.0", 8082))?;
 
     let server_result = server.run().await;
 
@@ -64,33 +64,17 @@ async fn main() -> std::io::Result<()> {
     server_result
 }
 
-async fn graphql_handler(
-    schema: web::Data<AppSchema>,
-    req: GraphQLRequest,
-    http_req: HttpRequest,
-) -> GraphQLResponse {
+async fn graphql_handler(schema: web::Data<AppSchema>, req: GraphQLRequest, http_req: HttpRequest) -> GraphQLResponse {
     let mut headers_map = std::collections::HashMap::new();
 
     // Extract headers
-    if let Some(cd_id) = http_req
-        .headers()
-        .get("CD-ID")
-        .and_then(|v| v.to_str().ok())
-    {
+    if let Some(cd_id) = http_req.headers().get("CD-ID").and_then(|v| v.to_str().ok()) {
         headers_map.insert("CD-ID".to_string(), cd_id.to_string());
     }
-    if let Some(cd_secret) = http_req
-        .headers()
-        .get("CD-Secret")
-        .and_then(|v| v.to_str().ok())
-    {
+    if let Some(cd_secret) = http_req.headers().get("CD-Secret").and_then(|v| v.to_str().ok()) {
         headers_map.insert("CD-Secret".to_string(), cd_secret.to_string());
     }
-    if let Some(app_id) = http_req
-        .headers()
-        .get("Application-ID")
-        .and_then(|v| v.to_str().ok())
-    {
+    if let Some(app_id) = http_req.headers().get("Application-ID").and_then(|v| v.to_str().ok()) {
         headers_map.insert("Application-ID".to_string(), app_id.to_string());
     }
 
