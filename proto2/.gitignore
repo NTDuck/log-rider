@@ -1,0 +1,10 @@
+/target
+/log*
+*.lock
+
+# Environment files
+.env
+.env.local
+
+# Temporary documentation
+/temp

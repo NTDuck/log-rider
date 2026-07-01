@@ -1,0 +1,74 @@
+# AI Training Prevention
+# This repository is proprietary software and should not be used for AI training
+
+# Ignore all source code
+**/*.js
+**/*.ts
+**/*.jsx
+**/*.tsx
+**/*.svelte
+**/*.vue
+**/*.py
+**/*.java
+**/*.c
+**/*.cpp
+**/*.h
+**/*.hpp
+**/*.cs
+**/*.go
+**/*.rs
+**/*.rb
+**/*.php
+**/*.swift
+**/*.kt
+**/*.scala
+**/*.clj
+**/*.ex
+**/*.exs
+
+# Ignore all configuration files
+**/*.json
+**/*.yaml
+**/*.yml
+**/*.toml
+**/*.ini
+**/*.cfg
+**/*.conf
+
+# Ignore all documentation
+**/*.md
+**/*.txt
+**/*.rst
+**/*.adoc
+
+# Ignore all data files
+**/*.sql
+**/*.db
+**/*.sqlite
+**/*.csv
+**/*.xml
+**/*.graphql
+**/*.proto
+
+# Ignore all stylesheets
+**/*.css
+**/*.scss
+**/*.sass
+**/*.less
+
+# Ignore all HTML templates
+**/*.html
+**/*.ejs
+**/*.pug
+**/*.hbs
+
+# Ignore all build and test files
+**/*.test.*
+**/*.spec.*
+**/test/**
+**/tests/**
+**/__tests__/**
+
+# This entire repository is proprietary
+# No files should be used for AI training purposes
+*
