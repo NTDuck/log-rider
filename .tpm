@@ -1,0 +1,34 @@
+# PROTOTYPE-01: Core Ingestion, Normalization, and Real-Time View
+
+**Status**: Prototype Definition
+
+This document outlines the minimal viable architecture for the core log collection pipeline. It features an authentication mechanism, a high-speed HTTP endpoint for plain-text log ingestion, scalable string-manipulation normalization workers, and a role-based real-time web view for engineers and administrators.
+
+*Note: Durable storage, asynchronous AI classification, and alerting (e.g., Telegram notifications) are explicitly excluded from this phase.*
+
+## Table of Contents
+- [Data Flows (Prototype Scope)](#data-flows-prototype-scope)
+- [User Scenarios & Testing](#user-scenarios--testing)
+- [Requirements](#requirements)
+- [Logical Data Models & Schemas](#logical-data-models--schemas)
+- [The Topic Topology](#the-topic-topology)
+- [Authorization Contracts](#authorization-contracts)
+- [Success Criteria (Prototype Phase)](#success-criteria-prototype-phase)
+
+---
+
+## Data Flows (Prototype Scope)
+
+### Ingest Path (High-Speed Ingestion)
+1. **Authentication**: Client logs in with `username` + `password` and obtains a JWT.
+2. **Edge Entry**: Client Application sends an HTTP payload with the JWT to the Edge Receiver.
+3. **Ingestion**: Edge Receiver validates the JWT and produces the raw payload to `logs-raw`.
+4. **Processing**: The Normalization Worker Pool consumes from `logs-raw`, performs string manipulation (e.g., PII redaction) on the plain message field, and produces to `logs-normalized`.
+5. The
+
+### View Path (Real-Time Streaming)
+1. **Connection**: Engineer or Admin establishes a WebSocket connection passing their JWT to the WebSocket Server.
+2. **Subscription**: WebSocket Server validates the JWT and acts as a Broadcast Consumer, subscribing to the `logs-normalized` topic.
+3. **Streaming**: The server filters logs in-memory based on the user's `app_grants` and streams the authorized logs directly to connected viewer instances (e.g., a web dashboard).
+
+Also provide setup in README.md for all things that require human intervention e.g. setting up db, etc.; running example & comamnd

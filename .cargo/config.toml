@@ -1,0 +1,7 @@
+[alias]
+# fmt = "fmt --all"
+lint = "clippy --fix --workspace --all-targets --allow-dirty"
+# udeps = "udeps --all-targets"
+
+[env]
+CARGO_WORKSPACE_DIR = { value = "", relative = true }  # https://stackoverflow.com/a/78606410

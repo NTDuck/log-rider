@@ -1,0 +1,20 @@
+[package]
+name = "axiom"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+axiom-derive = { path = "../axiom-derive" }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+regex = { workspace = true }
+
+[lints]
+workspace = true
