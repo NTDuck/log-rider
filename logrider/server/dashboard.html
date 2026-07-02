@@ -441,34 +441,11 @@
                     data = { message: event.data, level: 'info' };
                 }
 
-                if (data.type === 'TAGS') {
-                    const el = document.getElementById('log-' + data.Trace_ID);
-                    if (el) {
-                        const tagsSpan = el.querySelector('.tags-container');
-                        if (tagsSpan) {
-                            tagsSpan.innerHTML = data.Tags.map(t => `<span class="tag-pill border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-black/20 mr-1">${escapeHTML(t)}</span>`).join('');
-                        }
-                        const statusSpan = el.querySelector('.status-container');
-                        if (statusSpan) {
-                            statusSpan.innerHTML = '<span class="text-green-600 dark:text-green-400 font-bold">Classified</span>';
-                        }
-                    }
-                    return;
+                if (data.type === 'HYDRATED_LOG') {
+                    renderLog(data.log, true);
+                } else if (!data.type) {
+                    renderLog(data, true);
                 }
-                
-                if (data.type === 'STATUS') {
-                    const el = document.getElementById('log-' + data.Trace_ID);
-                    if (el) {
-                        const statusSpan = el.querySelector('.status-container');
-                        if (statusSpan && data.status) {
-                            if (data.status === 'Ingested') statusSpan.innerHTML = '<span class="text-purple-600 dark:text-purple-400 font-bold">Ingested</span>';
-                            else if (data.status === 'Persisted') statusSpan.innerHTML = '<span class="text-blue-600 dark:text-blue-400 font-bold">Persisted</span>';
-                        }
-                    }
-                    return;
-                }
-
-                renderLog(data, true);
             };
         }
 

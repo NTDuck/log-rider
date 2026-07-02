@@ -66,9 +66,8 @@ const redisClient = createClient({ url: REDIS_URL });
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
 let subscriber;
 
-// O(K) Websocket mapping
-const adminClients = new Set();
-const appClients = new Map();
+// Bun server instance will be assigned here
+let bunServer;
 
 (async () => {
     try {
@@ -78,55 +77,21 @@ const appClients = new Map();
         subscriber = redisClient.duplicate();
         await subscriber.connect();
 
-        await subscriber.subscribe('alerts', (message) => {
-            try {
-                const alertData = JSON.parse(message);
-                const appName = alertData.log.Application_Name;
-                
-                // Broadcast O(K)
-                for (const ws of adminClients) ws.send(message);
-                if (appClients.has(appName)) {
-                    for (const ws of appClients.get(appName)) ws.send(message);
-                }
-            } catch (err) {}
+        await subscriber.pSubscribe('alerts-state:*', (message, channel) => {
+            if (bunServer) bunServer.publish(channel, message);
         });
-        console.log('Subscribed to Redis channel alerts');
 
-        await subscriber.subscribe('ws-logs', (message) => {
-            try {
-                const log = JSON.parse(message);
-                const appName = log.Application_Name;
-                console.log(`Received ws-logs for ${appName}`);
-                
-                for (const ws of adminClients) ws.send(message);
-                if (appClients.has(appName)) {
-                    for (const ws of appClients.get(appName)) ws.send(message);
-                }
-            } catch (err) {}
+        await subscriber.pSubscribe('ws-frontend:*', (message, channel) => {
+            if (bunServer) bunServer.publish(channel, message);
         });
-        console.log('Subscribed to Redis channel ws-logs');
-
-        await subscriber.subscribe('ws-tags', (message) => {
-            try {
-                const data = JSON.parse(message);
-                const appName = data.Application_Name;
-                
-                for (const ws of adminClients) ws.send(message);
-                if (appClients.has(appName)) {
-                    for (const ws of appClients.get(appName)) ws.send(message);
-                }
-            } catch (err) {}
-        });
-        console.log('Subscribed to Redis channel ws-tags');
-
+        
+        console.log('Subscribed to Redis pattern alerts-state:* and ws-frontend:*');
     } catch (e) {
         console.error('Initialization error:', e);
     }
 })();
 
-
-
-Bun.serve({
+bunServer = Bun.serve({
     port: PORT,
     async fetch(req, server) {
         const url = new URL(req.url);
@@ -280,13 +245,13 @@ Bun.serve({
                 
                 const query = `
                     SELECT 
-                        toStartOfHour(Timestamp) as hour,
+                        hour,
                         Application_Name,
-                        countIf(Log_Level IN ('ERROR', 'CRITICAL')) as error_count,
-                        count() as total_count,
-                        (countIf(Log_Level IN ('ERROR', 'CRITICAL')) / count()) * 100 as error_rate
-                    FROM logrider.logs
-                    WHERE Timestamp >= now() - INTERVAL 24 HOUR
+                        sum(error_count) as err_cnt,
+                        sum(total_count) as tot_cnt,
+                        (sum(error_count) / sum(total_count)) * 100 as error_rate
+                    FROM logrider.hourly_health_mv
+                    WHERE hour >= now() - INTERVAL 24 HOUR
                     GROUP BY hour, Application_Name
                     ORDER BY hour ASC
                     FORMAT JSON
@@ -303,9 +268,13 @@ Bun.serve({
                 
                 const chData = await chRes.json();
                 
-                const filteredData = chData.data.filter(row => 
-                    session.is_admin || (session.allowed_apps && session.allowed_apps.includes(row.Application_Name))
-                );
+                let filteredData = chData.data;
+                if (!session.is_admin) {
+                    if (!session.allowed_apps || session.allowed_apps.length === 0) {
+                        return Response.json({ data: [] });
+                    }
+                    filteredData = chData.data.filter(row => session.allowed_apps.includes(row.Application_Name));
+                }
                 
                 return Response.json({ data: filteredData });
             } catch (err) {
@@ -324,38 +293,24 @@ Bun.serve({
                 
                 const session = JSON.parse(sessionStr);
                 
-                let appFilter = '';
-                if (!session.is_admin) {
+                let logs = [];
+                if (session.is_admin) {
+                    const data = await redisClient.lRange('recent_logs:global', 0, 99);
+                    logs = data.map(JSON.parse);
+                } else {
                     if (!session.allowed_apps || session.allowed_apps.length === 0) {
                         return Response.json({ logs: [] });
                     }
-                    const appsList = session.allowed_apps.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
-                    appFilter = `WHERE l.Application_Name IN (${appsList})`;
+                    const multi = redisClient.multi();
+                    for (const app of session.allowed_apps) {
+                        multi.lRange(`recent_logs:${app}`, 0, 99);
+                    }
+                    const results = await multi.exec();
+                    const allLogs = results.flatMap(data => data.map(JSON.parse));
+                    // Sort by timestamp desc
+                    logs = allLogs.sort((a, b) => new Date(b.Timestamp || 0) - new Date(a.Timestamp || 0)).slice(0, 100);
                 }
-                
-                const query = `
-                    SELECT l.*, t.Tags
-                    FROM logrider.logs l
-                    LEFT JOIN logrider.log_tags t ON l.Trace_ID = t.Trace_ID
-                    ${appFilter}
-                    ORDER BY l.Timestamp DESC
-                    LIMIT 100
-                    FORMAT JSON
-                `;
-                
-                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
-                    method: 'POST',
-                    body: query
-                });
-                
-                if (!chRes.ok) {
-                    const errText = await chRes.text();
-                    console.error(`[ERROR] ClickHouse error: ${errText}`);
-                    throw new Error(`ClickHouse error: ${errText}`);
-                }
-                
-                const chData = await chRes.json();
-                return Response.json({ logs: chData.data });
+                return Response.json({ logs });
             } catch (err) {
                 console.error(err);
                 return Response.json({ error: 'Internal error fetching recent logs' }, { status: 500 });
@@ -390,11 +345,12 @@ Bun.serve({
         open(ws) {
             console.log(`Client connected to WebSocket: ${ws.data.username}`);
             if (ws.data.is_admin) {
-                adminClients.add(ws);
+                ws.subscribe('alerts-state:global');
+                ws.subscribe('ws-frontend:global');
             } else if (ws.data.allowed_apps) {
                 for (const app of ws.data.allowed_apps) {
-                    if (!appClients.has(app)) appClients.set(app, new Set());
-                    appClients.get(app).add(ws);
+                    ws.subscribe(`alerts-state:${app}`);
+                    ws.subscribe(`ws-frontend:${app}`);
                 }
             }
         },
@@ -402,10 +358,12 @@ Bun.serve({
         close(ws, code, message) {
             console.log(`Client disconnected: ${ws.data.username}`);
             if (ws.data.is_admin) {
-                adminClients.delete(ws);
+                ws.unsubscribe('alerts-state:global');
+                ws.unsubscribe('ws-frontend:global');
             } else if (ws.data.allowed_apps) {
                 for (const app of ws.data.allowed_apps) {
-                    if (appClients.has(app)) appClients.get(app).delete(ws);
+                    ws.unsubscribe(`alerts-state:${app}`);
+                    ws.unsubscribe(`ws-frontend:${app}`);
                 }
             }
         }

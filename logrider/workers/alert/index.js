@@ -40,14 +40,18 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
                 }
 
                 const alertPayload = {
-                    type: 'ALERT',
                     message: alertMessage,
                     log,
                     count,
                     errorHash
                 };
                 
-                await redisClient.publish('alerts', JSON.stringify(alertPayload));
+                // Store in active alerts
+                const expiry = Date.now() + ttl * 1000;
+                await redisClient.multi()
+                    .zAdd('active_alerts_idx', { score: expiry, value: key })
+                    .hSet('active_alerts_data', key, JSON.stringify(alertPayload))
+                    .exec();
 
                 if (count === 1) {
                     console.log(`[TELEGRAM] Sent immediate alert for ${log.Application_Name} (Error: ${log.Message})`);
@@ -60,6 +64,50 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
                 console.error('Error parsing alert message', err);
             }
         });
+        
+        // Publish state loop
+        setInterval(async () => {
+            try {
+                const now = Date.now();
+                // Clean up expired
+                const expiredKeys = await redisClient.zRangeByScore('active_alerts_idx', 0, now);
+                if (expiredKeys.length > 0) {
+                    const multi = redisClient.multi();
+                    multi.zRemRangeByScore('active_alerts_idx', 0, now);
+                    multi.hDel('active_alerts_data', expiredKeys);
+                    await multi.exec();
+                }
+                
+                // Fetch active
+                const activeData = await redisClient.hGetAll('active_alerts_data');
+                const alerts = Object.values(activeData).map(v => JSON.parse(v));
+                
+                // Group by app
+                const appAlerts = {};
+                for (const a of alerts) {
+                    const app = a.log?.Application_Name;
+                    if (app) {
+                        if (!appAlerts[app]) appAlerts[app] = [];
+                        appAlerts[app].push(a);
+                    }
+                }
+                
+                // Publish global state for admins
+                await redisClient.publish('alerts-state:global', JSON.stringify({
+                    type: 'ALERTS_STATE',
+                    alerts: alerts
+                }));
+                
+                // Publish app-specific states
+                for (const [app, specificAlerts] of Object.entries(appAlerts)) {
+                    await redisClient.publish(`alerts-state:${app}`, JSON.stringify({
+                        type: 'ALERTS_STATE',
+                        alerts: specificAlerts
+                    }));
+                }
+                console.error('State publish error', err);
+            }
+        }, 1000);
         console.log('Listening to alerts-raw on Redis');
     } catch (e) {
         console.error('Initialization error:', e);

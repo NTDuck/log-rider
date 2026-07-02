@@ -66,6 +66,13 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
 
+  stream-worker:
+    build: ./workers/stream
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://redis:6379
+
   classifier-worker:
     build: ./workers/classifier
     depends_on:

@@ -17,3 +17,21 @@ CREATE TABLE IF NOT EXISTS logrider.log_tags (
 ) ENGINE = MergeTree()
 ORDER BY (Timestamp, Trace_ID)
 TTL Timestamp + INTERVAL 7 DAY;
+
+CREATE TABLE IF NOT EXISTS logrider.hourly_health_mv (
+    hour DateTime,
+    Application_Name String,
+    error_count SimpleAggregateFunction(sum, UInt64),
+    total_count SimpleAggregateFunction(sum, UInt64)
+) ENGINE = AggregatingMergeTree()
+ORDER BY (hour, Application_Name);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS logrider.hourly_health_mv_view
+TO logrider.hourly_health_mv
+AS SELECT
+    toStartOfHour(Timestamp) AS hour,
+    Application_Name,
+    countIf(Log_Level IN ('ERROR', 'CRITICAL')) AS error_count,
+    count() AS total_count
+FROM logrider.logs
+GROUP BY hour, Application_Name;
