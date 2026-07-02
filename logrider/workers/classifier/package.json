@@ -1,11 +1,12 @@
 {
-  "name": "alert-worker",
+  "name": "classifier-worker",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "bun run index.js"
+    "start": "node index.js"
   },
   "dependencies": {
+    "kafkajs": "^2.2.4",
     "redis": "^4.6.10"
   }
 }

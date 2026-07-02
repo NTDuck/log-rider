@@ -34,7 +34,7 @@ services:
       - "8123:8123"
       - "9000:9000"
     volumes:
-      - ./init-clickhouse.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql
+      - ./persist/init-clickhouse.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql
 
   postgres:
     image: postgres:15-alpine
@@ -45,12 +45,12 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
+      - ./persist/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
 
   benthos-pipeline:
     image: jeffail/benthos:latest
     volumes:
-      - ../pipelines/unified.yaml:/benthos.yaml
+      - ./pipelines/unified.yaml:/benthos.yaml
     depends_on:
       - redpanda
       - redis
@@ -58,8 +58,35 @@ services:
     command: -c /benthos.yaml
 
   alert-worker:
-    build: ../workers/alert
+    build: ./workers/alert
     depends_on:
       - redis
     environment:
       REDIS_URL: redis://redis:6379
+
+  classifier-worker:
+    build: ./workers/classifier
+    depends_on:
+      - redpanda
+      - redis
+      - clickhouse
+    environment:
+      REDIS_URL: redis://redis:6379
+      REDPANDA_BROKERS: redpanda:29092
+      CLICKHOUSE_URI: http://clickhouse:8123/?user=default&password=password
+
+  web-server:
+    build: ./server
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+      - redpanda
+      - clickhouse
+    environment:
+      SERVER_PORT: 3000
+      REDPANDA_BROKERS: redpanda:29092
+      REDIS_URL: redis://redis:6379
+      POSTGRES_URI: postgres://user:password@postgres:5432/logrider
+      CLICKHOUSE_URI: http://clickhouse:8123/?user=default&password=password

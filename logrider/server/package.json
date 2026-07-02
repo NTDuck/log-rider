@@ -4,18 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node --env-file=../.env --no-warnings index.js",
+    "start": "bun run index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
-    "express": "^5.2.1",
     "kafkajs": "^2.2.4",
     "pg": "^8.22.0",
-    "redis": "^4.6.10",
-    "ws": "^8.14.2"
+    "redis": "^4.6.10"
   }
 }

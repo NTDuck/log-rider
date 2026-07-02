@@ -2,23 +2,51 @@
 
 ENDPOINT="http://localhost:3000/api/logs"
 
-# Use ab if available, otherwise fallback to curl loop with xargs
-if command -v ab >/dev/null 2>&1; then
-    echo "Using Apache Bench (ab) for testing..."
-    cat << 'EOF' > payload.json
-{
-  "Application_Name": "load-test-app",
-  "Log_Level": "INFO",
-  "Message": "This is a load test message",
-  "Timestamp": "2026-07-02T10:00:00Z",
-  "Trace_ID": "12345678-1234-1234-1234-123456789012"
-}
+echo "Generating 500 requests with python..."
+cat << 'EOF' > generate_logs.py
+import urllib.request
+import json
+import uuid
+import datetime
+import random
+import concurrent.futures
+
+APPS = ["payment", "auth", "load-test-app", "inventory", "billing"]
+LEVELS = ["INFO", "DEBUG", "WARN", "ERROR"]
+
+def send_log(i):
+    app = random.choice(APPS)
+    level = random.choice(LEVELS)
+    msg = f"Message {i}"
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+    trace_id = str(uuid.uuid4())
+    
+    payload = {
+        "Application_Name": app,
+        "Log_Level": level,
+        "Message": msg,
+        "Timestamp": now,
+        "Trace_ID": trace_id
+    }
+    
+    req = urllib.request.Request("http://localhost:3000/api/logs", data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+    try:
+        urllib.request.urlopen(req)
+    except Exception as e:
+        pass
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+    executor.map(send_log, range(1, 501))
+
 EOF
-    ab -n 500 -c 250 -p payload.json -T application/json $ENDPOINT
-    rm payload.json
-else
-    echo "Apache Bench (ab) not found. Using curl with xargs for concurrent requests..."
-    export ENDPOINT
-    seq 1 500 | xargs -P 250 -I {} bash -c 'curl -s -X POST -H "Content-Type: application/json" -d "{\"Application_Name\":\"load-test-app\",\"Log_Level\":\"INFO\",\"Message\":\"Message {}\",\"Timestamp\":\"2026-07-02T10:00:00Z\",\"Trace_ID\":\"12345678-1234-1234-1234-123456789012\"}" $ENDPOINT >/dev/null'
-    echo "500 requests sent."
-fi
+
+python3 generate_logs.py
+rm generate_logs.py
+
+echo "500 requests sent."
+echo "Waiting 3 seconds for pipeline flush..."
+sleep 3
+
+echo "Verifying ClickHouse entries..."
+COUNT=$(curl -s -X POST "http://localhost:8123/?user=default&password=password" -d "SELECT count() FROM logrider.logs FORMAT TSV")
+echo "Total logs in ClickHouse: $COUNT"

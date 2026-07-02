@@ -21,6 +21,7 @@
         .log-entry.critical { border-left-color: #f44336; font-weight: bold; }
         .log-entry.alert { border-left-color: #ffeb3b; background: #4a4515; }
         .timestamp { color: #888; font-size: 0.9em; margin-right: 10px; }
+        .tag { display: inline-block; background: #673ab7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; margin-left: 5px; font-weight: bold; }
         
         #admin-panel { background: #222; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #444; display: none; }
         .success-msg { color: #4CAF50; margin-left: 10px; font-size: 0.9em; }
@@ -105,25 +106,21 @@
             window.location.reload();
         }
 
-        function showDashboard() {
+        async function showDashboard() {
             loginScreen.classList.remove('active');
             dashboardScreen.classList.add('active');
             
             const role = localStorage.getItem('logrider_role');
             document.getElementById('role-badge').innerText = role.toUpperCase();
             
-            document.getElementById('logout-btn').addEventListener('click', () => {
-                localStorage.removeItem('logrider_token');
-                window.location.href = '/';
-            });
-            
+
             if (role === 'admin') {
                 adminPanel.style.display = 'block';
                 fetchTTL();
             }
             
-            fetchHistoricalLogs();
             fetchAnalytics();
+            await fetchHistoricalLogs();
             connectWS();
         }
 
@@ -238,6 +235,17 @@
                     data = { message: event.data, level: 'info' };
                 }
 
+                if (data.type === 'TAGS') {
+                    const el = document.getElementById('log-' + data.Trace_ID);
+                    if (el) {
+                        const tagsSpan = el.querySelector('.tags-container');
+                        if (tagsSpan) {
+                            tagsSpan.innerHTML = data.Tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('');
+                        }
+                    }
+                    return;
+                }
+
                 renderLog(data, true);
             };
 
@@ -300,8 +308,18 @@
             msgStr = escapeHTML(msgStr);
             const rawAppName = data.Application_Name || data.log?.Application_Name;
             const appName = rawAppName ? `<span style="color:#2196F3">[${escapeHTML(rawAppName)}]</span> ` : '';
+            
+            let tagsHtml = '';
+            if (data.Tags && Array.isArray(data.Tags)) {
+                tagsHtml = data.Tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('');
+            }
+            
+            const traceId = data.Trace_ID || data.log?.Trace_ID;
+            if (traceId) {
+                entry.id = 'log-' + escapeHTML(traceId);
+            }
 
-            entry.innerHTML = `<span class="timestamp">${escapeHTML(timeStr)}</span> ${appName}<strong>${levelStr}</strong> ${msgStr}`;
+            entry.innerHTML = `<span class="timestamp">${escapeHTML(timeStr)}</span> ${appName}<strong>${levelStr}</strong> ${msgStr} <span class="tags-container">${tagsHtml}</span>`;
             logsContainer.prepend(entry);
             
             if (logsContainer.children.length > 200) {

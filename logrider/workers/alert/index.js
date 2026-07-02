@@ -1,5 +1,4 @@
-const { createClient } = require('redis');
-
+import { createClient } from 'redis';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
 
@@ -18,7 +17,9 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
         await subscriber.subscribe('ws-logs', async (message) => {
             try {
                 const log = JSON.parse(message);
+                console.debug(`[DEBUG] Received log ${log.Trace_ID} from ws-logs for alert inspection`);
                 if (log.Log_Level === 'ERROR' || log.Log_Level === 'CRITICAL') {
+                    console.debug(`[DEBUG] Found ${log.Log_Level} log for ${log.Application_Name}`);
                     const key = `alert_lock:${log.Application_Name}`;
                     
                     const count = await redisClient.incr(key);
@@ -36,7 +37,7 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
                         await redisClient.publish('alerts', JSON.stringify(alertPayload));
                         console.log(`[TELEGRAM] Sent alert for ${log.Application_Name} (Error: ${log.Message})`);
                     } else {
-                        console.log(`[DEDUP] Suppressed alert for ${log.Application_Name}. Count: ${count}`);
+                        console.debug(`[DEDUP] Suppressed alert for ${log.Application_Name}. Count: ${count}`);
                     }
                 }
             } catch (err) {}

@@ -44,3 +44,7 @@ output:
           batching:
             count: 1000
             period: 1s
+      - kafka:
+          addresses:
+            - redpanda:29092
+          topic: logs-normalized

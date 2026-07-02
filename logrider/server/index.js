@@ -1,17 +1,7 @@
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const path = require('path');
-const { Kafka, Partitioners } = require('kafkajs');
-const { createClient } = require('redis');
-const { Pool } = require('pg');
-
-
-const app = express();
-app.use(express.json());
-
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ noServer: true });
+import { Kafka, Partitioners } from 'kafkajs';
+import { createClient } from 'redis';
+import { Pool } from 'pg';
+import path from 'path';
 
 const PORT = process.env.SERVER_PORT || 3000;
 if (PORT == 8080) {
@@ -39,6 +29,7 @@ const redisClient = createClient({ url: REDIS_URL });
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
 
 let subscriber;
+const clients = new Set();
 
 (async () => {
     try {
@@ -54,27 +45,37 @@ let subscriber;
         await subscriber.subscribe('ws-logs', (message) => {
             try {
                 const log = JSON.parse(message);
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        if (client.is_admin || (client.allowed_apps && client.allowed_apps.includes(log.Application_Name))) {
-                            client.send(message);
-                        }
+                console.debug(`[DEBUG] Server received log ${log.Trace_ID} from ws-logs, broadcasting to websockets...`);
+                for (const ws of clients) {
+                    if (ws.data.is_admin || (ws.data.allowed_apps && ws.data.allowed_apps.includes(log.Application_Name))) {
+                        ws.send(message);
                     }
-                });
+                }
             } catch (err) {}
         });
         console.log('Subscribed to Redis channel ws-logs');
 
+        await subscriber.subscribe('ws-tags', (message) => {
+            try {
+                const tagData = JSON.parse(message);
+                console.debug(`[DEBUG] Server received tags for ${tagData.Trace_ID} from ws-tags, broadcasting to websockets...`);
+                for (const ws of clients) {
+                    if (ws.data.is_admin || (ws.data.allowed_apps && ws.data.allowed_apps.includes(tagData.Application_Name))) {
+                        ws.send(message);
+                    }
+                }
+            } catch (err) {}
+        });
+        console.log('Subscribed to Redis channel ws-tags');
+
         await subscriber.subscribe('alerts', (message) => {
             try {
                 const alertData = JSON.parse(message);
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        if (client.is_admin || (client.allowed_apps && client.allowed_apps.includes(alertData.log.Application_Name))) {
-                            client.send(message);
-                        }
+                for (const ws of clients) {
+                    if (ws.data.is_admin || (ws.data.allowed_apps && ws.data.allowed_apps.includes(alertData.log.Application_Name))) {
+                        ws.send(message);
                     }
-                });
+                }
             } catch (err) {}
         });
         console.log('Subscribed to Redis channel alerts');
@@ -84,235 +85,255 @@ let subscriber;
     }
 })();
 
-// WebSocket Upgrade handling
-server.on('upgrade', async (request, socket, head) => {
-    try {
-        const url = new URL(request.url, `http://${request.headers.host}`);
+Bun.serve({
+    port: PORT,
+    async fetch(req, server) {
+        const url = new URL(req.url);
+        
+        if (req.method === 'GET' && url.pathname === '/') {
+            return new Response('<h1>LogRider Server</h1><p>Running successfully on Bun.</p>', {
+                headers: { 'Content-Type': 'text/html' }
+            });
+        }
+
+        if (req.method === 'GET' && url.pathname === '/health') {
+            return Response.json({ status: 'ok', timestamp: new Date().toISOString() });
+        }
+
+        if (req.method === 'GET' && url.pathname === '/dashboard') {
+            return new Response(Bun.file(path.join(import.meta.dir, 'dashboard.html')));
+        }
+
+        if (req.method === 'POST' && url.pathname === '/login') {
+            try {
+                const body = await req.json();
+                const { username, password } = body;
+                const userRes = await pgPool.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
+                
+                if (userRes.rows.length === 0) {
+                    return Response.json({ error: 'Invalid credentials' }, { status: 401 });
+                }
+                
+                const user = userRes.rows[0];
+                const isAdmin = user.role === 'admin';
+                
+                let allowed_apps = [];
+                if (!isAdmin) {
+                    const appsRes = await pgPool.query('SELECT app_name FROM user_apps WHERE user_id = $1', [user.id]);
+                    allowed_apps = appsRes.rows.map(r => r.app_name);
+                }
+                
+                const token = 'token-' + Math.random().toString(36).substring(2);
+                await redisClient.setEx(`session:${token}`, 3600, JSON.stringify({ is_admin: isAdmin, allowed_apps, username: user.username }));
+                
+                return Response.json({ token, role: user.role, redirect: '/dashboard' });
+            } catch (error) {
+                console.error('Login error:', error);
+                return Response.json({ error: 'Internal server error' }, { status: 500 });
+            }
+        }
+
+        if (req.method === 'GET' && url.pathname === '/api/config/ttl') {
+            try {
+                let ttl = await redisClient.get('config:alert_ttl');
+                ttl = ttl ? parseInt(ttl, 10) : 60;
+                return Response.json({ ttl });
+            } catch (err) {
+                console.error("Error fetching TTL from Redis:", err);
+                return Response.json({ error: "Internal server error" }, { status: 500 });
+            }
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/config/ttl') {
+            try {
+                const token = req.headers.get('authorization')?.replace('Bearer ', '');
+                if (!token) return Response.json({ error: 'No token' }, { status: 401 });
+                
+                const sessionStr = await redisClient.get(`session:${token}`);
+                if (!sessionStr) return Response.json({ error: 'Invalid token' }, { status: 401 });
+                
+                const session = JSON.parse(sessionStr);
+                if (!session.is_admin) return Response.json({ error: 'Forbidden. Admins only.' }, { status: 403 });
+                
+                const body = await req.json();
+                const { ttl } = body;
+                if (!ttl || isNaN(ttl) || ttl <= 0) return Response.json({ error: 'Invalid TTL value' }, { status: 400 });
+                
+                await redisClient.set('config:alert_ttl', parseInt(ttl, 10).toString());
+                return Response.json({ success: true, ttl: parseInt(ttl, 10) });
+            } catch (err) {
+                console.error(err);
+                return Response.json({ error: 'Internal error' }, { status: 500 });
+            }
+        }
+
+        if (req.method === 'GET' && url.pathname === '/api/analytics/health') {
+            try {
+                const token = req.headers.get('authorization')?.replace('Bearer ', '');
+                if (!token) return Response.json({ error: 'No token' }, { status: 401 });
+                
+                const sessionStr = await redisClient.get(`session:${token}`);
+                if (!sessionStr) return Response.json({ error: 'Invalid token' }, { status: 401 });
+                
+                const session = JSON.parse(sessionStr);
+                
+                const query = `
+                    SELECT 
+                        toStartOfHour(parseDateTimeBestEffort(Timestamp)) as hour,
+                        Application_Name,
+                        countIf(Log_Level IN ('ERROR', 'CRITICAL')) as error_count,
+                        count() as total_count,
+                        (countIf(Log_Level IN ('ERROR', 'CRITICAL')) / count()) * 100 as error_rate
+                    FROM logrider.logs
+                    WHERE parseDateTimeBestEffort(Timestamp) >= now() - INTERVAL 24 HOUR
+                    GROUP BY hour, Application_Name
+                    ORDER BY hour ASC
+                    FORMAT JSON
+                `;
+                
+                let chHost = 'localhost';
+                if (process.env.CLICKHOUSE_URI) {
+                    try {
+                        const u = new URL(process.env.CLICKHOUSE_URI.replace('clickhouse://', 'http://'));
+                        chHost = u.hostname;
+                    } catch(e) {}
+                }
+                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                    method: 'POST',
+                    body: query
+                });
+                
+                if (!chRes.ok) {
+                    throw new Error(`ClickHouse error: ${await chRes.text()}`);
+                }
+                
+                const chData = await chRes.json();
+                
+                const filteredData = chData.data.filter(row => 
+                    session.is_admin || (session.allowed_apps && session.allowed_apps.includes(row.Application_Name))
+                );
+                
+                return Response.json({ data: filteredData });
+            } catch (err) {
+                console.error(err);
+                return Response.json({ error: 'Internal error fetching analytics' }, { status: 500 });
+            }
+        }
+
+        if (req.method === 'GET' && url.pathname === '/api/logs/recent') {
+            try {
+                const token = req.headers.get('authorization')?.replace('Bearer ', '');
+                if (!token) return Response.json({ error: 'No token' }, { status: 401 });
+                
+                const sessionStr = await redisClient.get(`session:${token}`);
+                if (!sessionStr) return Response.json({ error: 'Invalid token' }, { status: 401 });
+                
+                const session = JSON.parse(sessionStr);
+                
+                let appFilter = '';
+                if (!session.is_admin) {
+                    if (!session.allowed_apps || session.allowed_apps.length === 0) {
+                        return Response.json({ logs: [] });
+                    }
+                    const appsList = session.allowed_apps.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
+                    appFilter = `WHERE l.Application_Name IN (${appsList})`;
+                }
+                
+                const query = `
+                    SELECT l.*, t.Tags
+                    FROM logrider.logs l
+                    LEFT JOIN logrider.log_tags t ON l.Trace_ID = t.Trace_ID
+                    ${appFilter}
+                    ORDER BY parseDateTimeBestEffort(l.Timestamp) DESC
+                    LIMIT 100
+                    FORMAT JSON
+                `;
+                console.debug(`[DEBUG] /api/logs/recent query: ${query}`);
+                
+                let chHost = 'localhost';
+                if (process.env.CLICKHOUSE_URI) {
+                    try {
+                        const u = new URL(process.env.CLICKHOUSE_URI.replace('clickhouse://', 'http://'));
+                        chHost = u.hostname;
+                    } catch(e) {}
+                }
+                console.debug(`[DEBUG] /api/logs/recent chHost: ${chHost}`);
+                
+                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                    method: 'POST',
+                    body: query
+                });
+                
+                if (!chRes.ok) {
+                    const errText = await chRes.text();
+                    console.error(`[ERROR] ClickHouse error: ${errText}`);
+                    throw new Error(`ClickHouse error: ${errText}`);
+                }
+                
+                const chData = await chRes.json();
+                console.debug(`[DEBUG] /api/logs/recent returned ${chData.data ? chData.data.length : 0} logs`);
+                return Response.json({ logs: chData.data });
+            } catch (err) {
+                console.error(err);
+                return Response.json({ error: 'Internal error fetching recent logs' }, { status: 500 });
+            }
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/logs') {
+            try {
+                const logData = await req.json();
+                console.debug(`[DEBUG] HTTP POST /api/logs received log for ${logData.Application_Name}`);
+                await producer.send({
+                    topic: 'logs-raw',
+                    messages: [
+                        { value: JSON.stringify(logData) },
+                    ],
+                });
+                return Response.json({ status: 'accepted' }, { status: 202 });
+            } catch (error) {
+                console.error('Error sending log to Redpanda:', error);
+                return Response.json({ error: 'Internal Server Error' }, { status: 500 });
+            }
+        }
+
         if (url.pathname === '/api/ws') {
             const token = url.searchParams.get('token');
-            if (!token) throw new Error('No token');
+            if (!token) return new Response('No token', { status: 401 });
             
             const sessionStr = await redisClient.get(`session:${token}`);
-            if (!sessionStr) throw new Error('Invalid token');
+            if (!sessionStr) return new Response('Invalid token', { status: 401 });
             
             const session = JSON.parse(sessionStr);
             
-            wss.handleUpgrade(request, socket, head, (ws) => {
-                ws.allowed_apps = session.allowed_apps;
-                ws.is_admin = session.is_admin;
-                wss.emit('connection', ws, request);
+            const success = server.upgrade(req, {
+                data: {
+                    allowed_apps: session.allowed_apps,
+                    is_admin: session.is_admin,
+                    username: session.username
+                }
             });
-        } else {
-            socket.destroy();
-        }
-    } catch (e) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-    }
-});
-
-wss.on('connection', (ws) => {
-    console.log('Client connected to WebSocket');
-    ws.on('close', () => {
-        console.log('Client disconnected from WebSocket');
-    });
-});
-
-// Endpoints
-app.get('/', (req, res) => {
-    res.send('<h1>LogRider Server</h1><p>Running successfully.</p>');
-});
-
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-app.post('/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        // Vulnerability Fix: Parameterized Query
-        const userRes = await pgPool.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
-        
-        if (userRes.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-        
-        const user = userRes.rows[0];
-        const isAdmin = user.role === 'admin';
-        
-        let allowed_apps = [];
-        if (!isAdmin) {
-            const appsRes = await pgPool.query('SELECT app_name FROM user_apps WHERE user_id = $1', [user.id]);
-            allowed_apps = appsRes.rows.map(r => r.app_name);
-        }
-        
-        const token = 'token-' + Math.random().toString(36).substr(2);
-        await redisClient.setEx(`session:${token}`, 3600, JSON.stringify({ is_admin: isAdmin, allowed_apps, username: user.username }));
-        
-        res.json({ token, role: user.role, redirect: '/dashboard' });
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-// TTL Configuration API
-app.get('/api/config/ttl', async (req, res) => {
-    let ttl = await redisClient.get('config:alert_ttl');
-    ttl = ttl ? parseInt(ttl, 10) : 60;
-    res.json({ ttl });
-});
-
-app.post('/api/config/ttl', async (req, res) => {
-    try {
-        const token = req.headers.authorization?.replace('Bearer ', '');
-        if (!token) return res.status(401).json({ error: 'No token' });
-        
-        const sessionStr = await redisClient.get(`session:${token}`);
-        if (!sessionStr) return res.status(401).json({ error: 'Invalid token' });
-        
-        const session = JSON.parse(sessionStr);
-        if (!session.is_admin) return res.status(403).json({ error: 'Forbidden. Admins only.' });
-        
-        const { ttl } = req.body;
-        if (!ttl || isNaN(ttl) || ttl <= 0) return res.status(400).json({ error: 'Invalid TTL value' });
-        
-        await redisClient.set('config:alert_ttl', parseInt(ttl, 10));
-        res.json({ success: true, ttl: parseInt(ttl, 10) });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal error' });
-    }
-});
-
-// Health Analytics API
-app.get('/api/analytics/health', async (req, res) => {
-    try {
-        const token = req.headers.authorization?.replace('Bearer ', '');
-        if (!token) return res.status(401).json({ error: 'No token' });
-        
-        const sessionStr = await redisClient.get(`session:${token}`);
-        if (!sessionStr) return res.status(401).json({ error: 'Invalid token' });
-        
-        const session = JSON.parse(sessionStr);
-        
-        // Fetch from ClickHouse
-        const query = `
-            SELECT 
-                toStartOfHour(parseDateTimeBestEffort(Timestamp)) as hour,
-                Application_Name,
-                countIf(Log_Level IN ('ERROR', 'CRITICAL')) as error_count,
-                count() as total_count,
-                (countIf(Log_Level IN ('ERROR', 'CRITICAL')) / count()) * 100 as error_rate
-            FROM logrider.logs
-            WHERE parseDateTimeBestEffort(Timestamp) >= now() - INTERVAL 24 HOUR
-            GROUP BY hour, Application_Name
-            ORDER BY hour ASC
-            FORMAT JSON
-        `;
-        
-        let chHost = 'localhost';
-        if (process.env.CLICKHOUSE_URI) {
-            try {
-                const u = new URL(process.env.CLICKHOUSE_URI.replace('clickhouse://', 'http://'));
-                chHost = u.hostname;
-            } catch(e) {}
-        }
-        const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
-            method: 'POST',
-            body: query
-        });
-        
-        if (!chRes.ok) {
-            throw new Error(`ClickHouse error: ${await chRes.text()}`);
-        }
-        
-        const chData = await chRes.json();
-        
-        // Filter by role
-        const filteredData = chData.data.filter(row => 
-            session.is_admin || (session.allowed_apps && session.allowed_apps.includes(row.Application_Name))
-        );
-        
-        res.json({ data: filteredData });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal error fetching analytics' });
-    }
-});
-
-app.get('/api/logs/recent', async (req, res) => {
-    try {
-        const token = req.headers.authorization?.replace('Bearer ', '');
-        if (!token) return res.status(401).json({ error: 'No token' });
-        
-        const sessionStr = await redisClient.get(`session:${token}`);
-        if (!sessionStr) return res.status(401).json({ error: 'Invalid token' });
-        
-        const session = JSON.parse(sessionStr);
-        
-        let appFilter = '';
-        if (!session.is_admin) {
-            if (!session.allowed_apps || session.allowed_apps.length === 0) {
-                return res.json({ logs: [] });
+            if (success) {
+                console.debug(`[DEBUG] Successfully upgraded websocket for user: ${session.username}`);
+                return undefined;
             }
-            const appsList = session.allowed_apps.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
-            appFilter = `WHERE Application_Name IN (${appsList})`;
+            return new Response("WebSocket upgrade failed", { status: 400 });
         }
-        
-        const query = `
-            SELECT *
-            FROM logrider.logs
-            ${appFilter}
-            ORDER BY parseDateTimeBestEffort(Timestamp) DESC
-            LIMIT 100
-            FORMAT JSON
-        `;
-        
-        let chHost = 'localhost';
-        if (process.env.CLICKHOUSE_URI) {
-            try {
-                const u = new URL(process.env.CLICKHOUSE_URI.replace('clickhouse://', 'http://'));
-                chHost = u.hostname;
-            } catch(e) {}
+
+        return new Response('Not Found', { status: 404 });
+    },
+    websocket: {
+        open(ws) {
+            console.log('Client connected to WebSocket');
+            clients.add(ws);
+        },
+        message(ws, message) {
+            // Not expecting messages from client
+        },
+        close(ws, code, message) {
+            console.log('Client disconnected from WebSocket');
+            clients.delete(ws);
         }
-        const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
-            method: 'POST',
-            body: query
-        });
-        
-        if (!chRes.ok) {
-            throw new Error(`ClickHouse error: ${await chRes.text()}`);
-        }
-        
-        const chData = await chRes.json();
-        res.json({ logs: chData.data });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal error fetching recent logs' });
     }
 });
 
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dashboard.html'));
-});
-
-app.post('/api/logs', async (req, res) => {
-    try {
-        const logData = req.body;
-        await producer.send({
-            topic: 'logs-raw',
-            messages: [
-                { value: JSON.stringify(logData) },
-            ],
-        });
-        res.status(202).json({ status: 'accepted' });
-    } catch (error) {
-        console.error('Error sending log to Redpanda:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-
-server.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-});
+console.log(`Server listening on port ${PORT} using Bun`);
