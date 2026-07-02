@@ -36,7 +36,16 @@ services:
     volumes:
       - ./persist/init-clickhouse.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql
 
-
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: logrider
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: logrider
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./persist/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
 
   benthos-pipeline:
     image: jeffail/benthos:latest
@@ -74,8 +83,10 @@ services:
       - redis
       - redpanda
       - clickhouse
+      - postgres
     environment:
       SERVER_PORT: 3000
       REDPANDA_BROKERS: redpanda:29092
       REDIS_URL: redis://redis:6379
       CLICKHOUSE_URI: http://clickhouse:8123/?user=default&password=password
+      POSTGRES_URI: postgres://logrider:password@postgres:5432/logrider

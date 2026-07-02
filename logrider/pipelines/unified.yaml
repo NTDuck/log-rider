@@ -29,6 +29,9 @@ output:
                   channel: alerts-raw
             - output:
                 drop: {}
+      - redis_pubsub:
+          url: redis://redis:6379
+          channel: ws-logs
       - sql_insert:
           driver: clickhouse
           dsn: clickhouse://default:password@clickhouse:9000/logrider

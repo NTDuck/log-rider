@@ -1,6 +1,8 @@
 import { createClient } from 'redis';
 import path from 'path';
 import crypto from 'crypto';
+import pg from 'pg';
+const { Pool } = pg;
 
 const PORT = process.env.SERVER_PORT || 3000;
 if (PORT == 8080) {
@@ -10,27 +12,43 @@ if (PORT == 8080) {
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
-// Setup Hardcoded Users
-const users = [];
+const POSTGRES_URI = process.env.POSTGRES_URI || 'postgres://logrider:password@postgres:5432/logrider';
+const chHost = process.env.CLICKHOUSE_HOST || 'clickhouse';
+const pgClient = new Pool({ connectionString: POSTGRES_URI });
+
 (async () => {
-    users.push({ 
-        username: 'admin', 
-        passwordHash: await Bun.password.hash('admin123'), 
-        role: 'admin', 
-        allowed_apps: [] 
-    });
-    users.push({ 
-        username: 'eng1', 
-        passwordHash: await Bun.password.hash('eng123'), 
-        role: 'engineer', 
-        allowed_apps: ['apple-service', 'banana-service', 'orange-service'] 
-    });
-    users.push({ 
-        username: 'eng2', 
-        passwordHash: await Bun.password.hash('eng123'), 
-        role: 'engineer', 
-        allowed_apps: ['kiwi-service', 'papaya-service'] 
-    });
+    try {
+        await pgClient.connect();
+        console.log('Connected to Postgres');
+        
+        // Ensure users table exists
+        await pgClient.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(20) NOT NULL,
+                allowed_apps TEXT
+            );
+        `);
+        
+        // Ensure default users exist
+        const { rows } = await pgClient.query('SELECT count(*) FROM users');
+        if (parseInt(rows[0].count) === 0) {
+            const adminHash = await Bun.password.hash('admin123');
+            const eng1Hash = await Bun.password.hash('eng123');
+            const eng2Hash = await Bun.password.hash('eng123');
+            
+            await pgClient.query(`INSERT INTO users (username, password_hash, role, allowed_apps) VALUES 
+                ('admin', $1, 'admin', ''),
+                ('eng1', $2, 'engineer', 'apple-service,banana-service,orange-service'),
+                ('eng2', $3, 'engineer', 'kiwi-service,papaya-service')
+            `, [adminHash, eng1Hash, eng2Hash]);
+            console.log("Inserted default users");
+        }
+    } catch (e) {
+        console.error('Postgres Initialization error:', e);
+    }
 })();
 
 // Redis Setup
@@ -64,49 +82,26 @@ const appClients = new Map();
         });
         console.log('Subscribed to Redis channel alerts');
 
+        await subscriber.subscribe('ws-logs', (message) => {
+            try {
+                const log = JSON.parse(message);
+                const appName = log.Application_Name;
+                console.log(`Received ws-logs for ${appName}`);
+                
+                for (const ws of adminClients) ws.send(message);
+                if (appClients.has(appName)) {
+                    for (const ws of appClients.get(appName)) ws.send(message);
+                }
+            } catch (err) {}
+        });
+        console.log('Subscribed to Redis channel ws-logs');
+
     } catch (e) {
         console.error('Initialization error:', e);
     }
 })();
 
-// ClickHouse polling loop for real-time dashboard
-let chHost = 'localhost';
-if (process.env.CLICKHOUSE_URI) {
-    try {
-        const u = new URL(process.env.CLICKHOUSE_URI.replace('clickhouse://', 'http://'));
-        chHost = u.hostname;
-    } catch(e) {}
-}
 
-let lastTimestamp = new Date(Date.now() - 60000).toISOString().replace('T', ' ').substring(0, 23);
-
-setInterval(async () => {
-    try {
-        const query = `
-            SELECT l.*, t.Tags
-            FROM logrider.logs l
-            LEFT JOIN logrider.log_tags t ON l.Trace_ID = t.Trace_ID
-            WHERE l.Timestamp > '${lastTimestamp}'
-            ORDER BY l.Timestamp ASC
-            LIMIT 500
-            FORMAT JSON
-        `;
-        const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, { method: 'POST', body: query });
-        if(chRes.ok) {
-            const chData = await chRes.json();
-            if (chData.data && chData.data.length > 0) {
-                lastTimestamp = chData.data[chData.data.length - 1].Timestamp;
-                for (const log of chData.data) {
-                    const logStr = JSON.stringify(log);
-                    for (const ws of adminClients) ws.send(logStr);
-                    if (appClients.has(log.Application_Name)) {
-                        for (const ws of appClients.get(log.Application_Name)) ws.send(logStr);
-                    }
-                }
-            }
-        }
-    } catch(e) {}
-}, 2000);
 
 Bun.serve({
     port: PORT,
@@ -127,29 +122,88 @@ Bun.serve({
             return new Response(Bun.file(path.join(import.meta.dir, 'dashboard.html')));
         }
 
+        if (req.method === 'GET' && url.pathname === '/alerts') {
+            return new Response(Bun.file(path.join(import.meta.dir, 'alerts.html')));
+        }
+        
+        if (req.method === 'GET' && url.pathname === '/config') {
+            return new Response(Bun.file(path.join(import.meta.dir, 'config.html')));
+        }
+
         if (req.method === 'POST' && url.pathname === '/login') {
             try {
                 const body = await req.json();
                 const { username, password } = body;
                 
-                const user = users.find(u => u.username === username);
-                if (!user) {
+                const res = await pgClient.query('SELECT * FROM users WHERE username = $1', [username]);
+                if (res.rows.length === 0) {
                     return Response.json({ error: 'Invalid credentials' }, { status: 401 });
                 }
                 
-                const isValid = await Bun.password.verify(password, user.passwordHash);
+                const user = res.rows[0];
+                const isValid = await Bun.password.verify(password, user.password_hash);
                 if (!isValid) {
                     return Response.json({ error: 'Invalid credentials' }, { status: 401 });
                 }
                 
                 const isAdmin = user.role === 'admin';
                 const token = 'token-' + crypto.randomBytes(32).toString('hex');
-                await redisClient.setEx(`session:${token}`, 3600, JSON.stringify({ is_admin: isAdmin, allowed_apps: user.allowed_apps, username: user.username }));
+                const allowed_apps = user.allowed_apps ? user.allowed_apps.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                
+                await redisClient.setEx(`session:${token}`, 3600, JSON.stringify({ is_admin: isAdmin, allowed_apps, username: user.username }));
                 
                 return Response.json({ token, role: user.role, redirect: '/dashboard' });
             } catch (error) {
                 console.error('Login error:', error);
                 return Response.json({ error: 'Internal server error' }, { status: 500 });
+            }
+        }
+        
+        if (url.pathname.startsWith('/api/users')) {
+            const token = req.headers.get('authorization')?.replace('Bearer ', '');
+            if (!token) return Response.json({ error: 'No token' }, { status: 401 });
+            const sessionStr = await redisClient.get(`session:${token}`);
+            if (!sessionStr) return Response.json({ error: 'Invalid token' }, { status: 401 });
+            const session = JSON.parse(sessionStr);
+            if (!session.is_admin) return Response.json({ error: 'Forbidden. Admins only.' }, { status: 403 });
+
+            if (req.method === 'GET' && url.pathname === '/api/users') {
+                try {
+                    const res = await pgClient.query('SELECT id, username, role, allowed_apps FROM users');
+                    return Response.json({ users: res.rows });
+                } catch (e) {
+                    return Response.json({ error: 'Internal error' }, { status: 500 });
+                }
+            }
+            if (req.method === 'POST' && url.pathname === '/api/users') {
+                try {
+                    const body = await req.json();
+                    const { username, password, role, allowed_apps } = body;
+                    if (!username || !password || !role) return Response.json({ error: 'Missing fields' }, { status: 400 });
+                    
+                    const hash = await Bun.password.hash(password);
+                    const apps = allowed_apps || '';
+                    
+                    await pgClient.query(`
+                        INSERT INTO users (username, password_hash, role, allowed_apps) 
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT (username) DO UPDATE 
+                        SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, allowed_apps = EXCLUDED.allowed_apps
+                    `, [username, hash, role, apps]);
+                    return Response.json({ success: true });
+                } catch (e) {
+                    console.error(e);
+                    return Response.json({ error: 'Internal error' }, { status: 500 });
+                }
+            }
+            if (req.method === 'DELETE' && url.pathname.startsWith('/api/users/')) {
+                try {
+                    const username = url.pathname.split('/').pop();
+                    await pgClient.query('DELETE FROM users WHERE username = $1', [username]);
+                    return Response.json({ success: true });
+                } catch (e) {
+                    return Response.json({ error: 'Internal error' }, { status: 500 });
+                }
             }
         }
 

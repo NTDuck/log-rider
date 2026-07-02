@@ -2,7 +2,7 @@
 cd "$(dirname "$0")"
 
 echo "Running standard load test (500 logs) with k6..."
-k6 run -e VUS=10 -e ITERATIONS=500 -e BATCH_SIZE=1 k6-load.js
+nix-shell ../../shell.nix --run "k6 run -e VUS=10 -e ITERATIONS=500 -e BATCH_SIZE=1 k6-load.js"
 
 echo "Waiting 3 seconds for pipeline flush..."
 sleep 3

@@ -55,12 +55,17 @@
     <!-- Top Navigation -->
     <header class="bg-aws-nav text-white flex items-center justify-between px-4 py-3 sticky top-0 z-50">
         <div class="flex items-center space-x-6">
-            <a href="#" class="flex items-center space-x-2 no-underline text-white hover:text-gray-200">
+            <a href="/dashboard" class="flex items-center space-x-2 no-underline text-white hover:text-gray-200">
                 <span class="font-semibold text-lg tracking-tight flex items-center">
                     log-rider
                 </span>
                 <span class="bg-green-600/20 text-green-400 border border-green-500/30 text-xs px-2 py-0.5 rounded-full font-medium ml-2">Preview</span>
             </a>
+            <nav id="top-nav" class="hidden md:flex space-x-4 items-center hidden">
+                <a href="/dashboard" class="text-sm font-medium text-white transition-colors">Dashboard</a>
+                <a href="/alerts" class="text-sm font-medium hover:text-white text-gray-300 transition-colors">Alerts</a>
+                <a id="nav-config" href="/config" class="text-sm font-medium hover:text-white text-gray-300 transition-colors hidden">Config</a>
+            </nav>
         </div>
         <div class="flex items-center space-x-4">
             <!-- Dark Mode Toggle (Leftmost of top right) -->
@@ -169,22 +174,26 @@
                 <!-- Right Column (Sidebar Widgets) -->
                 <div class="space-y-6">
                     
-                    <!-- Admin Config Panel -->
-                    <div id="admin-panel" class="hidden bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+                    <!-- Filter Panel -->
+                    <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
                         <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
-                            <h2 class="text-lg font-bold">Global Config</h2>
+                            <h2 class="text-lg font-bold">Filters</h2>
                         </div>
-                        <div class="p-5">
-                            <label class="block text-sm font-bold mb-2">Alert Deduplication TTL (seconds)</label>
-                            <div class="flex space-x-3 items-center">
-                                <input type="number" id="ttl-input" min="1" class="w-24 px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link transition-shadow">
-                                <button onclick="updateTTL()" class="px-4 py-1.5 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white border border-transparent">Save</button>
+                        <div class="p-5 space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold mb-1 text-aws-text dark:text-aws-textDark">Application Name</label>
+                                <input type="text" id="filter-app" placeholder="e.g. apple-service" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link" onkeyup="applyFilters()">
                             </div>
-                            <div class="mt-3 text-sm">
-                                <span class="text-aws-textMuted dark:text-aws-textMutedDark">Current applied TTL:</span>
-                                <strong id="current-ttl-display" class="ml-1 text-aws-text dark:text-aws-textDark">Loading...</strong>
+                            <div>
+                                <label class="block text-sm font-bold mb-1 text-aws-text dark:text-aws-textDark">Log Level</label>
+                                <select id="filter-level" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link" onchange="applyFilters()">
+                                    <option value="">All Levels</option>
+                                    <option value="INFO">INFO</option>
+                                    <option value="WARN">WARN</option>
+                                    <option value="ERROR">ERROR</option>
+                                    <option value="CRITICAL">CRITICAL</option>
+                                </select>
                             </div>
-                            <p id="ttl-status" class="text-green-600 dark:text-green-400 text-sm font-medium mt-2 hidden"></p>
                         </div>
                     </div>
                     
@@ -315,12 +324,12 @@
             document.getElementById('user-controls').classList.remove('hidden');
             document.getElementById('user-controls').classList.add('flex');
             
-            const role = localStorage.getItem('logrider_role');
+            const role = localStorage.getItem('logrider_role') || 'unknown';
             document.getElementById('role-badge').innerText = role.toUpperCase();
             
+            document.getElementById('top-nav').classList.remove('hidden');
             if (role === 'admin') {
-                adminPanel.classList.remove('hidden');
-                fetchTTL();
+                document.getElementById('nav-config').classList.remove('hidden');
             }
             
             fetchAnalytics();
@@ -400,34 +409,6 @@
             }
         }
 
-        async function fetchTTL() {
-            const res = await fetch('/api/config/ttl');
-            const data = await res.json();
-            document.getElementById('ttl-input').value = data.ttl;
-            document.getElementById('current-ttl-display').innerText = data.ttl + 's';
-        }
-
-        async function updateTTL() {
-            const ttl = document.getElementById('ttl-input').value;
-            const res = await fetch('/api/config/ttl', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + localStorage.getItem('logrider_token')
-                },
-                body: JSON.stringify({ ttl: parseInt(ttl) })
-            });
-            
-            if (res.ok) {
-                const data = await res.json();
-                document.getElementById('current-ttl-display').innerText = data.ttl + 's';
-                const status = document.getElementById('ttl-status');
-                status.innerText = 'Updated successfully!';
-                status.classList.remove('hidden');
-                setTimeout(() => status.classList.add('hidden'), 3000);
-            }
-        }
-
         function escapeHTML(str) {
             const div = document.createElement('div');
             div.innerText = str;
@@ -444,7 +425,9 @@
 
             ws.onmessage = (event) => {
                 if (isFirstMessage) {
-                    logsContainer.innerHTML = '';
+                    if (logsContainer.innerHTML.includes('No logs found') || logsContainer.innerHTML.includes('Connecting')) {
+                        logsContainer.innerHTML = '';
+                    }
                     isFirstMessage = false;
                 }
 
@@ -483,36 +466,76 @@
                         for (let i = logs.length - 1; i >= 0; i--) {
                             renderLog(logs[i], false);
                         }
+                    } else {
+                        logsContainer.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs found</td></tr>';
                     }
+                } else {
+                    logsContainer.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Failed to load historical logs</td></tr>';
                 }
-            } catch (e) {}
+            } catch (e) {
+                logsContainer.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Error fetching logs</td></tr>';
+                console.error(e);
+            }
+        }
+
+        function applyFilters() {
+            const filterApp = document.getElementById('filter-app').value.toLowerCase();
+            const filterLevel = document.getElementById('filter-level').value;
+            
+            const rows = logsContainer.querySelectorAll('tr.log-row');
+            let visibleCount = 0;
+            rows.forEach(row => {
+                const app = row.getAttribute('data-app').toLowerCase();
+                const level = row.getAttribute('data-level');
+                
+                const matchApp = app.includes(filterApp);
+                const matchLevel = filterLevel === '' || level === filterLevel;
+                
+                if (matchApp && matchLevel) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Handle no logs found from filter
+            const noLogsRow = document.getElementById('no-logs-row');
+            if (visibleCount === 0 && rows.length > 0) {
+                if (!noLogsRow) {
+                    logsContainer.insertAdjacentHTML('beforeend', '<tr id="no-logs-row"><td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs match the current filters</td></tr>');
+                }
+            } else if (noLogsRow) {
+                noLogsRow.remove();
+            }
         }
 
         function renderLog(data, isLive) {
-            if (isLive && isFirstMessage) {
-                logsContainer.innerHTML = '';
-                isFirstMessage = false;
-            }
 
             const tr = document.createElement('tr');
-            tr.className = "hover:bg-blue-50/50 dark:hover:bg-white/5 group transition-colors";
+            tr.className = "hover:bg-blue-50/50 dark:hover:bg-white/5 group transition-colors log-row";
             
             let levelStr = '';
             let msgStr = '';
-            let timeStr = new Date().toISOString();
+            let timeStr = '-';
             
             if (data.type === 'ALERT') {
-                levelStr = 'ALERT';
+                levelStr = 'CRITICAL';
                 msgStr = data.message;
-                timeStr = data.log?.Timestamp || timeStr;
+                if (data.log) {
+                    timeStr = data.log.Timestamp || data.log.timestamp || timeStr;
+                }
             } else {
                 levelStr = (data.Log_Level || data.level || 'INFO').toUpperCase();
                 msgStr = data.Message || data.message || JSON.stringify(data);
                 timeStr = data.Timestamp || data.timestamp || timeStr;
             }
             
-            msgStr = escapeHTML(msgStr);
             const rawAppName = data.Application_Name || data.log?.Application_Name || '-';
+            tr.setAttribute('data-app', rawAppName);
+            tr.setAttribute('data-level', levelStr);
+            
+            msgStr = escapeHTML(msgStr);
             
             let colorClass = 'text-aws-link dark:text-aws-linkDark';
             if (['WARN', 'WARNING'].includes(levelStr)) colorClass = 'text-aws-primary';
@@ -533,7 +556,12 @@
                 <td class="px-5 py-3 font-mono text-xs whitespace-normal break-words align-top leading-relaxed">${msgStr}</td>
                 <td class="px-5 py-3 align-top tags-container whitespace-normal">${tagsHtml}</td>
             `;
-            logsContainer.prepend(tr);
+            if (isLive) {
+                logsContainer.prepend(tr);
+            } else {
+                logsContainer.appendChild(tr);
+            }
+            applyFilters();
             
             if (logsContainer.children.length > 200) {
                 logsContainer.removeChild(logsContainer.lastChild);

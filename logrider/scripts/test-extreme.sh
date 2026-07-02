@@ -6,7 +6,7 @@ echo "Running EXTREME load test (1M logs) with k6..."
 # 1000 logs/req * 1000 requests = 1,000,000 logs
 # We use 10 VUs and 20 iterations per VU = 200 requests total
 # This should complete very quickly without breaking the 1MB TCP payload limits.
-k6 run -e VUS=10 -e ITERATIONS=20 -e BATCH_SIZE=5000 k6-load.js
+nix-shell ../../shell.nix --run "k6 run -e VUS=10 -e ITERATIONS=20 -e BATCH_SIZE=5000 k6-load.js"
 
 echo "Waiting 5 seconds for pipeline flush..."
 sleep 5

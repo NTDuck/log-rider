@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>log-rider - Config</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        aws: {
+                            nav: '#0f1b2d', bg: '#f2f3f3', bgDark: '#0f1b2d', panel: '#ffffff', panelDark: '#1c2539',
+                            border: '#eaeded', borderDark: '#414d5c', text: '#16191f', textDark: '#ffffff',
+                            textMuted: '#545b64', textMutedDark: '#9ba7b6', primary: '#0972d3', primaryHover: '#035b96',
+                            link: '#0073bb', linkDark: '#44b9ff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200">
+    <header class="bg-aws-nav text-white flex items-center justify-between px-4 py-3 sticky top-0 z-50">
+        <div class="flex items-center space-x-6">
+            <a href="/dashboard" class="flex items-center space-x-2 no-underline text-white hover:text-gray-200">
+                <span class="font-semibold text-lg tracking-tight">log-rider</span>
+                <span class="bg-red-600/20 text-red-400 border border-red-500/30 text-xs px-2 py-0.5 rounded-full font-medium ml-2">Admin</span>
+            </a>
+            <nav class="hidden md:flex space-x-4">
+                <a href="/dashboard" class="text-sm font-medium hover:text-white text-gray-300 transition-colors">Dashboard</a>
+                <a href="/alerts" class="text-sm font-medium hover:text-white text-gray-300 transition-colors">Alerts</a>
+                <a href="/config" class="text-sm font-medium text-white transition-colors">Config</a>
+            </nav>
+        </div>
+        <div class="flex items-center space-x-4">
+            <button onclick="logout()" class="bg-aws-primary hover:bg-aws-primaryHover text-white px-3 py-1 text-xs font-bold rounded-full transition-colors border border-transparent shadow-sm">Sign Out</button>
+        </div>
+    </header>
+
+    <main class="max-w-[1000px] mx-auto px-4 py-8 space-y-6" id="app-content" style="display:none;">
+        <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark mb-6">Global Configuration</h1>
+        
+        <!-- TTL Panel -->
+        <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+            <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
+                <h2 class="text-lg font-bold">Alert Deduplication Rules</h2>
+            </div>
+            <div class="p-5">
+                <label class="block text-sm font-bold mb-2">Alert TTL (seconds)</label>
+                <div class="flex space-x-3 items-center">
+                    <input type="number" id="ttl-input" min="1" class="w-32 px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link">
+                    <button onclick="updateTTL()" class="px-4 py-1.5 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save TTL</button>
+                </div>
+                <p id="ttl-status" class="text-green-600 dark:text-green-400 text-sm font-medium mt-2 hidden"></p>
+            </div>
+        </div>
+
+        <!-- User Management Panel -->
+        <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+            <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg flex justify-between items-center">
+                <h2 class="text-lg font-bold">User Management</h2>
+            </div>
+            <div class="p-5 overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap mb-6">
+                    <thead class="bg-gray-50 dark:bg-black/20 text-aws-textMuted dark:text-aws-textMutedDark text-xs uppercase font-bold border-b border-aws-border dark:border-aws-borderDark">
+                        <tr>
+                            <th class="px-4 py-2">Username</th>
+                            <th class="px-4 py-2">Role</th>
+                            <th class="px-4 py-2">Allowed Apps</th>
+                            <th class="px-4 py-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table" class="divide-y divide-aws-border dark:divide-aws-borderDark">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+
+                <h3 class="text-md font-bold mb-3 border-t border-aws-border dark:border-aws-borderDark pt-4">Add / Update User</h3>
+                <form id="user-form" onsubmit="saveUser(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Username</label>
+                        <input type="text" id="u-username" required class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] focus:outline-none focus:border-aws-link">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1">New Password (auto-hashed)</label>
+                        <input type="password" id="u-password" required class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] focus:outline-none focus:border-aws-link">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Role</label>
+                        <select id="u-role" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] focus:outline-none focus:border-aws-link">
+                            <option value="engineer">engineer</option>
+                            <option value="admin">admin</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Allowed Apps (comma-separated)</label>
+                        <input type="text" id="u-apps" placeholder="app1,app2" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] focus:outline-none focus:border-aws-link">
+                    </div>
+                    <div class="md:col-span-2">
+                        <button type="submit" class="px-4 py-1.5 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover text-white">Save User</button>
+                        <span id="user-status" class="ml-3 text-green-600 dark:text-green-400 text-sm font-medium hidden"></span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const token = localStorage.getItem('logrider_token');
+        if (!token || localStorage.getItem('logrider_role') !== 'admin') {
+            window.location.href = '/dashboard';
+        } else {
+            document.getElementById('app-content').style.display = 'block';
+            loadData();
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/dashboard';
+        }
+
+        async function loadData() {
+            // Load TTL
+            const resTTL = await fetch('/api/config/ttl');
+            if (resTTL.ok) {
+                const data = await resTTL.json();
+                document.getElementById('ttl-input').value = data.ttl;
+            }
+            // Load Users
+            const resUsers = await fetch('/api/users', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (resUsers.ok) {
+                const data = await resUsers.json();
+                const tbody = document.getElementById('users-table');
+                tbody.innerHTML = '';
+                data.users.forEach(u => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-blue-50/50 dark:hover:bg-white/5">
+                            <td class="px-4 py-2 font-medium">${u.username}</td>
+                            <td class="px-4 py-2">${u.role}</td>
+                            <td class="px-4 py-2 text-xs font-mono text-aws-textMuted">${u.allowed_apps || '-'}</td>
+                            <td class="px-4 py-2">
+                                <button onclick="deleteUser('${u.username}')" class="text-red-600 hover:underline text-xs font-bold">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        async function updateTTL() {
+            const ttl = document.getElementById('ttl-input').value;
+            const res = await fetch('/api/config/ttl', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ ttl: parseInt(ttl) })
+            });
+            if (res.ok) {
+                document.getElementById('ttl-status').innerText = 'TTL Saved!';
+                document.getElementById('ttl-status').classList.remove('hidden');
+                setTimeout(() => document.getElementById('ttl-status').classList.add('hidden'), 2000);
+            }
+        }
+
+        async function saveUser(e) {
+            e.preventDefault();
+            const payload = {
+                username: document.getElementById('u-username').value,
+                password: document.getElementById('u-password').value,
+                role: document.getElementById('u-role').value,
+                allowed_apps: document.getElementById('u-apps').value
+            };
+            const res = await fetch('/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                document.getElementById('user-form').reset();
+                document.getElementById('user-status').innerText = 'User saved successfully!';
+                document.getElementById('user-status').classList.remove('hidden');
+                setTimeout(() => document.getElementById('user-status').classList.add('hidden'), 2000);
+                loadData();
+            }
+        }
+
+        async function deleteUser(username) {
+            if (!confirm('Delete user ' + username + '?')) return;
+            await fetch('/api/users/' + username, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            loadData();
+        }
+    </script>
+</body>
+</html>
