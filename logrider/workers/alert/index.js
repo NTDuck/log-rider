@@ -14,10 +14,19 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
         await subscriber.connect();
         console.log('Connected to Redis');
 
-        await subscriber.subscribe('alerts-raw', async (message) => {
+        // Lua script for atomic INCR + EXPIRE
+        const luaScript = `
+            local count = redis.call("INCR", KEYS[1])
+            if count == 1 then
+                redis.call("EXPIRE", KEYS[1], ARGV[1])
+            end
+            return count
+        `;
+
+        await subscriber.pSubscribe('alerts-raw:*', async (message, channel) => {
             try {
                 const log = JSON.parse(message);
-                console.debug(`[DEBUG] Received log ${log.Trace_ID} from alerts-raw`);
+                console.debug(`[DEBUG] Received log ${log.Trace_ID} from ${channel}`);
                 // Group alerts by Application Name AND the specific error signature
                 const errorHash = (await import('crypto')).createHash('md5').update(log.Message || '').digest('hex').substring(0, 8);
                 const key = `alert_lock:${log.Application_Name}:${errorHash}`;
@@ -26,13 +35,11 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
                 let ttl = await redisClient.get('config:alert_ttl');
                 ttl = ttl ? parseInt(ttl, 10) : 60;
                 
-                // Atomic INCR and EXPIRE to prevent infinite locks
-                const replies = await redisClient.multi()
-                    .incr(key)
-                    .expire(key, ttl, 'NX')
-                    .exec();
-                
-                const count = replies[0];
+                // Atomic INCR and EXPIRE using EVAL
+                const count = await redisClient.eval(luaScript, {
+                    keys: [key],
+                    arguments: [ttl.toString()]
+                });
                 
                 let alertMessage = `CRITICAL ALERT: ${log.Application_Name} has encountered an error.`;
                 if (count >= 100) {
@@ -105,6 +112,7 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
                         alerts: specificAlerts
                     }));
                 }
+            } catch (err) {
                 console.error('State publish error', err);
             }
         }, 1000);

@@ -1,4 +1,34 @@
 CREATE DATABASE IF NOT EXISTS logrider;
+CREATE TABLE IF NOT EXISTS logrider.logs_raw_null (
+    Application_Name String,
+    Log_Level Enum8('DEBUG'=1, 'INFO'=2, 'WARN'=3, 'ERROR'=4, 'CRITICAL'=5),
+    Message String,
+    Timestamp DateTime64(3),
+    Trace_ID UUID
+) ENGINE = Null;
+
+CREATE TABLE IF NOT EXISTS logrider.logs_enriched (
+    Application_Name String,
+    Log_Level Enum8('DEBUG'=1, 'INFO'=2, 'WARN'=3, 'ERROR'=4, 'CRITICAL'=5),
+    Message String,
+    Timestamp DateTime64(3),
+    Trace_ID UUID,
+    Tags Array(String)
+) ENGINE = MergeTree()
+ORDER BY (Timestamp, Trace_ID)
+TTL Timestamp + INTERVAL 7 DAY;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS logrider.logs_enriched_mv
+TO logrider.logs_enriched
+AS SELECT
+    Application_Name,
+    Log_Level,
+    Message,
+    Timestamp,
+    Trace_ID,
+    CAST([] AS Array(String)) AS Tags
+FROM logrider.logs_raw_null;
+
 CREATE TABLE IF NOT EXISTS logrider.logs (
     Application_Name String,
     Log_Level Enum8('DEBUG'=1, 'INFO'=2, 'WARN'=3, 'ERROR'=4, 'CRITICAL'=5),

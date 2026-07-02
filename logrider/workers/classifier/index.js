@@ -16,9 +16,9 @@ const tagsList = ["Network", "Database", "Security", "Latency", "Auth", "UI", "P
 
 async function main() {
     await redisClient.connect();
-    const consumer = kafka.consumer({ groupId: 'classifier-group' });
+    const consumer = kafka.consumer({ groupId: 'classifier-group-2' });
     await consumer.connect();
-    await consumer.subscribe({ topic: 'logs-normalized', fromBeginning: true });
+    await consumer.subscribe({ topic: 'logs-normalized', fromBeginning: false });
 
     await consumer.run({
         eachMessage: async ({ message }) => {
@@ -33,14 +33,16 @@ async function main() {
                 const shuffled = tagsList.sort(() => 0.5 - Math.random());
                 const assignedTags = shuffled.slice(0, numTags);
 
-                // Publish to redis ws-tags
+                // Publish to redis ws-frontend channels so the dumb webserver forwards it
                 const tagMessage = JSON.stringify({
                     type: 'TAGS',
                     Trace_ID: log.Trace_ID,
                     Application_Name: log.Application_Name,
-                    Tags: assignedTags
+                    Tags: assignedTags,
+                    status: 'Classified'
                 });
-                await redisClient.publish('ws-tags', tagMessage);
+                await redisClient.publish(`ws-frontend:${log.Application_Name}`, tagMessage);
+                await redisClient.publish('ws-frontend:global', tagMessage);
 
                 // Write to ClickHouse log_tags table
                 const clickhouseQuery = "INSERT INTO logrider.log_tags FORMAT JSONEachRow";

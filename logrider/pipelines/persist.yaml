@@ -1,0 +1,59 @@
+input:
+  kafka:
+    addresses:
+      - redpanda:29092
+    topics:
+      - logs-persist
+    consumer_group: "logrider_persist_3"
+    start_from_oldest: false
+    batching:
+      count: 100000
+      period: 3s
+
+pipeline:
+  processors:
+    - try:
+        - sql_insert:
+            driver: clickhouse
+            dsn: ${CLICKHOUSE_DSN}
+            table: logs_raw_null
+            columns:
+              - Application_Name
+              - Log_Level
+              - Message
+              - Timestamp
+              - Trace_ID
+            args_mapping: |
+              root = [
+                this.Application_Name,
+                this.Log_Level,
+                this.Message,
+                this.Timestamp,
+                this.Trace_ID
+              ]
+        - mapping: |
+            root = {"type": "HYDRATED_LOG", "status": "Persisted", "log": this}
+    - catch:
+        - mapping: |
+            root = this
+            root.error = error()
+
+output:
+  switch:
+    cases:
+      - check: 'this.exists("error")'
+        output:
+          kafka:
+            addresses:
+              - redpanda:29092
+            topic: dlq-logs
+      - output:
+          broker:
+            pattern: fan_out
+            outputs:
+              - redis_pubsub:
+                  url: redis://redis:6379
+                  channel: ws-frontend:${! this.log.Application_Name }
+              - redis_pubsub:
+                  url: redis://redis:6379
+                  channel: ws-frontend:global

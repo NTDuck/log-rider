@@ -6,10 +6,12 @@ export const options = {
   discardResponseBodies: true,
   scenarios: {
     load_test: {
-      executor: 'shared-iterations',
-      vus: __ENV.VUS || 10,
-      iterations: __ENV.ITERATIONS || 500,
-      maxDuration: '10m',
+      executor: 'constant-arrival-rate',
+      rate: __ENV.RATE || 200, // 200 requests per second
+      timeUnit: '1s',
+      duration: __ENV.DURATION || '10s',
+      preAllocatedVUs: 50,
+      maxVUs: 500,
     },
   },
 };
@@ -32,7 +34,7 @@ function getRandomMessage() {
 }
 
 export default function () {
-  const batchSize = __ENV.BATCH_SIZE ? parseInt(__ENV.BATCH_SIZE) : 1;
+  const batchSize = __ENV.BATCH_SIZE ? parseInt(__ENV.BATCH_SIZE) : 5000;
   const records = [];
 
   for (let i = 0; i < batchSize; i++) {

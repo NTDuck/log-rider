@@ -59,6 +59,18 @@ services:
       - clickhouse
     command: -c /benthos.yaml
 
+  benthos-persist:
+    image: jeffail/benthos:latest
+    environment:
+      CLICKHOUSE_DSN: "clickhouse://default:password@clickhouse:9000/logrider"
+    volumes:
+      - ./pipelines/persist.yaml:/benthos.yaml
+    depends_on:
+      - redpanda
+      - redis
+      - clickhouse
+    command: -c /benthos.yaml
+
   alert-worker:
     build: ./workers/alert
     depends_on:
@@ -66,12 +78,7 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
 
-  stream-worker:
-    build: ./workers/stream
-    depends_on:
-      - redis
-    environment:
-      REDIS_URL: redis://redis:6379
+
 
   classifier-worker:
     build: ./workers/classifier

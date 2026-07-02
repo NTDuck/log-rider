@@ -159,7 +159,7 @@
                                 </thead>
                                 <tbody id="logs" class="divide-y divide-aws-border dark:divide-aws-borderDark text-[#16191f] dark:text-[#d5d9e2]">
                                     <tr>
-                                        <td colspan="5" class="px-5 py-8 text-center text-aws-textMuted dark:text-aws-textMutedDark">
+                                        <td colspan="6" class="px-5 py-8 text-center text-aws-textMuted dark:text-aws-textMutedDark">
                                             <svg class="animate-spin h-5 w-5 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -206,7 +206,9 @@
                             <p class="text-xs text-aws-textMuted dark:text-aws-textMutedDark mt-0.5">Error Rate (%) by Application</p>
                         </div>
                         <div class="p-5">
-                            <canvas id="health-chart" height="200"></canvas>
+                            <div style="position: relative; height: 200px; width: 100%;">
+                                <canvas id="health-chart"></canvas>
+                            </div>
                             <a href="/metrics" class="text-xs font-bold text-aws-link dark:text-aws-linkDark hover:underline mt-4 block text-right">View full metrics &rarr;</a>
                         </div>
                     </div>
@@ -422,7 +424,7 @@
         function connectWS() {
             const token = localStorage.getItem('logrider_token');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/ws?token=${token}`;
+            const wsUrl = `${protocol}//${window.location.host}/api/ws`;
             
             ws = new WebSocket(wsUrl);
 
@@ -442,7 +444,22 @@
                 }
 
                 if (data.type === 'HYDRATED_LOG') {
-                    renderLog(data.log, true);
+                    const logData = data.log || {};
+                    logData.status = data.status;
+                    renderLog(logData, true);
+                } else if (data.type === 'TAGS') {
+                    if (data.Trace_ID) {
+                        const traceId = escapeHTML(data.Trace_ID);
+                        const rows = document.querySelectorAll(`tr[data-trace-id="${traceId}"]`);
+                        const tagsHtml = (data.Tags || []).map(t => `<span class="tag-pill border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-black/20 mr-1">${escapeHTML(t)}</span>`).join('');
+                        const statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold">Classified</span>';
+                        rows.forEach(row => {
+                            const tagsContainer = row.querySelector('.tags-container');
+                            if (tagsContainer) tagsContainer.innerHTML = tagsHtml;
+                            const statusContainer = row.querySelector('.status-container');
+                            if (statusContainer) statusContainer.innerHTML = statusHtml;
+                        });
+                    }
                 } else if (!data.type) {
                     renderLog(data, true);
                 }
@@ -463,13 +480,13 @@
                             renderLog(logs[i], false);
                         }
                     } else {
-                        logsContainer.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs found</td></tr>';
+                        logsContainer.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs found</td></tr>';
                     }
                 } else {
-                    logsContainer.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Failed to load historical logs</td></tr>';
+                    logsContainer.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Failed to load historical logs</td></tr>';
                 }
             } catch (e) {
-                logsContainer.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Error fetching logs</td></tr>';
+                logsContainer.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Error fetching logs</td></tr>';
                 console.error(e);
             }
         }
@@ -499,7 +516,7 @@
             const noLogsRow = document.getElementById('no-logs-row');
             if (visibleCount === 0 && rows.length > 0) {
                 if (!noLogsRow) {
-                    logsContainer.insertAdjacentHTML('beforeend', '<tr id="no-logs-row"><td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs match the current filters</td></tr>');
+                    logsContainer.insertAdjacentHTML('beforeend', '<tr id="no-logs-row"><td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs match the current filters</td></tr>');
                 }
             } else if (noLogsRow) {
                 noLogsRow.remove();
@@ -543,12 +560,14 @@
             }
             
             const traceId = data.Trace_ID || data.log?.Trace_ID;
-            if (traceId) tr.id = 'log-' + escapeHTML(traceId);
+            if (traceId) {
+                tr.setAttribute('data-trace-id', escapeHTML(traceId));
+            }
 
             let statusHtml = '';
-            if (data.Tags && data.Tags.length > 0) {
+            if (data.status === 'Classified' || (data.Tags && data.Tags.length > 0)) {
                 statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold">Classified</span>';
-            } else if (data.status === 'Persisted' || !isLive) {
+            } else if (data.status === 'Persisted' || (!isLive && !data.status)) {
                 statusHtml = '<span class="text-blue-600 dark:text-blue-400 font-bold">Persisted</span>';
             } else if (data.status === 'Ingested') {
                 statusHtml = '<span class="text-purple-600 dark:text-purple-400 font-bold">Ingested</span>';
@@ -564,6 +583,14 @@
                 <td class="px-5 py-3 align-top tags-container whitespace-normal">${tagsHtml}</td>
                 <td class="px-5 py-3 align-top status-container text-xs">${statusHtml}</td>
             `;
+            
+            if (tr.id) {
+                // Ensure duplicate IDs don't conflict by appending a random string if needed,
+                // but we actually don't need the ID since we won't replace by ID anymore.
+                tr.id = tr.id + '-' + Math.random().toString(36).substr(2, 5);
+            }
+
+            
             if (isLive) {
                 logsContainer.prepend(tr);
             } else {

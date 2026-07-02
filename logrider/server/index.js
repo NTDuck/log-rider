@@ -138,13 +138,23 @@ bunServer = Bun.serve({
                     return Response.json({ error: 'Invalid credentials' }, { status: 401 });
                 }
                 
-                const isAdmin = user.role === 'admin';
-                const token = 'token-' + crypto.randomBytes(32).toString('hex');
-                const allowed_apps = user.allowed_apps ? user.allowed_apps.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                const token = (await import('crypto')).randomBytes(32).toString('hex');
+                await redisClient.setEx(`session:${token}`, 86400, JSON.stringify({
+                    username: user.username,
+                    is_admin: user.role === 'admin',
+                    allowed_apps: user.allowed_apps
+                }));
                 
-                await redisClient.setEx(`session:${token}`, 3600, JSON.stringify({ is_admin: isAdmin, allowed_apps, username: user.username }));
-                
-                return Response.json({ token, role: user.role, redirect: '/dashboard' });
+                return new Response(JSON.stringify({ 
+                    token, 
+                    role: user.role,
+                    redirect: '/dashboard'
+                }), {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Set-Cookie': `logrider_token=${token}; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict`
+                    }
+                });
             } catch (error) {
                 console.error('Login error:', error);
                 return Response.json({ error: 'Internal server error' }, { status: 500 });
@@ -285,7 +295,15 @@ bunServer = Bun.serve({
 
         if (req.method === 'GET' && url.pathname === '/api/logs/recent') {
             try {
-                const token = req.headers.get('authorization')?.replace('Bearer ', '');
+                // Try header first, then cookie
+                let token = req.headers.get('authorization')?.replace('Bearer ', '');
+                if (!token) {
+                    const cookie = req.headers.get('cookie');
+                    if (cookie) {
+                        const match = cookie.match(/logrider_token=([^;]+)/);
+                        if (match) token = match[1];
+                    }
+                }
                 if (!token) return Response.json({ error: 'No token' }, { status: 401 });
                 
                 const sessionStr = await redisClient.get(`session:${token}`);
@@ -293,23 +311,38 @@ bunServer = Bun.serve({
                 
                 const session = JSON.parse(sessionStr);
                 
-                let logs = [];
-                if (session.is_admin) {
-                    const data = await redisClient.lRange('recent_logs:global', 0, 99);
-                    logs = data.map(JSON.parse);
-                } else {
+                let query = `SELECT * FROM logrider.logs_enriched ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
+                
+                if (!session.is_admin) {
                     if (!session.allowed_apps || session.allowed_apps.length === 0) {
                         return Response.json({ logs: [] });
                     }
-                    const multi = redisClient.multi();
-                    for (const app of session.allowed_apps) {
-                        multi.lRange(`recent_logs:${app}`, 0, 99);
-                    }
-                    const results = await multi.exec();
-                    const allLogs = results.flatMap(data => data.map(JSON.parse));
-                    // Sort by timestamp desc
-                    logs = allLogs.sort((a, b) => new Date(b.Timestamp || 0) - new Date(a.Timestamp || 0)).slice(0, 100);
+                    const appsArray = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',') : session.allowed_apps;
+                    const appsStr = appsArray.map(a => `'${a}'`).join(',');
+                    query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${appsStr}) ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
                 }
+
+                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                    method: 'POST',
+                    body: query
+                });
+                
+                if (!chRes.ok) {
+                    throw new Error(`ClickHouse error: ${await chRes.text()}`);
+                }
+                
+                const chData = await chRes.json();
+                
+                // Format output to match frontend expectation
+                const logs = chData.data.map(row => ({
+                    Trace_ID: row.Trace_ID,
+                    Application_Name: row.Application_Name,
+                    Log_Level: row.Log_Level,
+                    Message: row.Message,
+                    Timestamp: row.Timestamp,
+                    Tags: row.Tags || []
+                }));
+
                 return Response.json({ logs });
             } catch (err) {
                 console.error(err);
@@ -318,7 +351,12 @@ bunServer = Bun.serve({
         }
 
         if (url.pathname === '/api/ws') {
-            const token = url.searchParams.get('token');
+            const cookie = req.headers.get('cookie');
+            let token = null;
+            if (cookie) {
+                const match = cookie.match(/logrider_token=([^;]+)/);
+                if (match) token = match[1];
+            }
             if (!token) return new Response('No token', { status: 401 });
             
             const sessionStr = await redisClient.get(`session:${token}`);
