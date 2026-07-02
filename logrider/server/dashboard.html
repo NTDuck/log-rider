@@ -4,36 +4,220 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LogRider Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; }
-        h1 { border-bottom: 1px solid #333; padding-bottom: 10px; }
-        #logs { background: #1e1e1e; padding: 15px; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+        h1 { border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .btn { padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background: #45a049; }
+        input { padding: 8px; margin: 5px 0; border-radius: 4px; border: 1px solid #555; background: #333; color: #fff; }
+        
+        #login-screen, #dashboard-screen { display: none; }
+        .active { display: block !important; }
+        
+        #logs { background: #1e1e1e; padding: 15px; border-radius: 8px; height: 60vh; overflow-y: auto; margin-top: 20px; }
         .log-entry { margin-bottom: 10px; padding: 10px; border-left: 4px solid #4CAF50; background: #2a2a2a; border-radius: 4px; font-family: monospace; }
         .log-entry.error { border-left-color: #f44336; }
-        .log-entry.warning { border-left-color: #ff9800; }
+        .log-entry.critical { border-left-color: #f44336; font-weight: bold; }
+        .log-entry.alert { border-left-color: #ffeb3b; background: #4a4515; }
         .timestamp { color: #888; font-size: 0.9em; margin-right: 10px; }
+        
+        #admin-panel { background: #222; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #444; display: none; }
+        .success-msg { color: #4CAF50; margin-left: 10px; font-size: 0.9em; }
     </style>
 </head>
 <body>
-    <h1>LogRider Dashboard</h1>
-    <div id="logs">
-        <p style="color: #888;">Waiting for logs...</p>
+    
+    <div id="login-screen" class="active">
+        <h2>Login to LogRider</h2>
+        <form id="login-form">
+            <input type="text" id="username" placeholder="Username" required><br>
+            <input type="password" id="password" placeholder="Password" required><br><br>
+            <button type="submit" class="btn">Login</button>
+            <p id="login-error" style="color: red;"></p>
+        </form>
+        <p style="color: #888; font-size: 0.9em;">Hint: admin/admin123 or eng1/eng123</p>
+    </div>
+
+    <div id="dashboard-screen">
+        <h1>
+            <span>LogRider Dashboard <span id="role-badge" style="font-size: 0.5em; background: #555; padding: 4px 8px; border-radius: 12px; vertical-align: middle;"></span></span>
+            <button class="btn" onclick="logout()" style="background: #f44336;">Logout</button>
+        </h1>
+        
+        <div id="admin-panel">
+            <h3>Admin Configuration</h3>
+            <label>Alert Deduplication TTL (seconds):</label>
+            <input type="number" id="ttl-input" min="1">
+            <button class="btn" onclick="updateTTL()">Save Config</button>
+            <span id="ttl-status" class="success-msg"></span>
+            <p style="color: #aaa; font-size: 0.85em;">Current applied TTL: <strong id="current-ttl-display">Loading...</strong></p>
+        </div>
+
+        <div id="analytics-panel" style="background: #1e1e1e; padding: 15px; border-radius: 8px; margin-top: 20px;">
+            <h3>Application Health Analytics (Error Rate %)</h3>
+            <canvas id="health-chart" height="100"></canvas>
+        </div>
+
+        <div id="logs">
+            <p style="color: #888;">Connected. Waiting for logs...</p>
+        </div>
     </div>
 
     <script>
+        const loginScreen = document.getElementById('login-screen');
+        const dashboardScreen = document.getElementById('dashboard-screen');
+        const adminPanel = document.getElementById('admin-panel');
         const logsContainer = document.getElementById('logs');
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/api/ws`;
         
+        let ws;
+
+        // Check auth on load
+        if (localStorage.getItem('logrider_token')) {
+            showDashboard();
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: u, password: p })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                localStorage.setItem('logrider_token', data.token);
+                localStorage.setItem('logrider_role', data.role);
+                showDashboard();
+            } else {
+                document.getElementById('login-error').innerText = data.error || 'Login failed';
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('logrider_token');
+            localStorage.removeItem('logrider_role');
+            if (ws) ws.close();
+            window.location.reload();
+        }
+
+        function showDashboard() {
+            loginScreen.classList.remove('active');
+            dashboardScreen.classList.add('active');
+            
+            const role = localStorage.getItem('logrider_role');
+            document.getElementById('role-badge').innerText = role.toUpperCase();
+            
+            if (role === 'admin') {
+                adminPanel.style.display = 'block';
+                fetchTTL();
+            }
+            
+            fetchAnalytics();
+            connectWS();
+        }
+
+        async function fetchAnalytics() {
+            try {
+                const res = await fetch('/api/analytics/health', {
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('logrider_token') }
+                });
+                const { data } = await res.json();
+                
+                const hours = [...new Set(data.map(d => d.hour))].sort();
+                const apps = [...new Set(data.map(d => d.Application_Name))];
+                
+                const colors = ['#f44336', '#4caf50', '#2196f3', '#ffeb3b', '#9c27b0', '#ff9800'];
+                
+                const datasets = apps.map((app, index) => {
+                    const appData = data.filter(d => d.Application_Name === app);
+                    const chartData = hours.map(h => {
+                        const record = appData.find(d => d.hour === h);
+                        return record ? record.error_rate : 0;
+                    });
+                    
+                    return {
+                        label: app,
+                        data: chartData,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length],
+                        fill: false,
+                        tension: 0.1
+                    };
+                });
+
+                const ctx = document.getElementById('health-chart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: hours,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                title: { display: true, text: 'Error Rate (%)' }
+                            },
+                            x: {
+                                title: { display: true, text: 'Hour' }
+                            }
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("Failed to load analytics", err);
+            }
+        }
+
+        async function fetchTTL() {
+            const res = await fetch('/api/config/ttl');
+            const data = await res.json();
+            document.getElementById('ttl-input').value = data.ttl;
+            document.getElementById('current-ttl-display').innerText = data.ttl + 's';
+        }
+
+        async function updateTTL() {
+            const ttl = document.getElementById('ttl-input').value;
+            const res = await fetch('/api/config/ttl', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + localStorage.getItem('logrider_token')
+                },
+                body: JSON.stringify({ ttl: parseInt(ttl) })
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('current-ttl-display').innerText = data.ttl + 's';
+                const status = document.getElementById('ttl-status');
+                status.innerText = 'Updated successfully!';
+                setTimeout(() => status.innerText = '', 3000);
+            } else {
+                alert('Failed to update TTL');
+            }
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.innerText = str;
+            return div.innerHTML;
+        }
+
         let isFirstMessage = true;
-
-        function connect() {
-            const ws = new WebSocket(wsUrl);
-
-            ws.onopen = () => {
-                console.log('Connected to WebSocket server');
-                logsContainer.innerHTML = '<p style="color: #888;">Connected. Waiting for logs...</p>';
-            };
+        function connectWS() {
+            const token = localStorage.getItem('logrider_token');
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/api/ws?token=${token}`;
+            
+            ws = new WebSocket(wsUrl);
 
             ws.onmessage = (event) => {
                 if (isFirstMessage) {
@@ -49,34 +233,41 @@
                 }
 
                 const entry = document.createElement('div');
-                entry.className = `log-entry ${data.level ? data.level.toLowerCase() : ''}`;
                 
-                const time = data.timestamp || new Date().toISOString();
-                const level = data.level ? `[${data.level.toUpperCase()}]` : '';
-                const msg = data.message || JSON.stringify(data);
+                // Handle alert format vs standard log format
+                let levelStr = '';
+                let msgStr = '';
+                let timeStr = new Date().toISOString();
+                
+                if (data.type === 'ALERT') {
+                    entry.className = 'log-entry alert';
+                    levelStr = '[CRITICAL ALERT]';
+                    msgStr = data.message;
+                    timeStr = data.log?.Timestamp || timeStr;
+                } else {
+                    const lvl = (data.Log_Level || data.level || 'info').toLowerCase();
+                    entry.className = `log-entry ${lvl}`;
+                    levelStr = `[${lvl.toUpperCase()}]`;
+                    msgStr = data.Message || data.message || JSON.stringify(data);
+                    timeStr = data.Timestamp || data.timestamp || timeStr;
+                }
+                
+                msgStr = escapeHTML(msgStr);
+                const rawAppName = data.Application_Name || data.log?.Application_Name;
+                const appName = rawAppName ? `<span style="color:#2196F3">[${escapeHTML(rawAppName)}]</span> ` : '';
 
-                entry.innerHTML = `<span class="timestamp">${time}</span> <strong>${level}</strong> ${msg}`;
-                
+                entry.innerHTML = `<span class="timestamp">${escapeHTML(timeStr)}</span> ${appName}<strong>${levelStr}</strong> ${msgStr}`;
                 logsContainer.prepend(entry);
                 
-                // Keep max 100 logs
-                if (logsContainer.children.length > 100) {
+                if (logsContainer.children.length > 200) {
                     logsContainer.removeChild(logsContainer.lastChild);
                 }
             };
 
             ws.onclose = () => {
-                console.log('WebSocket connection closed. Reconnecting in 5s...');
-                setTimeout(connect, 5000);
-            };
-
-            ws.onerror = (err) => {
-                console.error('WebSocket error:', err);
-                ws.close();
+                console.log('WebSocket closed');
             };
         }
-
-        connect();
     </script>
 </body>
 </html>

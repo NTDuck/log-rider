@@ -46,21 +46,22 @@ services:
       POSTGRES_DB: logrider
     ports:
       - "5432:5432"
+    volumes:
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
 
-  benthos-ingest:
+  benthos-pipeline:
     image: jeffail/benthos:latest
     volumes:
-      - ../pipelines/ingest.yaml:/benthos.yaml
+      - ../pipelines/unified.yaml:/benthos.yaml
     depends_on:
       - redpanda
       - redis
-    command: -c /benthos.yaml
-
-  benthos-persist:
-    image: jeffail/benthos:latest
-    volumes:
-      - ../pipelines/persist.yaml:/benthos.yaml
-    depends_on:
-      - redpanda
       - clickhouse
     command: -c /benthos.yaml
+
+  alert-worker:
+    build: ../workers/alert
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://redis:6379

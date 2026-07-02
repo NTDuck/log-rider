@@ -6,4 +6,5 @@ CREATE TABLE IF NOT EXISTS logrider.logs (
     Timestamp String,
     Trace_ID String
 ) ENGINE = MergeTree()
-ORDER BY Timestamp;
+ORDER BY Timestamp
+TTL parseDateTimeBestEffort(Timestamp) + INTERVAL 7 DAY;
