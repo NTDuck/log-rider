@@ -43,11 +43,17 @@ async function main() {
                 await redisClient.publish('ws-tags', tagMessage);
 
                 // Write to ClickHouse log_tags table
-                const clickhouseQuery = `INSERT INTO logrider.log_tags (Trace_ID, Application_Name, Tags, Timestamp) VALUES ('${log.Trace_ID}', '${log.Application_Name}', [${assignedTags.map(t => `'${t}'`).join(',')}], '${log.Timestamp}')`;
+                const clickhouseQuery = "INSERT INTO logrider.log_tags FORMAT JSONEachRow";
+                const body = JSON.stringify({
+                    Trace_ID: log.Trace_ID,
+                    Application_Name: log.Application_Name,
+                    Tags: assignedTags,
+                    Timestamp: log.Timestamp
+                });
                 
-                const chRes = await fetch(CLICKHOUSE_URI, {
+                const chRes = await fetch(`${CLICKHOUSE_URI}/?query=${encodeURIComponent(clickhouseQuery)}`, {
                     method: 'POST',
-                    body: clickhouseQuery
+                    body: body
                 });
                 
                 if (!chRes.ok) {

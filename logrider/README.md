@@ -1,21 +1,20 @@
 # LogRider
 
-LogRider is a high-performance, real-time distributed log ingestion, processing, and visualization pipeline. 
+LogRider is a high-performance, real-time distributed log ingestion, processing, and visualization pipeline capable of handling 1M+ logs/sec.
 
 ## 🏗 Architecture
 
-The system utilizes a heavily optimized, multi-tier architecture to handle high throughput and real-time observability:
+The system utilizes a heavily optimized, multi-tier architecture to handle extreme throughput and real-time observability:
 
-- **Web Server (Bun)**: Extremely lean native Bun server exposing the HTTP log ingestion API (`/api/logs`), handling Role-Based Access Control (RBAC) via Postgres, serving the real-time WebSocket dashboard, and executing health analytics.
-- **Redpanda**: High-performance Kafka-compatible broker receiving raw logs (`logs-raw`) and staging normalized logs (`logs-normalized`).
-- **Benthos (Unified Pipeline)**: A stream processor that consumes `logs-raw`, normalizes payloads (timestamps, uppercase levels, UUID generation), and fans out to ClickHouse (persistence), Redis (`ws-logs` streaming), and Redpanda (`logs-normalized`).
+- **Redpanda & Pandaproxy**: High-performance Kafka-compatible broker. The ingestion route directly hits Pandaproxy (`http://localhost:8082/topics/logs-raw`) using HTTP POSTs, bypassing the Node/Bun event loop entirely to avoid KafkaJS serialization bottlenecks.
+- **Benthos (Unified Pipeline)**: A stream processor that consumes `logs-raw`, normalizes payloads (timestamps to `DateTime64(3)`), and routes logs. To prevent Redis from being overwhelmed, it uses a `switch` output to only fan out `ERROR` and `CRITICAL` logs to the `alerts-raw` Redis channel. All logs are securely persisted to ClickHouse.
 - **Redis**: 
-  - Acts as a real-time Pub/Sub broker (`ws-logs`, `ws-tags`, and `alerts`).
-  - Manages session caching and stateful **Alert Deduplication** using dynamic TTLs.
-- **Alert Worker (Bun)**: A lightweight daemon running on Bun, subscribing to Redis `ws-logs`. It evaluates `ERROR` and `CRITICAL` logs, deduplicates burst errors using Redis atomic counters, and broadcasts to the `alerts` channel.
-- **Classifier Worker (Node.js)**: An AI worker that consumes from the `logs-normalized` Kafka topic, dynamically assigns categorical tags to the logs, persists them to a separate ClickHouse `log_tags` table, and pushes real-time metadata over Redis `ws-tags`.
-- **ClickHouse**: Columnar database acting as the permanent storage layer. Configured with a built-in **7-day Time-To-Live (TTL)** retention policy to auto-prune stale logs.
-- **PostgreSQL**: Manages users and application permissions.
+  - Acts as a real-time Pub/Sub broker for `alerts-raw` and processed `alerts`.
+  - Manages session caching and stateful **Alert Deduplication** using atomic counters and dynamic TTLs.
+- **Alert Worker (Bun)**: A lightweight daemon subscribing to Redis `alerts-raw`. It deduplicates burst errors using Redis and broadcasts verified alerts to the `alerts` channel.
+- **Classifier Worker (Node.js)**: Consumes from the `logs-normalized` topic, dynamically assigns categorical tags to the logs, and securely persists them via `JSONEachRow` to ClickHouse.
+- **ClickHouse**: Columnar database acting as the permanent storage layer. Configured with native `UUID` types for fast `JOIN`s, and a built-in **7-day Time-To-Live (TTL)** retention policy to auto-prune stale logs.
+- **Web Server (Bun)**: Extremely lean native Bun server managing O(K) mapped WebSocket broadcasts, RBAC authentication (in-memory bcrypt), and health analytics. Real-time log streaming is achieved safely by polling ClickHouse on an interval, preventing browser crashes under extreme load.
 
 ## 🚀 Quick Start
 
@@ -26,7 +25,7 @@ Start the entire stack (Data Tier, Benthos Pipeline, Workers, and Web Server) us
 ```bash
 docker compose up -d
 ```
-*(Note: Postgres and ClickHouse will auto-initialize their schemas and mock data on the first boot).*
+*(Note: ClickHouse will auto-initialize its schema on the first boot).*
 
 The Web Server will automatically boot and bind to port `3000`.
 
@@ -34,30 +33,29 @@ The Web Server will automatically boot and bind to port `3000`.
 
 Navigate to [http://localhost:3000/dashboard](http://localhost:3000/dashboard).
 
-The system comes with **Role-Based Access Control (RBAC)** initialized via Postgres. 
+The system comes with **Role-Based Access Control (RBAC)** initialized securely in the Web Server memory. 
 
 **Mock Accounts:**
 - **Admin**: `admin` / `admin123` (Full visibility into all logs across the cluster, can modify the Deduplication TTL in real-time).
-- **Engineer 1**: `eng1` / `eng123` (Restricted visibility to `payment` and `auth` applications).
-- **Engineer 2**: `eng2` / `eng123` (Restricted visibility to `load-test-app`).
+- **Engineer 1**: `eng1` / `eng123` (Restricted visibility to `apple-service`, `banana-service`, and `orange-service`).
+- **Engineer 2**: `eng2` / `eng123` (Restricted visibility to `kiwi-service` and `papaya-service`).
 
 **Features:**
 - **Real-Time Logs**: WebSockets stream incoming logs natively to the UI based on your permissions.
-- **Real-Time AI Tags**: As the Classifier Worker categorizes logs asynchronously, tags automatically attach to rendered logs in the dashboard instantly without a page refresh.
 - **Health Analytics**: A dynamic Chart.js visualization queries ClickHouse to display the Error Rate (%) across all applications by the hour, helping identify unstable systems.
 - **Live TTL Configuration**: Admins can change the Alert Deduplication Time-To-Live globally without restarting any workers.
 
 ## 🧪 Testing
 
-We provide two concurrent load-testing scripts to simulate intense production traffic. They utilize `python` and concurrent requests to stress-test the ingestion API.
+We provide load-testing scripts using Grafana `k6` to simulate intense production traffic. Tests can be run inside the project's nix-shell.
 
-1. **Standard Ingestion Test**: Fires 500 standard logs instantly using concurrent execution. The script will generate logs for diverse applications (`payment`, `auth`, `inventory`, etc.) with precise millisecond timestamps and unique Trace IDs. It will wait for the pipeline to flush and query ClickHouse to verify end-to-end ingestion success.
+1. **Standard Ingestion Test**: Fires 500 standard logs using `k6`. The script generates logs for random fruit-named microservices (`apple-service`, `banana-service`, etc.) with precise millisecond timestamps and unique UUIDs. It directly hits Redpanda's HTTP proxy.
    ```bash
-   bash ./scripts/test.sh
+   nix-shell ../shell.nix --run ./scripts/test.sh
    ```
-   **To verify RBAC Rules:** Login to the dashboard as `eng1` or `eng2` and observe that the real-time stream and historical logs only display logs for applications that the specific engineer is authorized to view.
+   **To verify RBAC Rules:** Login to the dashboard as `eng1` or `eng2` and observe that the real-time stream and historical logs *only* display logs for the specific fruit microservices that the engineer is authorized to view.
 
-2. **Alert Burst Test**: Fires 500 CRITICAL error logs for the `payment` app instantly. You will see the Alert Worker successfully broadcast the initial alert and suppress/deduplicate the remaining 499 in the terminal and dashboard.
+2. **Extreme Load Test**: Fires 1 Million logs in massive bursts to test the architecture limits. Benthos will easily batch-insert these into ClickHouse, and the Web Server will safely sample/poll them for the dashboard without crashing.
    ```bash
-   bash ./scripts/test-alert.sh
+   nix-shell ../shell.nix --run ./scripts/test-extreme.sh
    ```

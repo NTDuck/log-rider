@@ -1,79 +1,278 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LogRider Dashboard</title>
+    <title>log-rider</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        aws: {
+                            nav: '#0f1b2d',
+                            bg: '#f2f3f3',
+                            bgDark: '#0f1b2d',
+                            panel: '#ffffff',
+                            panelDark: '#1c2539',
+                            border: '#eaeded',
+                            borderDark: '#414d5c',
+                            text: '#16191f',
+                            textDark: '#ffffff',
+                            textMuted: '#545b64',
+                            textMutedDark: '#9ba7b6',
+                            primary: '#0972d3',
+                            primaryHover: '#035b96',
+                            link: '#0073bb',
+                            linkDark: '#44b9ff'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Open Sans"', '"Amazon Ember"', '"Helvetica Neue"', 'Roboto', 'Arial', 'sans-serif'],
+                        mono: ['Menlo', 'Monaco', 'Consolas', '"Courier New"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body { font-family: 'Inter', sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; }
-        h1 { border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .btn { padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        .btn:hover { background: #45a049; }
-        input { padding: 8px; margin: 5px 0; border-radius: 4px; border: 1px solid #555; background: #333; color: #fff; }
+        /* Custom scrollbar for logs */
+        .logs-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .logs-scroll::-webkit-scrollbar-track { background: transparent; }
+        .logs-scroll::-webkit-scrollbar-thumb { background: #aab7b8; border-radius: 4px; }
+        .dark .logs-scroll::-webkit-scrollbar-thumb { background: #545b64; }
         
-        #login-screen, #dashboard-screen { display: none; }
-        .active { display: block !important; }
-        
-        #logs { background: #1e1e1e; padding: 15px; border-radius: 8px; height: 60vh; overflow-y: auto; margin-top: 20px; }
-        .log-entry { margin-bottom: 10px; padding: 10px; border-left: 4px solid #4CAF50; background: #2a2a2a; border-radius: 4px; font-family: monospace; }
-        .log-entry.error { border-left-color: #f44336; }
-        .log-entry.critical { border-left-color: #f44336; font-weight: bold; }
-        .log-entry.alert { border-left-color: #ffeb3b; background: #4a4515; }
-        .timestamp { color: #888; font-size: 0.9em; margin-right: 10px; }
-        .tag { display: inline-block; background: #673ab7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; margin-left: 5px; font-weight: bold; }
-        
-        #admin-panel { background: #222; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #444; display: none; }
-        .success-msg { color: #4CAF50; margin-left: 10px; font-size: 0.9em; }
+        .tag-pill {
+            @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border;
+        }
     </style>
 </head>
-<body>
-    
-    <div id="login-screen" class="active">
-        <h2>Login to LogRider</h2>
-        <form id="login-form">
-            <input type="text" id="username" placeholder="Username" required><br>
-            <input type="password" id="password" placeholder="Password" required><br><br>
-            <button type="submit" class="btn">Login</button>
-            <p id="login-error" style="color: red;"></p>
-        </form>
-        <p style="color: #888; font-size: 0.9em;">Hint: admin/admin123 or eng1/eng123</p>
-    </div>
+<body class="bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200">
 
-    <div id="dashboard-screen">
-        <h1>
-            <span>LogRider Dashboard <span id="role-badge" style="font-size: 0.5em; background: #555; padding: 4px 8px; border-radius: 12px; vertical-align: middle;"></span></span>
-            <button class="btn" onclick="logout()" style="background: #f44336;">Logout</button>
-        </h1>
+    <!-- Top Navigation -->
+    <header class="bg-aws-nav text-white flex items-center justify-between px-4 py-3 sticky top-0 z-50">
+        <div class="flex items-center space-x-6">
+            <a href="#" class="flex items-center space-x-2 no-underline text-white hover:text-gray-200">
+                <span class="font-semibold text-lg tracking-tight flex items-center">
+                    log-rider
+                </span>
+                <span class="bg-green-600/20 text-green-400 border border-green-500/30 text-xs px-2 py-0.5 rounded-full font-medium ml-2">Preview</span>
+            </a>
+        </div>
+        <div class="flex items-center space-x-4">
+            <!-- Dark Mode Toggle (Leftmost of top right) -->
+            <button id="theme-toggle" class="p-1.5 bg-white/10 rounded-full hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-aws-primary" aria-label="Toggle Dark Mode">
+                <!-- Moon icon for light mode -->
+                <svg id="theme-toggle-dark-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                <!-- Sun icon for dark mode -->
+                <svg id="theme-toggle-light-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+            </button>
+            <div id="user-controls" class="hidden items-center space-x-4 text-sm font-medium">
+                <div class="flex items-center space-x-2 bg-black/20 rounded-md px-3 py-1.5 border border-white/10">
+                    <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span id="role-badge" class="text-gray-200"></span>
+                </div>
+                <button onclick="logout()" class="bg-aws-primary hover:bg-aws-primaryHover text-white px-3 py-1 text-xs font-bold rounded-full transition-colors border border-transparent shadow-sm">Sign Out</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        <div id="admin-panel">
-            <h3>Admin Configuration</h3>
-            <label>Alert Deduplication TTL (seconds):</label>
-            <input type="number" id="ttl-input" min="1">
-            <button class="btn" onclick="updateTTL()">Save Config</button>
-            <span id="ttl-status" class="success-msg"></span>
-            <p style="color: #aaa; font-size: 0.85em;">Current applied TTL: <strong id="current-ttl-display">Loading...</strong></p>
+        <!-- Login Screen -->
+        <div id="login-screen" class="max-w-md mx-auto mt-12">
+            <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark shadow-sm rounded-lg overflow-hidden">
+                <div class="px-6 py-5 border-b border-aws-border dark:border-aws-borderDark">
+                    <h2 class="text-xl font-bold text-aws-text dark:text-aws-textDark">Sign in</h2>
+                    <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark mt-1">Enter your credentials to access the console</p>
+                </div>
+                <div class="px-6 py-6">
+                    <form id="login-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-aws-text dark:text-aws-textDark mb-1">Username</label>
+                            <input type="text" id="username" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link transition-shadow" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-aws-text dark:text-aws-textDark mb-1">Password</label>
+                            <input type="password" id="password" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link transition-shadow" required>
+                        </div>
+                        <button type="submit" class="w-full py-1.5 px-4 bg-aws-primary hover:bg-aws-primaryHover text-white text-sm font-bold rounded-full shadow-sm transition-colors mt-2 border border-transparent">Sign in</button>
+                        <p id="login-error" class="text-red-600 dark:text-red-400 text-sm font-medium hidden"></p>
+                    </form>
+                </div>
+                <div class="px-6 py-4 bg-gray-50 dark:bg-black/20 border-t border-aws-border dark:border-aws-borderDark text-xs text-aws-textMuted dark:text-aws-textMutedDark">
+                    <span class="font-semibold">Demo accounts:</span> admin/admin123 or eng1/eng123
+                </div>
+            </div>
         </div>
 
-        <div id="analytics-panel" style="background: #1e1e1e; padding: 15px; border-radius: 8px; margin-top: 20px;">
-            <h3>Application Health Analytics (Error Rate %)</h3>
-            <canvas id="health-chart" height="100"></canvas>
-        </div>
+        <!-- Dashboard Screen -->
+        <div id="dashboard-screen" class="hidden space-y-6">
+            
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark">Logs Dashboard</h1>
+                    <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark mt-1">Monitor, query, and analyze your application logs in real-time.</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button class="px-4 py-1.5 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white flex items-center space-x-2 border border-transparent">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </div>
 
-        <div id="logs">
-            <p style="color: #888;">Connected. Waiting for logs...</p>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left Column (Logs) -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm flex flex-col h-[700px]">
+                        <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark flex justify-between items-center bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
+                            <h2 class="text-lg font-bold">Live Log Stream</h2>
+                            <div class="flex items-center space-x-2 text-sm text-aws-textMuted dark:text-aws-textMutedDark">
+                                <span class="relative flex h-2.5 w-2.5 mr-1">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                                </span>
+                                Streaming via WebSocket
+                            </div>
+                        </div>
+                        <div class="flex-1 overflow-auto logs-scroll p-0 relative">
+                            <table class="w-full text-left text-sm whitespace-nowrap">
+                                <thead class="bg-gray-50 dark:bg-black/20 text-aws-textMuted dark:text-aws-textMutedDark text-xs uppercase font-bold sticky top-0 z-10 border-b border-aws-border dark:border-aws-borderDark shadow-sm">
+                                    <tr>
+                                        <th class="px-5 py-3 w-40">Timestamp</th>
+                                        <th class="px-5 py-3 w-24">Level</th>
+                                        <th class="px-5 py-3 w-32">App</th>
+                                        <th class="px-5 py-3">Message</th>
+                                        <th class="px-5 py-3 w-48">Tags</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logs" class="divide-y divide-aws-border dark:divide-aws-borderDark text-[#16191f] dark:text-[#d5d9e2]">
+                                    <tr>
+                                        <td colspan="5" class="px-5 py-8 text-center text-aws-textMuted dark:text-aws-textMutedDark">
+                                            <svg class="animate-spin h-5 w-5 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Connecting to stream...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Column (Sidebar Widgets) -->
+                <div class="space-y-6">
+                    
+                    <!-- Admin Config Panel -->
+                    <div id="admin-panel" class="hidden bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+                        <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
+                            <h2 class="text-lg font-bold">Global Config</h2>
+                        </div>
+                        <div class="p-5">
+                            <label class="block text-sm font-bold mb-2">Alert Deduplication TTL (seconds)</label>
+                            <div class="flex space-x-3 items-center">
+                                <input type="number" id="ttl-input" min="1" class="w-24 px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link transition-shadow">
+                                <button onclick="updateTTL()" class="px-4 py-1.5 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white border border-transparent">Save</button>
+                            </div>
+                            <div class="mt-3 text-sm">
+                                <span class="text-aws-textMuted dark:text-aws-textMutedDark">Current applied TTL:</span>
+                                <strong id="current-ttl-display" class="ml-1 text-aws-text dark:text-aws-textDark">Loading...</strong>
+                            </div>
+                            <p id="ttl-status" class="text-green-600 dark:text-green-400 text-sm font-medium mt-2 hidden"></p>
+                        </div>
+                    </div>
+                    
+                    <!-- Analytics Panel -->
+                    <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+                        <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
+                            <h2 class="text-lg font-bold">Health Metrics</h2>
+                            <p class="text-xs text-aws-textMuted dark:text-aws-textMutedDark mt-0.5">Error Rate (%) by Application</p>
+                        </div>
+                        <div class="p-5">
+                            <canvas id="health-chart" height="200"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Links / Help -->
+                    <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+                        <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
+                            <h2 class="text-lg font-bold">Resources</h2>
+                        </div>
+                        <div class="p-5 space-y-3">
+                            <a href="#" class="group flex items-center text-sm font-medium text-aws-link dark:text-aws-linkDark hover:underline">
+                                <svg class="w-4 h-4 mr-2 text-aws-textMuted group-hover:text-aws-link" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                LogRider Documentation
+                            </a>
+                            <a href="#" class="group flex items-center text-sm font-medium text-aws-link dark:text-aws-linkDark hover:underline">
+                                <svg class="w-4 h-4 mr-2 text-aws-textMuted group-hover:text-aws-link" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                                API Reference
+                            </a>
+                            <a href="#" class="group flex items-center text-sm font-medium text-aws-link dark:text-aws-linkDark hover:underline">
+                                <svg class="w-4 h-4 mr-2 text-aws-textMuted group-hover:text-aws-link" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                Active Alerts
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </div>
-    </div>
+    </main>
 
     <script>
+        // Dark Mode Setup
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const darkIcon = document.getElementById('theme-toggle-dark-icon');
+        const lightIcon = document.getElementById('theme-toggle-light-icon');
+
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            lightIcon.classList.remove('hidden');
+        } else {
+            document.documentElement.classList.remove('dark');
+            darkIcon.classList.remove('hidden');
+        }
+
+        themeToggleBtn.addEventListener('click', function() {
+            darkIcon.classList.toggle('hidden');
+            lightIcon.classList.toggle('hidden');
+            if (localStorage.getItem('color-theme')) {
+                if (localStorage.getItem('color-theme') === 'light') {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('color-theme', 'dark');
+                    updateChartTheme(true);
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('color-theme', 'light');
+                    updateChartTheme(false);
+                }
+            } else {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('color-theme', 'light');
+                    updateChartTheme(false);
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('color-theme', 'dark');
+                    updateChartTheme(true);
+                }
+            }
+        });
+
+        // App Logic
         const loginScreen = document.getElementById('login-screen');
         const dashboardScreen = document.getElementById('dashboard-screen');
         const adminPanel = document.getElementById('admin-panel');
         const logsContainer = document.getElementById('logs');
-        
         let ws;
+        let chartInstance = null;
 
-        // Check auth on load
         if (localStorage.getItem('logrider_token')) {
             showDashboard();
         }
@@ -82,6 +281,9 @@
             e.preventDefault();
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
+            const errEl = document.getElementById('login-error');
+            
+            errEl.classList.add('hidden');
             
             const res = await fetch('/login', {
                 method: 'POST',
@@ -95,7 +297,8 @@
                 localStorage.setItem('logrider_role', data.role);
                 showDashboard();
             } else {
-                document.getElementById('login-error').innerText = data.error || 'Login failed';
+                errEl.innerText = data.error || 'Login failed';
+                errEl.classList.remove('hidden');
             }
         });
 
@@ -107,21 +310,33 @@
         }
 
         async function showDashboard() {
-            loginScreen.classList.remove('active');
-            dashboardScreen.classList.add('active');
+            loginScreen.classList.add('hidden');
+            dashboardScreen.classList.remove('hidden');
+            document.getElementById('user-controls').classList.remove('hidden');
+            document.getElementById('user-controls').classList.add('flex');
             
             const role = localStorage.getItem('logrider_role');
             document.getElementById('role-badge').innerText = role.toUpperCase();
             
-
             if (role === 'admin') {
-                adminPanel.style.display = 'block';
+                adminPanel.classList.remove('hidden');
                 fetchTTL();
             }
             
             fetchAnalytics();
             await fetchHistoricalLogs();
             connectWS();
+        }
+
+        function updateChartTheme(isDark) {
+            if (chartInstance) {
+                chartInstance.options.scales.x.ticks.color = isDark ? '#9ba7b6' : '#545b64';
+                chartInstance.options.scales.y.ticks.color = isDark ? '#9ba7b6' : '#545b64';
+                chartInstance.options.scales.x.grid.color = isDark ? '#414d5c' : '#eaeded';
+                chartInstance.options.scales.y.grid.color = isDark ? '#414d5c' : '#eaeded';
+                chartInstance.options.plugins.legend.labels.color = isDark ? '#ffffff' : '#16191f';
+                chartInstance.update();
+            }
         }
 
         async function fetchAnalytics() {
@@ -153,23 +368,29 @@
                     };
                 });
 
+                const isDark = document.documentElement.classList.contains('dark');
+                const textColor = isDark ? '#9ba7b6' : '#545b64';
+                const gridColor = isDark ? '#414d5c' : '#eaeded';
+
                 const ctx = document.getElementById('health-chart').getContext('2d');
-                new Chart(ctx, {
+                chartInstance = new Chart(ctx, {
                     type: 'line',
-                    data: {
-                        labels: hours,
-                        datasets: datasets
-                    },
+                    data: { labels: hours, datasets: datasets },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: isDark ? '#ffffff' : '#16191f' } }
+                        },
                         scales: {
                             y: {
-                                beginAtZero: true,
-                                max: 100,
-                                title: { display: true, text: 'Error Rate (%)' }
+                                beginAtZero: true, max: 100,
+                                ticks: { color: textColor },
+                                grid: { color: gridColor }
                             },
                             x: {
-                                title: { display: true, text: 'Hour' }
+                                ticks: { color: textColor },
+                                grid: { color: gridColor }
                             }
                         }
                     }
@@ -202,9 +423,8 @@
                 document.getElementById('current-ttl-display').innerText = data.ttl + 's';
                 const status = document.getElementById('ttl-status');
                 status.innerText = 'Updated successfully!';
-                setTimeout(() => status.innerText = '', 3000);
-            } else {
-                alert('Failed to update TTL');
+                status.classList.remove('hidden');
+                setTimeout(() => status.classList.add('hidden'), 3000);
             }
         }
 
@@ -240,17 +460,13 @@
                     if (el) {
                         const tagsSpan = el.querySelector('.tags-container');
                         if (tagsSpan) {
-                            tagsSpan.innerHTML = data.Tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('');
+                            tagsSpan.innerHTML = data.Tags.map(t => `<span class="tag-pill border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-black/20 mr-1">${escapeHTML(t)}</span>`).join('');
                         }
                     }
                     return;
                 }
 
                 renderLog(data, true);
-            };
-
-            ws.onclose = () => {
-                console.log('WebSocket closed');
             };
         }
 
@@ -262,21 +478,14 @@
                 if (res.ok) {
                     const { logs } = await res.json();
                     if (logs && logs.length > 0) {
-                        logsContainer.innerHTML = ''; // clear waiting message
+                        logsContainer.innerHTML = '';
                         isFirstMessage = false;
-                        // ClickHouse returns DESC (newest first). 
-                        // We want to render them so the newest is at the top of the container.
-                        // Our renderLog function prepends, so if we iterate forwards over [newest, older],
-                        // we end up with [older, newest] in DOM. 
-                        // So we iterate backwards to prepend [older] then [newest].
                         for (let i = logs.length - 1; i >= 0; i--) {
                             renderLog(logs[i], false);
                         }
                     }
                 }
-            } catch (e) {
-                console.error("Failed to fetch historical logs:", e);
-            }
+            } catch (e) {}
         }
 
         function renderLog(data, isLive) {
@@ -285,42 +494,46 @@
                 isFirstMessage = false;
             }
 
-            const entry = document.createElement('div');
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-blue-50/50 dark:hover:bg-white/5 group transition-colors";
             
-            // Handle alert format vs standard log format
             let levelStr = '';
             let msgStr = '';
             let timeStr = new Date().toISOString();
             
             if (data.type === 'ALERT') {
-                entry.className = 'log-entry alert';
-                levelStr = '[CRITICAL ALERT]';
+                levelStr = 'ALERT';
                 msgStr = data.message;
                 timeStr = data.log?.Timestamp || timeStr;
             } else {
-                const lvl = (data.Log_Level || data.level || 'info').toLowerCase();
-                entry.className = `log-entry ${lvl}`;
-                levelStr = `[${lvl.toUpperCase()}]`;
+                levelStr = (data.Log_Level || data.level || 'INFO').toUpperCase();
                 msgStr = data.Message || data.message || JSON.stringify(data);
                 timeStr = data.Timestamp || data.timestamp || timeStr;
             }
             
             msgStr = escapeHTML(msgStr);
-            const rawAppName = data.Application_Name || data.log?.Application_Name;
-            const appName = rawAppName ? `<span style="color:#2196F3">[${escapeHTML(rawAppName)}]</span> ` : '';
+            const rawAppName = data.Application_Name || data.log?.Application_Name || '-';
+            
+            let colorClass = 'text-aws-link dark:text-aws-linkDark';
+            if (['WARN', 'WARNING'].includes(levelStr)) colorClass = 'text-aws-primary';
+            if (['ERROR', 'CRITICAL', 'ALERT'].includes(levelStr)) colorClass = 'text-red-600 dark:text-red-400';
             
             let tagsHtml = '';
             if (data.Tags && Array.isArray(data.Tags)) {
-                tagsHtml = data.Tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('');
+                tagsHtml = data.Tags.map(t => `<span class="tag-pill border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-black/20 mr-1">${escapeHTML(t)}</span>`).join('');
             }
             
             const traceId = data.Trace_ID || data.log?.Trace_ID;
-            if (traceId) {
-                entry.id = 'log-' + escapeHTML(traceId);
-            }
+            if (traceId) tr.id = 'log-' + escapeHTML(traceId);
 
-            entry.innerHTML = `<span class="timestamp">${escapeHTML(timeStr)}</span> ${appName}<strong>${levelStr}</strong> ${msgStr} <span class="tags-container">${tagsHtml}</span>`;
-            logsContainer.prepend(entry);
+            tr.innerHTML = `
+                <td class="px-5 py-3 font-mono text-xs whitespace-nowrap text-aws-textMuted dark:text-aws-textMutedDark align-top">${escapeHTML(timeStr)}</td>
+                <td class="px-5 py-3 font-bold text-xs align-top ${colorClass}">${escapeHTML(levelStr)}</td>
+                <td class="px-5 py-3 font-medium text-xs text-aws-textMuted dark:text-aws-textMutedDark align-top">${escapeHTML(rawAppName)}</td>
+                <td class="px-5 py-3 font-mono text-xs whitespace-normal break-words align-top leading-relaxed">${msgStr}</td>
+                <td class="px-5 py-3 align-top tags-container whitespace-normal">${tagsHtml}</td>
+            `;
+            logsContainer.prepend(tr);
             
             if (logsContainer.children.length > 200) {
                 logsContainer.removeChild(logsContainer.lastChild);

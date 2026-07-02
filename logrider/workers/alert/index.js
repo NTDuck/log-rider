@@ -14,35 +14,35 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
         await subscriber.connect();
         console.log('Connected to Redis');
 
-        await subscriber.subscribe('ws-logs', async (message) => {
+        await subscriber.subscribe('alerts-raw', async (message) => {
             try {
                 const log = JSON.parse(message);
-                console.debug(`[DEBUG] Received log ${log.Trace_ID} from ws-logs for alert inspection`);
-                if (log.Log_Level === 'ERROR' || log.Log_Level === 'CRITICAL') {
-                    console.debug(`[DEBUG] Found ${log.Log_Level} log for ${log.Application_Name}`);
-                    const key = `alert_lock:${log.Application_Name}`;
+                console.debug(`[DEBUG] Received log ${log.Trace_ID} from alerts-raw`);
+                
+                const key = `alert_lock:${log.Application_Name}`;
+                
+                const count = await redisClient.incr(key);
+                if (count === 1) {
+                    let ttl = await redisClient.get('config:alert_ttl');
+                    ttl = ttl ? parseInt(ttl, 10) : 60;
+                    await redisClient.expire(key, ttl);
                     
-                    const count = await redisClient.incr(key);
-                    if (count === 1) {
-                        let ttl = await redisClient.get('config:alert_ttl');
-                        ttl = ttl ? parseInt(ttl, 10) : 60;
-                        await redisClient.expire(key, ttl);
-                        
-                        const alertPayload = {
-                            type: 'ALERT',
-                            message: `CRITICAL ALERT: ${log.Application_Name} has encountered an error.`,
-                            log
-                        };
-                        
-                        await redisClient.publish('alerts', JSON.stringify(alertPayload));
-                        console.log(`[TELEGRAM] Sent alert for ${log.Application_Name} (Error: ${log.Message})`);
-                    } else {
-                        console.debug(`[DEDUP] Suppressed alert for ${log.Application_Name}. Count: ${count}`);
-                    }
+                    const alertPayload = {
+                        type: 'ALERT',
+                        message: `CRITICAL ALERT: ${log.Application_Name} has encountered an error.`,
+                        log
+                    };
+                    
+                    await redisClient.publish('alerts', JSON.stringify(alertPayload));
+                    console.log(`[TELEGRAM] Sent alert for ${log.Application_Name} (Error: ${log.Message})`);
+                } else {
+                    console.debug(`[DEDUP] Suppressed alert for ${log.Application_Name}. Count: ${count}`);
                 }
-            } catch (err) {}
+            } catch (err) {
+                console.error('Error parsing alert message', err);
+            }
         });
-        console.log('Listening to ws-logs on Redis');
+        console.log('Listening to alerts-raw on Redis');
     } catch (e) {
         console.error('Initialization error:', e);
     }

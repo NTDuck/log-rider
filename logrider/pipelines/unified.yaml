@@ -10,7 +10,7 @@ pipeline:
   processors:
     - mapping: |
         root = this
-        root.Timestamp = this.Timestamp | now()
+        root.Timestamp = (this.Timestamp | now()).ts_format("2006-01-02 15:04:05.999")
         root.Log_Level = (this.Log_Level | "INFO").uppercase()
         root.Application_Name = this.Application_Name | "unknown"
         root.Message = this.Message | ""
@@ -20,9 +20,15 @@ output:
   broker:
     pattern: fan_out
     outputs:
-      - redis_pubsub:
-          url: redis://redis:6379
-          channel: ws-logs
+      - switch:
+          cases:
+            - check: 'this.Log_Level == "ERROR" || this.Log_Level == "CRITICAL"'
+              output:
+                redis_pubsub:
+                  url: redis://redis:6379
+                  channel: alerts-raw
+            - output:
+                drop: {}
       - sql_insert:
           driver: clickhouse
           dsn: clickhouse://default:password@clickhouse:9000/logrider
