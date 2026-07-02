@@ -1,5 +1,5 @@
 const { createClient } = require('redis');
-require('dotenv').config({ path: '../../.env' });
+
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
 

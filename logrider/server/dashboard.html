@@ -112,11 +112,17 @@
             const role = localStorage.getItem('logrider_role');
             document.getElementById('role-badge').innerText = role.toUpperCase();
             
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                localStorage.removeItem('logrider_token');
+                window.location.href = '/';
+            });
+            
             if (role === 'admin') {
                 adminPanel.style.display = 'block';
                 fetchTTL();
             }
             
+            fetchHistoricalLogs();
             fetchAnalytics();
             connectWS();
         }
@@ -232,41 +238,75 @@
                     data = { message: event.data, level: 'info' };
                 }
 
-                const entry = document.createElement('div');
-                
-                // Handle alert format vs standard log format
-                let levelStr = '';
-                let msgStr = '';
-                let timeStr = new Date().toISOString();
-                
-                if (data.type === 'ALERT') {
-                    entry.className = 'log-entry alert';
-                    levelStr = '[CRITICAL ALERT]';
-                    msgStr = data.message;
-                    timeStr = data.log?.Timestamp || timeStr;
-                } else {
-                    const lvl = (data.Log_Level || data.level || 'info').toLowerCase();
-                    entry.className = `log-entry ${lvl}`;
-                    levelStr = `[${lvl.toUpperCase()}]`;
-                    msgStr = data.Message || data.message || JSON.stringify(data);
-                    timeStr = data.Timestamp || data.timestamp || timeStr;
-                }
-                
-                msgStr = escapeHTML(msgStr);
-                const rawAppName = data.Application_Name || data.log?.Application_Name;
-                const appName = rawAppName ? `<span style="color:#2196F3">[${escapeHTML(rawAppName)}]</span> ` : '';
-
-                entry.innerHTML = `<span class="timestamp">${escapeHTML(timeStr)}</span> ${appName}<strong>${levelStr}</strong> ${msgStr}`;
-                logsContainer.prepend(entry);
-                
-                if (logsContainer.children.length > 200) {
-                    logsContainer.removeChild(logsContainer.lastChild);
-                }
+                renderLog(data, true);
             };
 
             ws.onclose = () => {
                 console.log('WebSocket closed');
             };
+        }
+
+        async function fetchHistoricalLogs() {
+            try {
+                const res = await fetch('/api/logs/recent', {
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('logrider_token') }
+                });
+                if (res.ok) {
+                    const { logs } = await res.json();
+                    if (logs && logs.length > 0) {
+                        logsContainer.innerHTML = ''; // clear waiting message
+                        isFirstMessage = false;
+                        // ClickHouse returns DESC (newest first). 
+                        // We want to render them so the newest is at the top of the container.
+                        // Our renderLog function prepends, so if we iterate forwards over [newest, older],
+                        // we end up with [older, newest] in DOM. 
+                        // So we iterate backwards to prepend [older] then [newest].
+                        for (let i = logs.length - 1; i >= 0; i--) {
+                            renderLog(logs[i], false);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch historical logs:", e);
+            }
+        }
+
+        function renderLog(data, isLive) {
+            if (isLive && isFirstMessage) {
+                logsContainer.innerHTML = '';
+                isFirstMessage = false;
+            }
+
+            const entry = document.createElement('div');
+            
+            // Handle alert format vs standard log format
+            let levelStr = '';
+            let msgStr = '';
+            let timeStr = new Date().toISOString();
+            
+            if (data.type === 'ALERT') {
+                entry.className = 'log-entry alert';
+                levelStr = '[CRITICAL ALERT]';
+                msgStr = data.message;
+                timeStr = data.log?.Timestamp || timeStr;
+            } else {
+                const lvl = (data.Log_Level || data.level || 'info').toLowerCase();
+                entry.className = `log-entry ${lvl}`;
+                levelStr = `[${lvl.toUpperCase()}]`;
+                msgStr = data.Message || data.message || JSON.stringify(data);
+                timeStr = data.Timestamp || data.timestamp || timeStr;
+            }
+            
+            msgStr = escapeHTML(msgStr);
+            const rawAppName = data.Application_Name || data.log?.Application_Name;
+            const appName = rawAppName ? `<span style="color:#2196F3">[${escapeHTML(rawAppName)}]</span> ` : '';
+
+            entry.innerHTML = `<span class="timestamp">${escapeHTML(timeStr)}</span> ${appName}<strong>${levelStr}</strong> ${msgStr}`;
+            logsContainer.prepend(entry);
+            
+            if (logsContainer.children.length > 200) {
+                logsContainer.removeChild(logsContainer.lastChild);
+            }
         }
     </script>
 </body>

@@ -5,7 +5,7 @@ const path = require('path');
 const { Kafka, Partitioners } = require('kafkajs');
 const { createClient } = require('redis');
 const { Pool } = require('pg');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
 
 const app = express();
 app.use(express.json());
@@ -238,6 +238,58 @@ app.get('/api/analytics/health', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal error fetching analytics' });
+    }
+});
+
+app.get('/api/logs/recent', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) return res.status(401).json({ error: 'No token' });
+        
+        const sessionStr = await redisClient.get(`session:${token}`);
+        if (!sessionStr) return res.status(401).json({ error: 'Invalid token' });
+        
+        const session = JSON.parse(sessionStr);
+        
+        let appFilter = '';
+        if (!session.is_admin) {
+            if (!session.allowed_apps || session.allowed_apps.length === 0) {
+                return res.json({ logs: [] });
+            }
+            const appsList = session.allowed_apps.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
+            appFilter = `WHERE Application_Name IN (${appsList})`;
+        }
+        
+        const query = `
+            SELECT *
+            FROM logrider.logs
+            ${appFilter}
+            ORDER BY parseDateTimeBestEffort(Timestamp) DESC
+            LIMIT 100
+            FORMAT JSON
+        `;
+        
+        let chHost = 'localhost';
+        if (process.env.CLICKHOUSE_URI) {
+            try {
+                const u = new URL(process.env.CLICKHOUSE_URI.replace('clickhouse://', 'http://'));
+                chHost = u.hostname;
+            } catch(e) {}
+        }
+        const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+            method: 'POST',
+            body: query
+        });
+        
+        if (!chRes.ok) {
+            throw new Error(`ClickHouse error: ${await chRes.text()}`);
+        }
+        
+        const chData = await chRes.json();
+        res.json({ logs: chData.data });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal error fetching recent logs' });
     }
 });
 

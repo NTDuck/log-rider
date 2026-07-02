@@ -20,5 +20,6 @@ ON CONFLICT (username) DO NOTHING;
 INSERT INTO user_apps (user_id, app_name) VALUES 
 ((SELECT id FROM users WHERE username = 'eng1'), 'payment'),
 ((SELECT id FROM users WHERE username = 'eng1'), 'auth'),
+((SELECT id FROM users WHERE username = 'eng1'), 'load-test-app'),
 ((SELECT id FROM users WHERE username = 'eng2'), 'load-test-app')
 ON CONFLICT DO NOTHING;
