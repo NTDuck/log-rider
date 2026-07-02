@@ -51,7 +51,7 @@ async function main() {
                     Timestamp: log.Timestamp
                 });
                 
-                const chRes = await fetch(`${CLICKHOUSE_URI}/?query=${encodeURIComponent(clickhouseQuery)}`, {
+                const chRes = await fetch(`${CLICKHOUSE_URI}&query=${encodeURIComponent(clickhouseQuery)}`, {
                     method: 'POST',
                     body: body
                 });

@@ -32,28 +32,71 @@ output:
       - redis_pubsub:
           url: redis://redis:6379
           channel: ws-logs
-      - sql_insert:
-          driver: clickhouse
-          dsn: clickhouse://default:password@clickhouse:9000/logrider
-          table: logs
-          columns:
-            - Application_Name
-            - Log_Level
-            - Message
-            - Timestamp
-            - Trace_ID
-          args_mapping: |
-            root = [
-              this.Application_Name,
-              this.Log_Level,
-              this.Message,
-              this.Timestamp,
-              this.Trace_ID
-            ]
-          batching:
-            count: 1000
-            period: 1s
+        processors:
+          - mapping: |
+              if this.Trace_ID.has_suffix("a") {
+                root = this
+                root.status = "Ingested"
+              } else {
+                root = deleted()
+              }
+      - redis_pubsub:
+          url: redis://redis:6379
+          channel: ws-logs
+        processors:
+          - mapping: |
+              if this.Trace_ID.has_suffix("a") {
+                root = {}
+                root.type = "STATUS"
+                root.Trace_ID = this.Trace_ID
+                root.status = "Normalized"
+              } else {
+                root = deleted()
+              }
+      - fallback:
+          - sql_insert:
+              driver: clickhouse
+              dsn: ${CLICKHOUSE_DSN}
+              table: logs
+              columns:
+                - Application_Name
+                - Log_Level
+                - Message
+                - Timestamp
+                - Trace_ID
+              args_mapping: |
+                root = [
+                  this.Application_Name,
+                  this.Log_Level,
+                  this.Message,
+                  this.Timestamp.ts_parse("2006-01-02 15:04:05.999").ts_unix_milli(),
+                  this.Trace_ID
+                ]
+              batching:
+                count: 100000
+                period: 5s
+          - kafka:
+              addresses:
+                - redpanda:29092
+              topic: dlq-logs
+      - redis_pubsub:
+          url: redis://redis:6379
+          channel: ws-logs
+        processors:
+          - mapping: |
+              if this.Trace_ID.has_suffix("a") {
+                root = {}
+                root.type = "STATUS"
+                root.Trace_ID = this.Trace_ID
+                root.status = "Persisted"
+              } else {
+                root = deleted()
+              }
       - kafka:
           addresses:
             - redpanda:29092
           topic: logs-normalized
+        processors:
+          - mapping: |
+              root = this
+              root.Message = deleted()

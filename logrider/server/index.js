@@ -17,10 +17,20 @@ const chHost = process.env.CLICKHOUSE_HOST || 'clickhouse';
 const pgClient = new Pool({ connectionString: POSTGRES_URI });
 
 (async () => {
+    let retries = 5;
+    while (retries > 0) {
+        try {
+            await pgClient.connect();
+            console.log('Connected to Postgres');
+            break;
+        } catch (e) {
+            console.error('Postgres connection failed, retrying in 2s...', e.message);
+            retries -= 1;
+            await new Promise(res => setTimeout(res, 2000));
+        }
+    }
+
     try {
-        await pgClient.connect();
-        console.log('Connected to Postgres');
-        
         // Ensure users table exists
         await pgClient.query(`
             CREATE TABLE IF NOT EXISTS users (
@@ -96,6 +106,19 @@ const appClients = new Map();
         });
         console.log('Subscribed to Redis channel ws-logs');
 
+        await subscriber.subscribe('ws-tags', (message) => {
+            try {
+                const data = JSON.parse(message);
+                const appName = data.Application_Name;
+                
+                for (const ws of adminClients) ws.send(message);
+                if (appClients.has(appName)) {
+                    for (const ws of appClients.get(appName)) ws.send(message);
+                }
+            } catch (err) {}
+        });
+        console.log('Subscribed to Redis channel ws-tags');
+
     } catch (e) {
         console.error('Initialization error:', e);
     }
@@ -128,6 +151,10 @@ Bun.serve({
         
         if (req.method === 'GET' && url.pathname === '/config') {
             return new Response(Bun.file(path.join(import.meta.dir, 'config.html')));
+        }
+        
+        if (req.method === 'GET' && url.pathname === '/metrics') {
+            return new Response(Bun.file(path.join(import.meta.dir, 'metrics.html')));
         }
 
         if (req.method === 'POST' && url.pathname === '/login') {

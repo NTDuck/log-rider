@@ -65,6 +65,7 @@
                 <a href="/dashboard" class="text-sm font-medium text-white transition-colors">Dashboard</a>
                 <a href="/alerts" class="text-sm font-medium hover:text-white text-gray-300 transition-colors">Alerts</a>
                 <a id="nav-config" href="/config" class="text-sm font-medium hover:text-white text-gray-300 transition-colors hidden">Config</a>
+                <a href="/metrics" class="text-sm font-medium hover:text-white text-gray-300 transition-colors">Metrics</a>
             </nav>
         </div>
         <div class="flex items-center space-x-4">
@@ -153,6 +154,7 @@
                                         <th class="px-5 py-3 w-32">App</th>
                                         <th class="px-5 py-3">Message</th>
                                         <th class="px-5 py-3 w-48">Tags</th>
+                                        <th class="px-5 py-3 w-32">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody id="logs" class="divide-y divide-aws-border dark:divide-aws-borderDark text-[#16191f] dark:text-[#d5d9e2]">
@@ -205,6 +207,7 @@
                         </div>
                         <div class="p-5">
                             <canvas id="health-chart" height="200"></canvas>
+                            <a href="/metrics" class="text-xs font-bold text-aws-link dark:text-aws-linkDark hover:underline mt-4 block text-right">View full metrics &rarr;</a>
                         </div>
                     </div>
                     
@@ -445,6 +448,22 @@
                         if (tagsSpan) {
                             tagsSpan.innerHTML = data.Tags.map(t => `<span class="tag-pill border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-black/20 mr-1">${escapeHTML(t)}</span>`).join('');
                         }
+                        const statusSpan = el.querySelector('.status-container');
+                        if (statusSpan) {
+                            statusSpan.innerHTML = '<span class="text-green-600 dark:text-green-400 font-bold">Classified</span>';
+                        }
+                    }
+                    return;
+                }
+                
+                if (data.type === 'STATUS') {
+                    const el = document.getElementById('log-' + data.Trace_ID);
+                    if (el) {
+                        const statusSpan = el.querySelector('.status-container');
+                        if (statusSpan && data.status) {
+                            if (data.status === 'Ingested') statusSpan.innerHTML = '<span class="text-purple-600 dark:text-purple-400 font-bold">Ingested</span>';
+                            else if (data.status === 'Persisted') statusSpan.innerHTML = '<span class="text-blue-600 dark:text-blue-400 font-bold">Persisted</span>';
+                        }
                     }
                     return;
                 }
@@ -549,12 +568,24 @@
             const traceId = data.Trace_ID || data.log?.Trace_ID;
             if (traceId) tr.id = 'log-' + escapeHTML(traceId);
 
+            let statusHtml = '';
+            if (data.Tags && data.Tags.length > 0) {
+                statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold">Classified</span>';
+            } else if (data.status === 'Persisted' || !isLive) {
+                statusHtml = '<span class="text-blue-600 dark:text-blue-400 font-bold">Persisted</span>';
+            } else if (data.status === 'Ingested') {
+                statusHtml = '<span class="text-purple-600 dark:text-purple-400 font-bold">Ingested</span>';
+            } else {
+                statusHtml = '<span class="text-yellow-600 dark:text-yellow-400 font-bold">Normalized</span>';
+            }
+
             tr.innerHTML = `
                 <td class="px-5 py-3 font-mono text-xs whitespace-nowrap text-aws-textMuted dark:text-aws-textMutedDark align-top">${escapeHTML(timeStr)}</td>
                 <td class="px-5 py-3 font-bold text-xs align-top ${colorClass}">${escapeHTML(levelStr)}</td>
                 <td class="px-5 py-3 font-medium text-xs text-aws-textMuted dark:text-aws-textMutedDark align-top">${escapeHTML(rawAppName)}</td>
                 <td class="px-5 py-3 font-mono text-xs whitespace-normal break-words align-top leading-relaxed">${msgStr}</td>
                 <td class="px-5 py-3 align-top tags-container whitespace-normal">${tagsHtml}</td>
+                <td class="px-5 py-3 align-top status-container text-xs">${statusHtml}</td>
             `;
             if (isLive) {
                 logsContainer.prepend(tr);

@@ -49,6 +49,8 @@ services:
 
   benthos-pipeline:
     image: jeffail/benthos:latest
+    environment:
+      CLICKHOUSE_DSN: "clickhouse://default:password@clickhouse:9000/logrider"
     volumes:
       - ./pipelines/unified.yaml:/benthos.yaml
     depends_on:

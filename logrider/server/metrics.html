@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>log-rider</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        aws: {
+                            nav: '#0f1b2d',
+                            bg: '#f2f3f3',
+                            bgDark: '#0f1b2d',
+                            panel: '#ffffff',
+                            panelDark: '#1c2539',
+                            border: '#eaeded',
+                            borderDark: '#414d5c',
+                            text: '#16191f',
+                            textDark: '#ffffff',
+                            textMuted: '#545b64',
+                            textMutedDark: '#9ba7b6',
+                            primary: '#0972d3',
+                            primaryHover: '#035b96',
+                            link: '#0073bb',
+                            linkDark: '#44b9ff'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Open Sans"', '"Amazon Ember"', '"Helvetica Neue"', 'Roboto', 'Arial', 'sans-serif'],
+                        mono: ['Menlo', 'Monaco', 'Consolas', '"Courier New"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for logs */
+        .logs-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .logs-scroll::-webkit-scrollbar-track { background: transparent; }
+        .logs-scroll::-webkit-scrollbar-thumb { background: #aab7b8; border-radius: 4px; }
+        .dark .logs-scroll::-webkit-scrollbar-thumb { background: #545b64; }
+        
+        .tag-pill {
+            @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border;
+        }
+    </style>
+</head>
+<body class="bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200">
+
+    <!-- Top Navigation -->
+    <header class="bg-aws-nav text-white flex items-center justify-between px-4 py-3 sticky top-0 z-50">
+        <div class="flex items-center space-x-6">
+            <a href="/dashboard" class="flex items-center space-x-2 no-underline text-white hover:text-gray-200">
+                <span class="font-semibold text-lg tracking-tight flex items-center">
+                    log-rider
+                </span>
+                <span class="bg-green-600/20 text-green-400 border border-green-500/30 text-xs px-2 py-0.5 rounded-full font-medium ml-2">Preview</span>
+            </a>
+            <nav id="top-nav" class="hidden md:flex space-x-4 items-center hidden">
+                <a href="/dashboard" class="text-sm font-medium text-white transition-colors">Dashboard</a>
+                <a href="/alerts" class="text-sm font-medium hover:text-white text-gray-300 transition-colors">Alerts</a>
+                <a id="nav-config" href="/config" class="text-sm font-medium hover:text-white text-gray-300 transition-colors hidden">Config</a>
+                <a href="/metrics" class="text-sm font-medium hover:text-white text-gray-300 transition-colors">Metrics</a>
+            </nav>
+        </div>
+        <div class="flex items-center space-x-4">
+            <!-- Dark Mode Toggle (Leftmost of top right) -->
+            <button id="theme-toggle" class="p-1.5 bg-white/10 rounded-full hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-aws-primary" aria-label="Toggle Dark Mode">
+                <!-- Moon icon for light mode -->
+                <svg id="theme-toggle-dark-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                <!-- Sun icon for dark mode -->
+                <svg id="theme-toggle-light-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+            </button>
+            <div id="user-controls" class="hidden items-center space-x-4 text-sm font-medium">
+                <div class="flex items-center space-x-2 bg-black/20 rounded-md px-3 py-1.5 border border-white/10">
+                    <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span id="role-badge" class="text-gray-200"></span>
+                </div>
+                <button onclick="logout()" class="bg-aws-primary hover:bg-aws-primaryHover text-white px-3 py-1 text-xs font-bold rounded-full transition-colors border border-transparent shadow-sm">Sign Out</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Login Screen -->
+        <div id="login-screen" class="max-w-md mx-auto mt-12">
+            <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark shadow-sm rounded-lg overflow-hidden">
+                <div class="px-6 py-5 border-b border-aws-border dark:border-aws-borderDark">
+                    <h2 class="text-xl font-bold text-aws-text dark:text-aws-textDark">Sign in</h2>
+                    <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark mt-1">Enter your credentials to access the console</p>
+                </div>
+                <div class="px-6 py-6">
+                    <form id="login-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-aws-text dark:text-aws-textDark mb-1">Username</label>
+                            <input type="text" id="username" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link transition-shadow" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-aws-text dark:text-aws-textDark mb-1">Password</label>
+                            <input type="password" id="password" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link transition-shadow" required>
+                        </div>
+                        <button type="submit" class="w-full py-1.5 px-4 bg-aws-primary hover:bg-aws-primaryHover text-white text-sm font-bold rounded-full shadow-sm transition-colors mt-2 border border-transparent">Sign in</button>
+                        <p id="login-error" class="text-red-600 dark:text-red-400 text-sm font-medium hidden"></p>
+                    </form>
+                </div>
+                <div class="px-6 py-4 bg-gray-50 dark:bg-black/20 border-t border-aws-border dark:border-aws-borderDark text-xs text-aws-textMuted dark:text-aws-textMutedDark">
+                    <span class="font-semibold">Demo accounts:</span> admin/admin123 or eng1/eng123
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Screen -->
+        <div id="dashboard-screen" class="hidden space-y-6">
+            
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark">Logs Dashboard</h1>
+                    <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark mt-1">Monitor, query, and analyze your application logs in real-time.</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button class="px-4 py-1.5 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white flex items-center space-x-2 border border-transparent">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark">System Metrics & Leaderboard</h1>
+            </div>
+
+            <!-- Full width chart -->
+            <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+                <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-aws-text dark:text-aws-textDark">Error Rates Over Time (24h)</h2>
+                </div>
+                <div class="p-6">
+                    <div style="height: 400px; width: 100%;">
+                        <canvas id="healthChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaderboard -->
+            <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm mt-6">
+                <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
+                    <h2 class="text-lg font-bold text-aws-text dark:text-aws-textDark">App Error Ranking</h2>
+                </div>
+                <div class="p-0 overflow-x-auto">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 dark:bg-black/20 text-aws-textMuted dark:text-aws-textMutedDark text-xs uppercase font-bold border-b border-aws-border dark:border-aws-borderDark">
+                            <tr>
+                                <th class="px-5 py-3 w-16">Rank</th>
+                                <th class="px-5 py-3 w-48">App Name</th>
+                                <th class="px-5 py-3 w-32">Total Logs</th>
+                                <th class="px-5 py-3 w-32">Error Count</th>
+                                <th class="px-5 py-3">Error Rate (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard" class="divide-y divide-aws-border dark:divide-aws-borderDark text-[#16191f] dark:text-[#d5d9e2]">
+                            <!-- populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Theme logic
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const darkIcon = document.getElementById('theme-toggle-dark-icon');
+        const lightIcon = document.getElementById('theme-toggle-light-icon');
+
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            lightIcon.classList.remove('hidden');
+        } else {
+            document.documentElement.classList.remove('dark');
+            darkIcon.classList.remove('hidden');
+        }
+
+        themeToggleBtn.addEventListener('click', function() {
+            darkIcon.classList.toggle('hidden');
+            lightIcon.classList.toggle('hidden');
+            if (localStorage.getItem('color-theme')) {
+                if (localStorage.getItem('color-theme') === 'light') {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('color-theme', 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('color-theme', 'light');
+                }
+            } else {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('color-theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('color-theme', 'dark');
+                }
+            }
+            if (healthChart) {
+                updateChartTheme();
+            }
+        });
+
+        // Add this to your chart initialization
+        function updateChartTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            healthChart.options.scales.x.ticks.color = isDark ? '#9ba7b6' : '#545b64';
+            healthChart.options.scales.x.grid.color = isDark ? '#414d5c' : '#eaeded';
+            healthChart.options.scales.y.ticks.color = isDark ? '#9ba7b6' : '#545b64';
+            healthChart.options.scales.y.grid.color = isDark ? '#414d5c' : '#eaeded';
+            healthChart.options.plugins.legend.labels.color = isDark ? '#ffffff' : '#16191f';
+            healthChart.update();
+        }
+
+        async function fetchHealth() {
+            try {
+                const res = await fetch('/api/analytics/health', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    renderChart(data.data);
+                    renderLeaderboard(data.data);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderLeaderboard(data) {
+            const tbody = document.getElementById('leaderboard');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            // Aggregate totals per app
+            const apps = {};
+            data.forEach(row => {
+                if (!apps[row.Application_Name]) {
+                    apps[row.Application_Name] = { total: 0, errors: 0 };
+                }
+                apps[row.Application_Name].total += parseInt(row.total_count, 10);
+                apps[row.Application_Name].errors += parseInt(row.error_count, 10);
+            });
+
+            // Calculate rate and sort
+            const sorted = Object.keys(apps).map(app => {
+                const total = apps[app].total;
+                const errors = apps[app].errors;
+                const rate = total > 0 ? (errors / total * 100).toFixed(2) : 0;
+                return { app, total, errors, rate };
+            }).sort((a, b) => b.rate - a.rate);
+
+            sorted.forEach((item, index) => {
+                const isHigh = item.rate > 10;
+                tbody.innerHTML += `
+                    <tr class="hover:bg-blue-50/50 dark:hover:bg-white/5 transition-colors">
+                        <td class="px-5 py-3 font-bold">${index + 1}</td>
+                        <td class="px-5 py-3 font-medium">${escapeHTML(item.app)}</td>
+                        <td class="px-5 py-3">${item.total}</td>
+                        <td class="px-5 py-3 font-bold text-red-600 dark:text-red-400">${item.errors}</td>
+                        <td class="px-5 py-3">
+                            <span class="${isHigh ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'} text-xs font-bold px-2 py-0.5 rounded">
+                                ${item.rate}%
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        let healthChart;
+        function renderChart(data) {
+            const ctx = document.getElementById('healthChart');
+            if (!ctx) return;
+            
+            const datasets = {};
+            const labels = new Set();
+
+            data.forEach(row => {
+                const t = new Date(row.hour).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                labels.add(t);
+                if (!datasets[row.Application_Name]) datasets[row.Application_Name] = [];
+                datasets[row.Application_Name].push({ x: t, y: row.error_rate });
+            });
+
+            const chartData = {
+                labels: Array.from(labels).sort(),
+                datasets: Object.keys(datasets).map((app, i) => ({
+                    label: app,
+                    data: datasets[app],
+                    borderColor: `hsl(${i * 137.5 % 360}, 70%, 50%)`,
+                    tension: 0.3,
+                    fill: false
+                }))
+            };
+
+            const isDark = document.documentElement.classList.contains('dark');
+
+            if (healthChart) {
+                healthChart.data = chartData;
+                healthChart.update();
+            } else {
+                healthChart = new Chart(ctx, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: { display: true, text: 'Error Rate (%)' },
+                                grid: { color: isDark ? '#414d5c' : '#eaeded' },
+                                ticks: { color: isDark ? '#9ba7b6' : '#545b64' }
+                            },
+                            x: {
+                                grid: { color: isDark ? '#414d5c' : '#eaeded' },
+                                ticks: { color: isDark ? '#9ba7b6' : '#545b64' }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                labels: { color: isDark ? '#ffffff' : '#16191f' }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.innerText = str;
+            return div.innerHTML;
+        }
+
+        // App Logic
+        const loginScreen = document.getElementById('login-screen');
+        const dashboardScreen = document.getElementById('dashboard-screen');
+        const token = localStorage.getItem('logrider_token');
+
+        if (token) {
+            showDashboard();
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const errEl = document.getElementById('login-error');
+            
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: u, password: p })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                localStorage.setItem('logrider_token', data.token);
+                localStorage.setItem('logrider_role', data.role);
+                location.reload();
+            } else {
+                errEl.innerText = data.error || 'Login failed';
+                errEl.classList.remove('hidden');
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('logrider_token');
+            localStorage.removeItem('logrider_role');
+            location.reload();
+        }
+
+        async function showDashboard() {
+            loginScreen.classList.add('hidden');
+            dashboardScreen.classList.remove('hidden');
+            document.getElementById('user-controls').classList.remove('hidden');
+            document.getElementById('user-controls').classList.add('flex');
+            
+            const role = localStorage.getItem('logrider_role') || 'unknown';
+            document.getElementById('role-badge').innerText = role.toUpperCase();
+            
+            document.getElementById('top-nav').classList.remove('hidden');
+            if (role === 'admin') {
+                document.getElementById('nav-config').classList.remove('hidden');
+            }
+            
+            fetchHealth();
+        }
+    </script>
+</body>
+</html>
