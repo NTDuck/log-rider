@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>log-rider</title>
+    <link href="https://fonts.cdnfonts.com/css/amazon-ember" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -13,7 +14,7 @@
                 extend: {
                     colors: {
                         aws: {
-                            nav: '#0f1b2d',
+                            nav: '#0f1b2d', navDark: '#0b1426',
                             bg: '#f2f3f3',
                             bgDark: '#0f1b2d',
                             panel: '#ffffff',
@@ -31,7 +32,7 @@
                         }
                     },
                     fontFamily: {
-                        sans: ['"Open Sans"', '"Amazon Ember"', '"Helvetica Neue"', 'Roboto', 'Arial', 'sans-serif'],
+                        sans: ['"Amazon Ember"', 'sans-serif'],
                         mono: ['Menlo', 'Monaco', 'Consolas', '"Courier New"', 'monospace']
                     }
                 }
@@ -39,6 +40,24 @@
         }
     </script>
     <style>
+        .chip-btn {
+            display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .chip-btn.active {
+            background-color: rgba(9, 114, 211, 0.15); color: #0073bb; border-color: rgba(9, 114, 211, 0.3);
+        }
+        .dark .chip-btn.active {
+            background-color: rgba(68, 185, 255, 0.15); color: #44b9ff; border-color: rgba(68, 185, 255, 0.3);
+        }
+        .chip-btn:not(.active) {
+            background-color: #f3f4f6; color: #6b7280; border-color: #e5e7eb; opacity: 0.7;
+        }
+        .dark .chip-btn:not(.active) {
+            background-color: rgba(255,255,255,0.05); color: #9ca3af; border-color: rgba(255,255,255,0.1);
+        }
+
         /* Custom scrollbar for logs */
         .logs-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
         .logs-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -47,6 +66,30 @@
         
         .tag-pill {
             @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border;
+        }
+
+        @keyframes zoomOut {
+            from { transform: scale(1); opacity: 1; }
+            to { transform: scale(0.5); opacity: 0; }
+        }
+        @keyframes zoomIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .zoom-out {
+            animation: zoomOut 0.2s ease-in forwards;
+            display: inline-block;
+        }
+        .zoom-in {
+            animation: zoomIn 0.2s ease-out forwards;
+            display: inline-block;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-down {
+            animation: slideDown 0.2s ease-out forwards;
         }
     </style>
 </head>
@@ -70,7 +113,14 @@
         </div>
         <div class="flex items-center space-x-4">
             <!-- Dark Mode Toggle (Leftmost of top right) -->
-            <button id="theme-toggle" class="p-1.5 bg-white/10 rounded-full hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-aws-primary" aria-label="Toggle Dark Mode">
+            
+            <a href="https://github.com/NTDuck/log-rider" target="_blank" rel="noopener noreferrer" aria-label="GitHub" class="p-1.5 rounded-full hover:bg-white/10 transition-colors">
+                <svg class="w-5 h-5 text-gray-300 hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.418 22 12c0-5.523-4.477-10-10-10z"></path></svg>
+            </a>
+            <a href="https://deepwiki.com/NTDuck/log-rider" target="_blank" rel="noopener noreferrer" aria-label="Deepwiki" class="p-1.5 rounded-full hover:bg-white/10 transition-colors">
+                <svg class="w-5 h-5 text-gray-300 hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            </a>
+<button id="theme-toggle" class="p-1.5 bg-white/10 rounded-full hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-aws-primary" aria-label="Toggle Dark Mode">
                 <!-- Moon icon for light mode -->
                 <svg id="theme-toggle-dark-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
                 <!-- Sun icon for dark mode -->
@@ -124,8 +174,8 @@
                     <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark mt-1">Monitor, query, and analyze your application logs in real-time.</p>
                 </div>
                 <div class="flex space-x-3">
-                    <button class="px-4 py-1.5 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white flex items-center space-x-2 border border-transparent">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <button id="refresh-btn" onclick="handleRefresh()" class="px-4 py-1.5 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white flex items-center space-x-2 border border-transparent">
+                        <svg id="refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         <span>Refresh</span>
                     </button>
                 </div>
@@ -145,21 +195,87 @@
                                 Streaming via WebSocket
                             </div>
                         </div>
+                        <div class="px-5 py-3 border-b border-aws-border dark:border-aws-borderDark bg-gray-50 dark:bg-black/10">
+                            <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm max-w-2xl">
+                                <select id="global-search-col" class="bg-transparent text-sm font-bold text-aws-text dark:text-aws-textDark focus:outline-none cursor-pointer pl-1" onchange="applyFilters()">
+                                    <option value="message">Message</option>
+                                    <option value="trace_id">Trace ID</option>
+                                    <option value="app">App</option>
+                                </select>
+                                <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                                <input type="text" id="global-search-val" oninput="applyFilters()" placeholder="Search..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
+                            </div>
+                        </div>
                         <div class="flex-1 overflow-auto logs-scroll p-0 relative">
                             <table class="w-full text-left text-sm whitespace-nowrap">
                                 <thead class="bg-gray-50 dark:bg-black/20 text-aws-textMuted dark:text-aws-textMutedDark text-xs uppercase font-bold sticky top-0 z-10 border-b border-aws-border dark:border-aws-borderDark shadow-sm">
                                     <tr>
                                         <th class="px-5 py-3 w-40">Timestamp</th>
-                                        <th class="px-5 py-3 w-24">Level</th>
-                                        <th class="px-5 py-3 w-32">App</th>
+                                        <th class="px-5 py-3 w-32 relative">
+                                            <div class="flex items-center cursor-pointer select-none" onclick="toggleDropdown('level-dropdown')">
+                                                Level <span id="level-count" class="ml-1 font-normal opacity-80"></span> <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            </div>
+                                            <div id="level-dropdown" class="hidden absolute top-full left-0 mt-1 bg-white dark:bg-[#1c2539] border border-gray-200 dark:border-gray-600 rounded shadow-lg p-2 z-50 min-w-[150px] font-normal text-aws-text dark:text-aws-textDark">
+                                                <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2 mb-2">
+                                                    <button type="button" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-aws-primary" onclick="selectAllChips('level', true); applyFilters();" title="Select All">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                    </button>
+                                                    <button type="button" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-red-500" onclick="selectAllChips('level', false); applyFilters();" title="Deselect All">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                    </button>
+                                                </div>
+                                                <div class="flex flex-wrap gap-1 mt-2" id="level-checkboxes">
+    <button type="button" class="level-cb chip-btn active" data-val="DEBUG" onclick="toggleChip(this); applyFilters()">DEBUG</button>
+    <button type="button" class="level-cb chip-btn active" data-val="INFO" onclick="toggleChip(this); applyFilters()">INFO</button>
+    <button type="button" class="level-cb chip-btn active" data-val="WARN" onclick="toggleChip(this); applyFilters()">WARN</button>
+    <button type="button" class="level-cb chip-btn active" data-val="ERROR" onclick="toggleChip(this); applyFilters()">ERROR</button>
+    <button type="button" class="level-cb chip-btn active" data-val="CRITICAL" onclick="toggleChip(this); applyFilters()">CRITICAL</button>
+    <button type="button" class="level-cb chip-btn active" data-val="ALERT" onclick="toggleChip(this); applyFilters()">ALERT</button>
+</div>
+                                            </div>
+                                        </th>
+                                        <th class="px-5 py-3 w-40 relative">
+                                            <div class="flex flex-col space-y-1">
+                                                <div class="flex items-center cursor-pointer select-none" onclick="toggleDropdown('app-dropdown')">
+                                                    App <span id="app-count" class="ml-1 font-normal opacity-80"></span> <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </div>
+                                            </div>
+                                            <div id="app-dropdown" class="hidden absolute top-full left-0 mt-1 bg-white dark:bg-[#1c2539] border border-gray-200 dark:border-gray-600 rounded shadow-lg p-2 z-50 min-w-[200px] font-normal text-aws-text dark:text-aws-textDark">
+                                                <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2 mb-2">
+                                                    <button type="button" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-aws-primary" onclick="selectAllChips('app', true); applyFilters();" title="Select All">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                    </button>
+                                                    <button type="button" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-red-500" onclick="selectAllChips('app', false); applyFilters();" title="Deselect All">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                    </button>
+                                                </div>
+                                                <div class="flex flex-wrap gap-1 mt-2 max-h-48 overflow-auto logs-scroll p-1" id="app-checkboxes"></div>
+                                            </div>
+                                        </th>
+                                        <th class="px-5 py-3 w-40">Trace ID</th>
                                         <th class="px-5 py-3">Message</th>
-                                        <th class="px-5 py-3 w-48">Tags</th>
+                                        <th class="px-5 py-3 w-48 relative">
+                                            <div class="flex items-center cursor-pointer select-none" onclick="toggleDropdown('tags-dropdown')">
+                                                Tags <span id="tags-count" class="ml-1 font-normal opacity-80"></span> <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            </div>
+                                            <div id="tags-dropdown" class="hidden absolute top-full right-0 mt-1 bg-white dark:bg-[#1c2539] border border-gray-200 dark:border-gray-600 rounded shadow-lg p-2 z-50 min-w-[200px] font-normal text-aws-text dark:text-aws-textDark text-left">
+                                                <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2 mb-2">
+                                                    <button type="button" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-aws-primary" onclick="selectAllChips('tag', true); applyFilters();" title="Select All">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                    </button>
+                                                    <button type="button" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-red-500" onclick="selectAllChips('tag', false); applyFilters();" title="Deselect All">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                    </button>
+                                                </div>
+                                                <div class="flex flex-wrap gap-1 mt-2 max-h-48 overflow-auto logs-scroll p-1" id="tags-checkboxes"></div>
+                                            </div>
+                                        </th>
                                         <th class="px-5 py-3 w-32">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody id="logs" class="divide-y divide-aws-border dark:divide-aws-borderDark text-[#16191f] dark:text-[#d5d9e2]">
                                     <tr>
-                                        <td colspan="6" class="px-5 py-8 text-center text-aws-textMuted dark:text-aws-textMutedDark">
+                                        <td colspan="7" class="px-5 py-8 text-center text-aws-textMuted dark:text-aws-textMutedDark">
                                             <svg class="animate-spin h-5 w-5 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -176,28 +292,7 @@
                 <!-- Right Column (Sidebar Widgets) -->
                 <div class="space-y-6">
                     
-                    <!-- Filter Panel -->
-                    <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
-                        <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
-                            <h2 class="text-lg font-bold">Filters</h2>
-                        </div>
-                        <div class="p-5 space-y-4">
-                            <div>
-                                <label class="block text-sm font-bold mb-1 text-aws-text dark:text-aws-textDark">Application Name</label>
-                                <input type="text" id="filter-app" placeholder="e.g. apple-service" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link" onkeyup="applyFilters()">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold mb-1 text-aws-text dark:text-aws-textDark">Log Level</label>
-                                <select id="filter-level" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link" onchange="applyFilters()">
-                                    <option value="">All Levels</option>
-                                    <option value="INFO">INFO</option>
-                                    <option value="WARN">WARN</option>
-                                    <option value="ERROR">ERROR</option>
-                                    <option value="CRITICAL">CRITICAL</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+
                     
                     <!-- Analytics Panel -->
                     <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
@@ -213,28 +308,7 @@
                         </div>
                     </div>
                     
-                    <!-- Quick Links / Help -->
-                    <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
-                        <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
-                            <h2 class="text-lg font-bold">Resources</h2>
-                        </div>
-                        <div class="p-5 space-y-3">
-                            <a href="#" class="group flex items-center text-sm font-medium text-aws-link dark:text-aws-linkDark hover:underline">
-                                <svg class="w-4 h-4 mr-2 text-aws-textMuted group-hover:text-aws-link" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                LogRider Documentation
-                            </a>
-                            <a href="#" class="group flex items-center text-sm font-medium text-aws-link dark:text-aws-linkDark hover:underline">
-                                <svg class="w-4 h-4 mr-2 text-aws-textMuted group-hover:text-aws-link" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                                API Reference
-                            </a>
-                            <a href="#" class="group flex items-center text-sm font-medium text-aws-link dark:text-aws-linkDark hover:underline">
-                                <svg class="w-4 h-4 mr-2 text-aws-textMuted group-hover:text-aws-link" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                Active Alerts
-                            </a>
-                        </div>
-                    </div>
-
-                </div>
+                    </div></div>
             </div>
         </div>
     </main>
@@ -420,6 +494,36 @@
             return div.innerHTML;
         }
 
+        async function handleRefresh() {
+            const icon = document.getElementById('refresh-icon');
+            const container = document.querySelector('.logs-scroll');
+            if (icon) icon.classList.add('animate-spin');
+            if (container) container.classList.add('opacity-50', 'pointer-events-none', 'transition-opacity');
+            const startTime = Date.now();
+            try { await fetchHistoricalLogs(); } catch (e) { console.error(e); }
+            const delay = Math.max(0, 500 - (Date.now() - startTime));
+            setTimeout(() => {
+                if (icon) icon.classList.remove('animate-spin');
+                if (container) container.classList.remove('opacity-50', 'pointer-events-none');
+            }, delay);
+        }
+
+        function updateStatus(row, newStatusHtml) {
+            const statusContainer = row.querySelector('.status-container');
+            if (!statusContainer) return;
+            const oldContent = statusContainer.querySelector('span');
+            if (oldContent) {
+                oldContent.classList.add('zoom-out');
+                setTimeout(() => {
+                    statusContainer.innerHTML = newStatusHtml;
+                    const newContent = statusContainer.querySelector('span');
+                    if (newContent) newContent.classList.add('zoom-in');
+                }, 200);
+            } else {
+                statusContainer.innerHTML = newStatusHtml;
+            }
+        }
+
         let isFirstMessage = true;
         function connectWS() {
             const token = localStorage.getItem('logrider_token');
@@ -446,18 +550,40 @@
                 if (data.type === 'HYDRATED_LOG') {
                     const logData = data.log || {};
                     logData.status = data.status;
+                    const traceId = logData.Trace_ID;
+                    if (traceId) {
+                        const rows = document.querySelectorAll(`tr[data-trace-id="${escapeHTML(traceId)}"]`);
+                        if (rows.length > 0) {
+                            rows.forEach(row => {
+                                let statusHtml = '';
+                                if (data.status === 'Classified' || (logData.Tags && logData.Tags.length > 0)) {
+                                    statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold inline-block">Classified</span>';
+                                } else if (data.status === 'Persisted') {
+                                    statusHtml = '<span class="text-blue-600 dark:text-blue-400 font-bold inline-block">Persisted</span>';
+                                } else if (data.status === 'Ingested') {
+                                    statusHtml = '<span class="text-purple-600 dark:text-purple-400 font-bold inline-block">Ingested</span>';
+                                } else {
+                                    statusHtml = '<span class="text-yellow-600 dark:text-yellow-400 font-bold inline-block">Normalized</span>';
+                                }
+                                updateStatus(row, statusHtml);
+                            });
+                            return;
+                        }
+                    }
                     renderLog(logData, true);
                 } else if (data.type === 'TAGS') {
                     if (data.Trace_ID) {
                         const traceId = escapeHTML(data.Trace_ID);
                         const rows = document.querySelectorAll(`tr[data-trace-id="${traceId}"]`);
-                        const tagsHtml = (data.Tags || []).map(t => `<span class="tag-pill border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-black/20 mr-1">${escapeHTML(t)}</span>`).join('');
-                        const statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold">Classified</span>';
+                        const tagsHtml = (data.Tags || []).map(t => {
+                            if (typeof addTagToFilter === 'function') addTagToFilter(t);
+                            return `<span class="tag-pill border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-black/20 mr-1">${escapeHTML(t)}</span>`;
+                        }).join('');
+                        const statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold inline-block">Classified</span>';
                         rows.forEach(row => {
                             const tagsContainer = row.querySelector('.tags-container');
                             if (tagsContainer) tagsContainer.innerHTML = tagsHtml;
-                            const statusContainer = row.querySelector('.status-container');
-                            if (statusContainer) statusContainer.innerHTML = statusHtml;
+                            updateStatus(row, statusHtml);
                         });
                     }
                 } else if (!data.type) {
@@ -480,31 +606,124 @@
                             renderLog(logs[i], false);
                         }
                     } else {
-                        logsContainer.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs found</td></tr>';
+                        logsContainer.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs found</td></tr>';
                     }
                 } else {
-                    logsContainer.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Failed to load historical logs</td></tr>';
+                    logsContainer.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Failed to load historical logs</td></tr>';
                 }
             } catch (e) {
-                logsContainer.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Error fetching logs</td></tr>';
+                logsContainer.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-red-500 dark:text-red-400">Error fetching logs</td></tr>';
                 console.error(e);
             }
         }
 
+        function toggleDropdown(id) {
+            const el = document.getElementById(id);
+            if (el.classList.contains('hidden')) {
+                document.querySelectorAll('.absolute.z-50').forEach(d => {
+                    if (d.id !== id && d.id.includes('dropdown')) d.classList.add('hidden');
+                });
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+        
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('th.relative')) {
+                document.querySelectorAll('.absolute.z-50').forEach(d => {
+                    if (d.id.includes('dropdown')) d.classList.add('hidden');
+                });
+            }
+        });
+
+        function selectAll(type, check) {
+            document.querySelectorAll(`.${type}-cb`).forEach(cb => cb.checked = check);
+        }
+
+        const knownApps = new Set();
+        const knownTags = new Set();
+        
+        function addAppToFilter(app) {
+            if (!knownApps.has(app) && app !== '-') {
+                knownApps.add(app);
+                const container = document.getElementById('app-checkboxes');
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'app-cb chip-btn active';
+                btn.setAttribute('data-val', app);
+                btn.textContent = app;
+                btn.onclick = () => { toggleChip(btn); applyFilters(); };
+                container.appendChild(btn);
+            }
+        }
+
+        function addTagToFilter(tag) {
+            if (!knownTags.has(tag)) {
+                knownTags.add(tag);
+                const container = document.getElementById('tags-checkboxes');
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tag-cb chip-btn active';
+                btn.setAttribute('data-val', tag);
+                btn.textContent = tag;
+                btn.onclick = () => { toggleChip(btn); applyFilters(); };
+                container.appendChild(btn);
+            }
+        }
+
+        function toggleChip(btn) {
+            btn.classList.toggle('active');
+        }
+
+        function selectAllChips(prefix, state) {
+            document.querySelectorAll('.' + prefix + '-cb').forEach(btn => {
+                if (state) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        }
+
         function applyFilters() {
-            const filterApp = document.getElementById('filter-app').value.toLowerCase();
-            const filterLevel = document.getElementById('filter-level').value;
+            const selectedLevels = Array.from(document.querySelectorAll('.level-cb:checked')).map(cb => cb.value);
+            const selectedApps = Array.from(document.querySelectorAll('.app-cb:checked')).map(cb => cb.value);
+            const selectedTags = Array.from(document.querySelectorAll('.tag-cb:checked')).map(cb => cb.value);
+            
+            if (document.getElementById('level-count')) document.getElementById('level-count').textContent = '(' + selectedLevels.length + ')';
+            if (document.getElementById('app-count')) document.getElementById('app-count').textContent = '(' + selectedApps.length + ')';
+            if (document.getElementById('tags-count')) document.getElementById('tags-count').textContent = '(' + selectedTags.length + ')';
+            
+            const searchCol = document.getElementById('global-search-col') ? document.getElementById('global-search-col').value : null;
+            const searchVal = (document.getElementById('global-search-val') ? document.getElementById('global-search-val').value.toLowerCase() : '');
             
             const rows = logsContainer.querySelectorAll('tr.log-row');
             let visibleCount = 0;
             rows.forEach(row => {
-                const app = row.getAttribute('data-app').toLowerCase();
+                const app = row.getAttribute('data-app') || '';
                 const level = row.getAttribute('data-level');
                 
-                const matchApp = app.includes(filterApp);
-                const matchLevel = filterLevel === '' || level === filterLevel;
+                const matchApp = selectedApps.length === 0 ? false : selectedApps.includes(app);
+                const matchLevel = selectedLevels.length === 0 ? false : selectedLevels.includes(level);
                 
-                if (matchApp && matchLevel) {
+                const tagsCell = row.children[5];
+                // Tags cell contains .tag-pill elements
+                const rowTags = tagsCell ? Array.from(tagsCell.querySelectorAll('.tag-pill')).map(el => el.textContent.trim()) : [];
+                const matchTags = selectedTags.length === 0 && knownTags.size > 0 ? false : 
+                                  (knownTags.size === 0 ? true : 
+                                  (rowTags.length === 0 ? true : rowTags.some(t => selectedTags.includes(t))));
+                
+                let matchSearch = true;
+                if (searchVal && searchCol) {
+                    let cellToSearch = null;
+                    if (searchCol === 'app') cellToSearch = row.children[2];
+                    if (searchCol === 'trace_id') cellToSearch = row.children[3];
+                    if (searchCol === 'message') cellToSearch = row.children[4];
+                    
+                    if (cellToSearch) {
+                        matchSearch = cellToSearch.textContent.toLowerCase().includes(searchVal);
+                    }
+                }
+                
+                if (matchApp && matchLevel && matchTags && matchSearch) {
                     row.style.display = '';
                     visibleCount++;
                 } else {
@@ -516,7 +735,7 @@
             const noLogsRow = document.getElementById('no-logs-row');
             if (visibleCount === 0 && rows.length > 0) {
                 if (!noLogsRow) {
-                    logsContainer.insertAdjacentHTML('beforeend', '<tr id="no-logs-row"><td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs match the current filters</td></tr>');
+                    logsContainer.insertAdjacentHTML('beforeend', '<tr id="no-logs-row"><td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No logs match the current filters</td></tr>');
                 }
             } else if (noLogsRow) {
                 noLogsRow.remove();
@@ -556,7 +775,10 @@
             
             let tagsHtml = '';
             if (data.Tags && Array.isArray(data.Tags)) {
-                tagsHtml = data.Tags.map(t => `<span class="tag-pill border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-black/20 mr-1">${escapeHTML(t)}</span>`).join('');
+                tagsHtml = data.Tags.map(t => {
+                    if (typeof addTagToFilter === 'function') addTagToFilter(t);
+                    return `<span class="tag-pill border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-black/20 mr-1">${escapeHTML(t)}</span>`;
+                }).join('');
             }
             
             const traceId = data.Trace_ID || data.log?.Trace_ID;
@@ -566,19 +788,22 @@
 
             let statusHtml = '';
             if (data.status === 'Classified' || (data.Tags && data.Tags.length > 0)) {
-                statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold">Classified</span>';
+                statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold inline-block">Classified</span>';
             } else if (data.status === 'Persisted' || (!isLive && !data.status)) {
-                statusHtml = '<span class="text-blue-600 dark:text-blue-400 font-bold">Persisted</span>';
+                statusHtml = '<span class="text-blue-600 dark:text-blue-400 font-bold inline-block">Persisted</span>';
             } else if (data.status === 'Ingested') {
-                statusHtml = '<span class="text-purple-600 dark:text-purple-400 font-bold">Ingested</span>';
+                statusHtml = '<span class="text-purple-600 dark:text-purple-400 font-bold inline-block">Ingested</span>';
             } else {
-                statusHtml = '<span class="text-yellow-600 dark:text-yellow-400 font-bold">Normalized</span>';
+                statusHtml = '<span class="text-yellow-600 dark:text-yellow-400 font-bold inline-block">Normalized</span>';
             }
+
+            addAppToFilter(rawAppName);
 
             tr.innerHTML = `
                 <td class="px-5 py-3 font-mono text-xs whitespace-nowrap text-aws-textMuted dark:text-aws-textMutedDark align-top">${escapeHTML(timeStr)}</td>
                 <td class="px-5 py-3 font-bold text-xs align-top ${colorClass}">${escapeHTML(levelStr)}</td>
                 <td class="px-5 py-3 font-medium text-xs text-aws-textMuted dark:text-aws-textMutedDark align-top">${escapeHTML(rawAppName)}</td>
+                <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark align-top" title="${traceId ? escapeHTML(traceId) : ''}">${traceId ? escapeHTML(traceId.substring(0, 8)) + '...' : '-'}</td>
                 <td class="px-5 py-3 font-mono text-xs whitespace-normal break-words align-top leading-relaxed">${msgStr}</td>
                 <td class="px-5 py-3 align-top tags-container whitespace-normal">${tagsHtml}</td>
                 <td class="px-5 py-3 align-top status-container text-xs">${statusHtml}</td>
@@ -592,13 +817,14 @@
 
             
             if (isLive) {
+                tr.classList.add('animate-slide-down');
                 logsContainer.prepend(tr);
             } else {
                 logsContainer.appendChild(tr);
             }
             applyFilters();
             
-            if (logsContainer.children.length > 200) {
+            if (logsContainer.children.length > 500) {
                 logsContainer.removeChild(logsContainer.lastChild);
             }
         }

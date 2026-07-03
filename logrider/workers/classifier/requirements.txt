@@ -1,0 +1,2 @@
+fasttext-wheel
+confluent-kafka==2.3.0

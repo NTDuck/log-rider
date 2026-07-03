@@ -1,18 +1,30 @@
 import { createClient } from 'redis';
+import { Kafka } from 'kafkajs';
+import crypto from 'crypto';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
+const REDPANDA_BROKERS = process.env.REDPANDA_BROKERS || 'redpanda:29092';
 
 const redisClient = createClient({ url: REDIS_URL });
-const subscriber = redisClient.duplicate();
+
+const kafka = new Kafka({
+    clientId: 'alert-worker',
+    brokers: [REDPANDA_BROKERS]
+});
+
+const consumer = kafka.consumer({ groupId: 'alert-worker-group' });
+const producer = kafka.producer();
 
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
-subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
 
 (async () => {
     try {
         await redisClient.connect();
-        await subscriber.connect();
         console.log('Connected to Redis');
+        
+        await producer.connect();
+        await consumer.connect();
+        await consumer.subscribe({ topic: 'alerts-raw', fromBeginning: true });
 
         // Lua script for atomic INCR + EXPIRE
         const luaScript = `
@@ -22,53 +34,84 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
             end
             return count
         `;
+        
+        // Ensure lua script is loaded in Redis to optimize bandwidth
+        const scriptSha = await redisClient.scriptLoad(luaScript);
 
-        await subscriber.pSubscribe('alerts-raw:*', async (message, channel) => {
-            try {
-                const log = JSON.parse(message);
-                console.debug(`[DEBUG] Received log ${log.Trace_ID} from ${channel}`);
-                // Group alerts by Application Name AND the specific error signature
-                const errorHash = (await import('crypto')).createHash('md5').update(log.Message || '').digest('hex').substring(0, 8);
-                const key = `alert_lock:${log.Application_Name}:${errorHash}`;
-                
-                // Fetch dynamic TTL or default to 60 seconds
-                let ttl = await redisClient.get('config:alert_ttl');
-                ttl = ttl ? parseInt(ttl, 10) : 60;
-                
-                // Atomic INCR and EXPIRE using EVAL
-                const count = await redisClient.eval(luaScript, {
-                    keys: [key],
-                    arguments: [ttl.toString()]
-                });
-                
-                let alertMessage = `CRITICAL ALERT: ${log.Application_Name} has encountered an error.`;
-                if (count >= 100) {
-                    alertMessage = `ESCALATION: ${log.Application_Name} is failing rapidly! (${count} identical errors)`;
+        await consumer.run({
+            eachBatchAutoResolve: false,
+            eachBatch: async ({ batch, resolveOffset, heartbeat, commitOffsetsIfNecessary }) => {
+                try {
+                    // Fetch dynamic TTL or default to 60 seconds
+                    let ttl = await redisClient.get('config:alert_ttl');
+                    ttl = ttl ? parseInt(ttl, 10) : 60;
+                    
+                    const pipeline = redisClient.multi();
+                    const messagesProcessed = [];
+
+                    for (let message of batch.messages) {
+                        const log = JSON.parse(message.value.toString());
+                        const errorHash = crypto.createHash('md5').update(log.Message || '').digest('hex').substring(0, 8);
+                        const key = `alert_lock:${log.Application_Name}:${errorHash}`;
+                        
+                        // Queue the EVALSHA command in the pipeline
+                        pipeline.evalSha(scriptSha, {
+                            keys: [key],
+                            arguments: [ttl.toString()]
+                        });
+                        
+                        messagesProcessed.push({ log, key, errorHash, offset: message.offset });
+                    }
+                    
+                    // Execute all Lua scripts in a single network roundtrip!
+                    const counts = await pipeline.exec();
+                    
+                    // Now process results and store active alerts
+                    const statePipeline = redisClient.multi();
+                    let stateUpdates = 0;
+                    const expiry = Date.now() + ttl * 1000;
+                    
+                    for (let i = 0; i < messagesProcessed.length; i++) {
+                        const { log, key, errorHash, offset } = messagesProcessed[i];
+                        const count = counts[i]; // Result of the EVALSHA
+                        
+                        let alertMessage = log.Message || `CRITICAL ALERT: ${log.Application_Name} has encountered an error.`;
+                        if (count >= 100) {
+                            alertMessage = `ESCALATION: ${log.Application_Name} is failing rapidly! (${count} identical errors)`;
+                        }
+
+                        const alertPayload = {
+                            message: alertMessage,
+                            log,
+                            count,
+                            errorHash
+                        };
+                        
+                        statePipeline.zAdd('active_alerts_idx', { score: expiry, value: key });
+                        statePipeline.hSet('active_alerts_data', key, JSON.stringify(alertPayload));
+                        stateUpdates++;
+                        
+                        // Resolve offset so commitOffsetsIfNecessary works
+                        resolveOffset(offset);
+                        
+                        if (count === 1) {
+                            console.log(`[TELEGRAM] Sent immediate alert for ${log.Application_Name} (Error: ${log.Message})`);
+                        } else if (count === 100) {
+                            console.log(`[TELEGRAM] Sent escalation alert for ${log.Application_Name} (Count reached 100)`);
+                        }
+                    }
+                    
+                    if (stateUpdates > 0) {
+                        await statePipeline.exec();
+                    }
+                    
+                    console.debug(`[DEBUG] Processed batch of ${batch.messages.length} alerts from ${batch.topic}`);
+                    await commitOffsetsIfNecessary();
+                    await heartbeat();
+                } catch (err) {
+                    console.error('Error processing alert batch', err);
+                    throw err; // CRITICAL: let kafkajs know the batch failed so it can retry!
                 }
-
-                const alertPayload = {
-                    message: alertMessage,
-                    log,
-                    count,
-                    errorHash
-                };
-                
-                // Store in active alerts
-                const expiry = Date.now() + ttl * 1000;
-                await redisClient.multi()
-                    .zAdd('active_alerts_idx', { score: expiry, value: key })
-                    .hSet('active_alerts_data', key, JSON.stringify(alertPayload))
-                    .exec();
-
-                if (count === 1) {
-                    console.log(`[TELEGRAM] Sent immediate alert for ${log.Application_Name} (Error: ${log.Message})`);
-                } else if (count === 100) {
-                    console.log(`[TELEGRAM] Sent escalation alert for ${log.Application_Name} (Count reached 100)`);
-                } else {
-                    console.debug(`[DEDUP] Suppressed TELEGRAM alert for ${log.Application_Name}. Count: ${count}`);
-                }
-            } catch (err) {
-                console.error('Error parsing alert message', err);
             }
         });
         
@@ -77,7 +120,7 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
             try {
                 const now = Date.now();
                 // Clean up expired
-                const expiredKeys = await redisClient.zRangeByScore('active_alerts_idx', 0, now);
+                const expiredKeys = await redisClient.zRange('active_alerts_idx', 0, now, { BY: 'SCORE' });
                 if (expiredKeys.length > 0) {
                     const multi = redisClient.multi();
                     multi.zRemRangeByScore('active_alerts_idx', 0, now);
@@ -89,34 +132,17 @@ subscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
                 const activeData = await redisClient.hGetAll('active_alerts_data');
                 const alerts = Object.values(activeData).map(v => JSON.parse(v));
                 
-                // Group by app
-                const appAlerts = {};
-                for (const a of alerts) {
-                    const app = a.log?.Application_Name;
-                    if (app) {
-                        if (!appAlerts[app]) appAlerts[app] = [];
-                        appAlerts[app].push(a);
-                    }
-                }
-                
-                // Publish global state for admins
-                await redisClient.publish('alerts-state:global', JSON.stringify({
+                const globalState = JSON.stringify({
                     type: 'ALERTS_STATE',
                     alerts: alerts
-                }));
+                });
                 
-                // Publish app-specific states
-                for (const [app, specificAlerts] of Object.entries(appAlerts)) {
-                    await redisClient.publish(`alerts-state:${app}`, JSON.stringify({
-                        type: 'ALERTS_STATE',
-                        alerts: specificAlerts
-                    }));
-                }
+                await redisClient.publish('alerts-state', globalState);
             } catch (err) {
                 console.error('State publish error', err);
             }
         }, 1000);
-        console.log('Listening to alerts-raw on Redis');
+        console.log('Listening to alerts-raw on Kafka with Batching');
     } catch (e) {
         console.error('Initialization error:', e);
     }

@@ -1,16 +1,12 @@
 #!/usr/bin/env bash
 cd "$(dirname "$0")"
 
-echo "Running EXTREME load test (1M logs) with k6..."
-# To send 1M logs, we use a batch size of 1000 logs per request.
-# 1000 logs/req * 1000 requests = 1,000,000 logs
-# We use 10 VUs and 20 iterations per VU = 200 requests total
-# This should complete very quickly without breaking the 1MB TCP payload limits.
-nix-shell ../../shell.nix --run "k6 run -e VUS=10 -e ITERATIONS=20 -e BATCH_SIZE=5000 k6-load.js"
+echo "Running extreme load test with k6 (1,000,000 logs in 1 second)..."
+nix-shell ../../shell.nix --run "k6 run -e RATE=100 -e DURATION=1s -e BATCH_SIZE=10000 k6-load.js"
 
 echo "Waiting 5 seconds for pipeline flush..."
 sleep 5
 
 echo "Verifying ClickHouse entries..."
-COUNT=$(curl -s -X POST "http://localhost:8123/?user=default&password=password" -d "SELECT count() FROM logrider.logs FORMAT TSV")
+COUNT=$(curl -s -X POST "http://localhost:8123/?user=default&password=password" -d "SELECT count() FROM logrider.logs_enriched FORMAT TSV")
 echo "Total logs in ClickHouse: $COUNT"

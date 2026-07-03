@@ -10,8 +10,8 @@ export const options = {
       rate: __ENV.RATE || 200, // 200 requests per second
       timeUnit: '1s',
       duration: __ENV.DURATION || '10s',
-      preAllocatedVUs: 50,
-      maxVUs: 500,
+      preAllocatedVUs: 500,
+      maxVUs: 1000,
     },
   },
 };
@@ -34,25 +34,20 @@ function getRandomMessage() {
 }
 
 export default function () {
-  const batchSize = __ENV.BATCH_SIZE ? parseInt(__ENV.BATCH_SIZE) : 5000;
-  const records = [];
+  const fruit = fruits[getRandomInt(fruits.length)];
+  const level = levels[getRandomInt(levels.length)];
+  
+  const record = {
+    value: {
+      Application_Name: `${fruit}-service`,
+      Log_Level: level,
+      Message: getRandomMessage(),
+      Timestamp: new Date().toISOString(),
+      Trace_ID: uuidv4()
+    }
+  };
 
-  for (let i = 0; i < batchSize; i++) {
-    const fruit = fruits[getRandomInt(fruits.length)];
-    const level = levels[getRandomInt(levels.length)];
-    
-    records.push({
-      value: {
-        Application_Name: `${fruit}-service`,
-        Log_Level: level,
-        Message: getRandomMessage(),
-        Timestamp: new Date().toISOString(),
-        Trace_ID: uuidv4()
-      }
-    });
-  }
-
-  const payload = JSON.stringify({ records: records });
+  const payload = JSON.stringify({ records: [record] });
 
   const params = {
     headers: {

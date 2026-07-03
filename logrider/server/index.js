@@ -1,8 +1,10 @@
+const wsClients = new Set();
 import { createClient } from 'redis';
 import path from 'path';
 import crypto from 'crypto';
 import pg from 'pg';
 const { Pool } = pg;
+
 
 const PORT = process.env.SERVER_PORT || 3000;
 if (PORT == 8080) {
@@ -64,7 +66,8 @@ const pgClient = new Pool({ connectionString: POSTGRES_URI });
 // Redis Setup
 const redisClient = createClient({ url: REDIS_URL });
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
-let subscriber;
+const redisSubscriber = redisClient.duplicate();
+redisSubscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
 
 // Bun server instance will be assigned here
 let bunServer;
@@ -74,18 +77,44 @@ let bunServer;
         await redisClient.connect();
         console.log('Connected to Redis');
 
-        subscriber = redisClient.duplicate();
-        await subscriber.connect();
-
-        await subscriber.pSubscribe('alerts-state:*', (message, channel) => {
-            if (bunServer) bunServer.publish(channel, message);
-        });
-
-        await subscriber.pSubscribe('ws-frontend:*', (message, channel) => {
-            if (bunServer) bunServer.publish(channel, message);
+        await redisSubscriber.connect();
+        
+        await redisSubscriber.subscribe('alerts-state', (message) => {
+            if (bunServer) {
+                try {
+                    const parsed = JSON.parse(message);
+                    for (const ws of wsClients) {
+                        if (ws.data.is_admin) {
+                            ws.send(message);
+                        } else if (ws.data.allowed_apps) {
+                            const filteredAlerts = (parsed.alerts || []).filter(a => 
+                                ws.data.allowed_apps.includes(a.log?.Application_Name)
+                            );
+                            ws.send(JSON.stringify({ type: 'ALERTS_STATE', alerts: filteredAlerts }));
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error handling alerts-state message:', e);
+                }
+            }
         });
         
-        console.log('Subscribed to Redis pattern alerts-state:* and ws-frontend:*');
+        await redisSubscriber.subscribe('ws-events', (message) => {
+            if (bunServer) {
+                try {
+                    const parsed = JSON.parse(message);
+                    const appName = parsed.Application_Name || parsed.log?.Application_Name;
+                    if (appName) {
+                        bunServer.publish(`ws-frontend:${appName}`, message);
+                    }
+                    bunServer.publish(`ws-frontend:global`, message);
+                } catch (e) {
+                    console.error('Error handling ws-events message:', e);
+                }
+            }
+        });
+        
+        console.log('Subscribed to Redis channels alerts-state and ws-events');
     } catch (e) {
         console.error('Initialization error:', e);
     }
@@ -142,7 +171,7 @@ bunServer = Bun.serve({
                 await redisClient.setEx(`session:${token}`, 86400, JSON.stringify({
                     username: user.username,
                     is_admin: user.role === 'admin',
-                    allowed_apps: user.allowed_apps
+                    allowed_apps: user.allowed_apps ? user.allowed_apps.split(',').map(a => a.trim()) : []
                 }));
                 
                 return new Response(JSON.stringify({ 
@@ -181,17 +210,25 @@ bunServer = Bun.serve({
                 try {
                     const body = await req.json();
                     const { username, password, role, allowed_apps } = body;
-                    if (!username || !password || !role) return Response.json({ error: 'Missing fields' }, { status: 400 });
+                    if (!username || !role) return Response.json({ error: 'Missing fields' }, { status: 400 });
                     
-                    const hash = await Bun.password.hash(password);
                     const apps = allowed_apps || '';
-                    
-                    await pgClient.query(`
-                        INSERT INTO users (username, password_hash, role, allowed_apps) 
-                        VALUES ($1, $2, $3, $4)
-                        ON CONFLICT (username) DO UPDATE 
-                        SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, allowed_apps = EXCLUDED.allowed_apps
-                    `, [username, hash, role, apps]);
+                    if (password) {
+                        const hash = await Bun.password.hash(password);
+                        await pgClient.query(`
+                            INSERT INTO users (username, password_hash, role, allowed_apps) 
+                            VALUES ($1, $2, $3, $4)
+                            ON CONFLICT (username) DO UPDATE 
+                            SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, allowed_apps = EXCLUDED.allowed_apps
+                        `, [username, hash, role, apps]);
+                    } else {
+                        // Updating without changing password. (Requires user to exist).
+                        await pgClient.query(`
+                            UPDATE users 
+                            SET role = $2, allowed_apps = $3
+                            WHERE username = $1
+                        `, [username, role, apps]);
+                    }
                     return Response.json({ success: true });
                 } catch (e) {
                     console.error(e);
@@ -201,6 +238,13 @@ bunServer = Bun.serve({
             if (req.method === 'DELETE' && url.pathname.startsWith('/api/users/')) {
                 try {
                     const username = url.pathname.split('/').pop();
+                    const res = await pgClient.query('SELECT role FROM users WHERE username = $1', [username]);
+                    if (res.rows.length === 0) {
+                        return Response.json({ error: 'User not found' }, { status: 404 });
+                    }
+                    if (res.rows[0].role === 'admin') {
+                        return Response.json({ error: 'Cannot delete an admin user' }, { status: 403 });
+                    }
                     await pgClient.query('DELETE FROM users WHERE username = $1', [username]);
                     return Response.json({ success: true });
                 } catch (e) {
@@ -243,6 +287,65 @@ bunServer = Bun.serve({
             }
         }
 
+        if (req.method === 'GET' && url.pathname === '/api/config/clickhouse-ttl') {
+            try {
+                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                    method: 'POST',
+                    body: "SHOW CREATE TABLE logrider.logs FORMAT TSV"
+                });
+                const createTableStr = await chRes.text();
+                
+                let hours = 168; // default 7 days
+                const matchHour = createTableStr.match(/TTL Timestamp \+ toIntervalHour\((\d+)\)/);
+                if (matchHour) {
+                    hours = parseInt(matchHour[1], 10);
+                } else {
+                    const matchDay = createTableStr.match(/TTL Timestamp \+ toIntervalDay\((\d+)\)/);
+                    if (matchDay) hours = parseInt(matchDay[1], 10) * 24;
+                }
+                return Response.json({ ttl_hours: hours });
+            } catch (err) {
+                console.error("Error fetching CH TTL:", err);
+                return Response.json({ error: "Internal server error" }, { status: 500 });
+            }
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/config/clickhouse-ttl') {
+            try {
+                const token = req.headers.get('authorization')?.replace('Bearer ', '');
+                if (!token) return Response.json({ error: 'No token' }, { status: 401 });
+                
+                const sessionStr = await redisClient.get(`session:${token}`);
+                if (!sessionStr) return Response.json({ error: 'Invalid token' }, { status: 401 });
+                
+                const session = JSON.parse(sessionStr);
+                if (!session.is_admin) return Response.json({ error: 'Forbidden. Admins only.' }, { status: 403 });
+                
+                const body = await req.json();
+                const { ttl_hours } = body;
+                if (!ttl_hours || isNaN(ttl_hours) || ttl_hours <= 0) return Response.json({ error: 'Invalid TTL value' }, { status: 400 });
+                
+                const queries = [
+                    `ALTER TABLE logrider.logs MODIFY TTL Timestamp + toIntervalHour(${ttl_hours})`,
+                    `ALTER TABLE logrider.log_tags MODIFY TTL Timestamp + toIntervalHour(${ttl_hours})`,
+                    `ALTER TABLE logrider.logs_enriched MODIFY TTL Timestamp + toIntervalHour(${ttl_hours})`
+                ];
+                
+                for (let q of queries) {
+                    const res = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                        method: 'POST',
+                        body: q
+                    });
+                    if (!res.ok) throw new Error(`ClickHouse error: ${await res.text()}`);
+                }
+                
+                return Response.json({ success: true, ttl_hours: parseInt(ttl_hours, 10) });
+            } catch (err) {
+                console.error(err);
+                return Response.json({ error: 'Internal error' }, { status: 500 });
+            }
+        }
+
         if (req.method === 'GET' && url.pathname === '/api/analytics/health') {
             try {
                 const token = req.headers.get('authorization')?.replace('Bearer ', '');
@@ -253,6 +356,13 @@ bunServer = Bun.serve({
                 
                 const session = JSON.parse(sessionStr);
                 
+                const period = url.searchParams.get('period') || '24h';
+                let intervalStr = '24 HOUR';
+                if (period === '1h') intervalStr = '1 HOUR';
+                else if (period === '7d') intervalStr = '7 DAY';
+                else if (period === '14d') intervalStr = '14 DAY';
+                else if (period === '28d') intervalStr = '28 DAY';
+
                 const query = `
                     SELECT 
                         hour,
@@ -261,7 +371,7 @@ bunServer = Bun.serve({
                         sum(total_count) as tot_cnt,
                         (sum(error_count) / sum(total_count)) * 100 as error_rate
                     FROM logrider.hourly_health_mv
-                    WHERE hour >= now() - INTERVAL 24 HOUR
+                    WHERE hour >= now() - INTERVAL ${intervalStr}
                     GROUP BY hour, Application_Name
                     ORDER BY hour ASC
                     FORMAT JSON
@@ -318,7 +428,8 @@ bunServer = Bun.serve({
                         return Response.json({ logs: [] });
                     }
                     const appsArray = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',') : session.allowed_apps;
-                    const appsStr = appsArray.map(a => `'${a}'`).join(',');
+                    // Escape single quotes to prevent SQL injection
+                    const appsStr = appsArray.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
                     query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${appsStr}) ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
                 }
 
@@ -363,10 +474,14 @@ bunServer = Bun.serve({
             if (!sessionStr) return new Response('Invalid token', { status: 401 });
             
             const session = JSON.parse(sessionStr);
+            let allowedApps = session.allowed_apps || [];
+            if (typeof allowedApps === 'string') {
+                allowedApps = allowedApps.split(',').map(a => a.trim());
+            }
             
             const success = server.upgrade(req, {
                 data: {
-                    allowed_apps: session.allowed_apps,
+                    allowed_apps: allowedApps,
                     is_admin: session.is_admin,
                     username: session.username
                 }
@@ -381,6 +496,7 @@ bunServer = Bun.serve({
     },
     websocket: {
         open(ws) {
+            wsClients.add(ws);
             console.log(`Client connected to WebSocket: ${ws.data.username}`);
             if (ws.data.is_admin) {
                 ws.subscribe('alerts-state:global');
@@ -394,6 +510,7 @@ bunServer = Bun.serve({
         },
         message(ws, message) {},
         close(ws, code, message) {
+            wsClients.delete(ws);
             console.log(`Client disconnected: ${ws.data.username}`);
             if (ws.data.is_admin) {
                 ws.unsubscribe('alerts-state:global');

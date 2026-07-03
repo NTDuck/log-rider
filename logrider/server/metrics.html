@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>log-rider</title>
+    <link href="https://fonts.cdnfonts.com/css/amazon-ember" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -13,7 +14,7 @@
                 extend: {
                     colors: {
                         aws: {
-                            nav: '#0f1b2d',
+                            nav: '#0f1b2d', navDark: '#0b1426',
                             bg: '#f2f3f3',
                             bgDark: '#0f1b2d',
                             panel: '#ffffff',
@@ -31,8 +32,17 @@
                         }
                     },
                     fontFamily: {
-                        sans: ['"Open Sans"', '"Amazon Ember"', '"Helvetica Neue"', 'Roboto', 'Arial', 'sans-serif'],
+                        sans: ['"Amazon Ember"', 'sans-serif'],
                         mono: ['Menlo', 'Monaco', 'Consolas', '"Courier New"', 'monospace']
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        }
                     }
                 }
             }
@@ -50,7 +60,7 @@
         }
     </style>
 </head>
-<body class="bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200">
+<body class="bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200 animate-fade-in">
 
     <!-- Top Navigation -->
     <header class="bg-aws-nav text-white flex items-center justify-between px-4 py-3 sticky top-0 z-50">
@@ -70,7 +80,14 @@
         </div>
         <div class="flex items-center space-x-4">
             <!-- Dark Mode Toggle (Leftmost of top right) -->
-            <button id="theme-toggle" class="p-1.5 bg-white/10 rounded-full hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-aws-primary" aria-label="Toggle Dark Mode">
+            
+            <a href="https://github.com/NTDuck/log-rider" target="_blank" rel="noopener noreferrer" aria-label="GitHub" class="p-1.5 rounded-full hover:bg-white/10 transition-colors">
+                <svg class="w-5 h-5 text-gray-300 hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.418 22 12c0-5.523-4.477-10-10-10z"></path></svg>
+            </a>
+            <a href="https://deepwiki.com/NTDuck/log-rider" target="_blank" rel="noopener noreferrer" aria-label="Deepwiki" class="p-1.5 rounded-full hover:bg-white/10 transition-colors">
+                <svg class="w-5 h-5 text-gray-300 hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            </a>
+<button id="theme-toggle" class="p-1.5 bg-white/10 rounded-full hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-aws-primary" aria-label="Toggle Dark Mode">
                 <!-- Moon icon for light mode -->
                 <svg id="theme-toggle-dark-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
                 <!-- Sun icon for dark mode -->
@@ -131,15 +148,19 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="flex justify-between items-center mb-4">
-                <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark">System Metrics & Leaderboard</h1>
-            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             <!-- Full width chart -->
             <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
                 <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg flex justify-between items-center">
-                    <h2 class="text-lg font-bold text-aws-text dark:text-aws-textDark">Error Rates Over Time (24h)</h2>
+                    <h2 id="chart-title" class="text-lg font-bold text-aws-text dark:text-aws-textDark">Error Rates Over Time (24h)</h2>
+                    <select id="period-selector" onchange="changePeriod(this.value)" class="text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:ring-1 focus:ring-aws-link px-2 py-1">
+                        <option value="1h">1h</option>
+                        <option value="24h" selected>24h</option>
+                        <option value="7d">7 days</option>
+                        <option value="14d">14 days</option>
+                        <option value="28d">28 days</option>
+                    </select>
                 </div>
                 <div class="p-6">
                     <div style="height: 400px; width: 100%;">
@@ -223,9 +244,24 @@
             healthChart.update();
         }
 
+        let currentPeriod = '24h';
+        const periodLabels = {
+            '1h': '1h',
+            '24h': '24h',
+            '7d': '7 days',
+            '14d': '14 days',
+            '28d': '28 days'
+        };
+
+        function changePeriod(period) {
+            currentPeriod = period;
+            document.getElementById('chart-title').innerText = 'Error Rates Over Time (' + periodLabels[period] + ')';
+            fetchHealth();
+        }
+
         async function fetchHealth() {
             try {
-                const res = await fetch('/api/analytics/health', {
+                const res = await fetch('/api/analytics/health?period=' + currentPeriod, {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 if (res.ok) {
@@ -249,8 +285,10 @@
                 if (!apps[row.Application_Name]) {
                     apps[row.Application_Name] = { total: 0, errors: 0 };
                 }
-                apps[row.Application_Name].total += parseInt(row.total_count, 10);
-                apps[row.Application_Name].errors += parseInt(row.error_count, 10);
+                const rowTotal = parseInt(row.tot_cnt ?? row.total_count ?? 0, 10);
+                const rowErrors = parseInt(row.err_cnt ?? row.error_count ?? 0, 10);
+                apps[row.Application_Name].total += isNaN(rowTotal) ? 0 : rowTotal;
+                apps[row.Application_Name].errors += isNaN(rowErrors) ? 0 : rowErrors;
             });
 
             // Calculate rate and sort

@@ -49,43 +49,31 @@ output:
                     - fallback:
                         - redis_pubsub:
                             url: redis://redis:6379
-                            channel: ws-frontend:${! this.log.Application_Name }
-                      processors:
-                        - mapping: |
-                            root.type = "HYDRATED_LOG"
-                            root.status = "Normalized"
-                            root.log = this
-                    - fallback:
-                        - redis_pubsub:
-                            url: redis://redis:6379
-                            channel: ws-frontend:global
-                      processors:
-                        - mapping: |
-                            root.type = "HYDRATED_LOG"
-                            root.status = "Normalized"
-                            root.log = this
+                            channel: ws-events
+                          processors:
+                            - mapping: |
+                                root.type = "HYDRATED_LOG"
+                                root.status = "Normalized"
+                                root.log = this
                     - switch:
                         cases:
                           - check: 'this.Log_Level == "ERROR" || this.Log_Level == "CRITICAL"'
                             output:
-                              broker:
-                                pattern: fan_out
-                                outputs:
-                                  - redis_pubsub:
-                                      url: redis://redis:6379
-                                      channel: alerts-raw:${! this.Application_Name }
-                                  - redis_pubsub:
-                                      url: redis://redis:6379
-                                      channel: alerts-raw:global
+                              kafka:
+                                addresses:
+                                  - redpanda:29092
+                                topic: alerts-raw
                           - output:
                               drop: {}
-                    - kafka:
-                        addresses:
-                          - redpanda:29092
-                        topic: logs-normalized
-                      processors:
-                        - mapping: |
-                            root = this
-                            root.Message = deleted()
+                    - fallback:
+                        - kafka:
+                            addresses:
+                              - redpanda:29092
+                            topic: logs-normalized
+                          processors:
+                            - mapping: |
+                                root = this
+                                root.Message = deleted()
+
             - output:
                 drop: {}

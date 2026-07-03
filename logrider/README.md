@@ -6,19 +6,17 @@ LogRider is a high-performance, real-time distributed log ingestion, processing,
 
 The system utilizes a heavily optimized, multi-tier architecture to handle extreme throughput and real-time observability:
 
-- **Redpanda & Pandaproxy**: High-performance Kafka-compatible broker. The ingestion route directly hits Pandaproxy (`http://localhost:8082/topics/logs-raw`) using HTTP POSTs (e.g. from `test-alert.sh`), bypassing the Node/Bun event loop entirely to avoid KafkaJS serialization bottlenecks.
-- **Benthos (Unified Pipeline)**: A stream processor that consumes `logs-raw`, normalizes payloads, and routes logs. It features:
-  - **Optimized ClickHouse Sinks**: Uses a `fallback` DLQ block with high-throughput batching (100k/5s) for ClickHouse, converting timestamps to UNIX milliseconds for zero-overhead insertion.
-  - **Redis Protection via Sampling**: Employs deterministic sampling (via `Trace_ID` suffixes) to push a safe fraction of live logs and lifecycle statuses (`Ingested`, `Normalized`, `Persisted`) to the `ws-logs` Redis channel.
-  - **Kafka Stripping**: Drops heavy `Message` payloads before re-publishing to `logs-normalized` to reduce write amplification for downstream consumers.
-- **Redis**: 
-  - Acts as a real-time Pub/Sub broker for `alerts-raw`, `ws-logs`, `ws-tags`, and processed `alerts`.
-  - Manages session caching and stateful **Alert Deduplication** using atomic counters and dynamic TTLs.
+- **Redpanda & Pandaproxy**: High-performance Kafka-compatible broker handling all inter-service messaging via native topics (`logs-raw`, `logs-persist`, `alerts-raw`, `logs-normalized`, `logs-tagged`, `ws-events`). Ingestion directly hits Pandaproxy (`http://localhost:8082/topics/logs-raw`) using HTTP POSTs, bypassing Node/Bun event loops.
+- **Benthos Pipelines (`unified`, `persist`, `tags`)**: 
+  - `unified`: Consumes `logs-raw`, normalizes payloads, generates UUIDs, and routes to specific Kafka topics.
+  - `persist`: Consumes `logs-persist` and performs high-throughput HTTP batch inserts (`JSONEachRow`) into ClickHouse.
+  - `tags`: Consumes `logs-tagged` and batch inserts AI classifications directly into ClickHouse.
+- **Redis**: Functions purely as a high-speed state store for **Alert Deduplication**. Utilizes Redis `pipeline.exec()` coupled with Kafka consumer batching to atomically process thousands of alerts simultaneously via Lua scripts.
 - **PostgreSQL**: Stateful, durable storage for user accounts, credentials, and RBAC configurations.
-- **Alert Worker (Bun)**: A lightweight daemon subscribing to Redis `alerts-raw`. It deduplicates burst errors using Redis and broadcasts verified alerts to the `alerts` channel.
-- **Classifier Worker (Node.js)**: Consumes from the `logs-normalized` topic, dynamically assigns categorical tags to the logs, securely persists them via `JSONEachRow` to ClickHouse, and broadcasts to the `ws-tags` Redis channel.
-- **ClickHouse**: Columnar database acting as the permanent storage layer. Configured with native `UUID` types for fast `JOIN`s, and a built-in **7-day Time-To-Live (TTL)** retention policy to auto-prune stale logs.
-- **Web Server (Bun)**: Extremely lean native Bun server managing WebSockets, RBAC authentication (verifying bcrypt passwords against Postgres, issuing `crypto.randomBytes` session tokens), and dynamic HTML rendering.
+- **Alert Worker (Bun)**: Consumes from the `alerts-raw` Kafka topic using `kafkajs` batching (`eachBatch`). Deduplicates burst errors via Redis pipelining and natively produces verified alerts to `ws-events`. Replicated 10x via `docker-compose` for massive horizontal scale.
+- **Classifier Worker (Python)**: An ultra-fast Python worker built with `confluent-kafka` and `fasttext`. Consumes from `logs-normalized`, performs AI text classifications natively, and produces categorized tags to `logs-tagged` and `ws-events`.
+- **ClickHouse**: Columnar database acting as permanent storage. Handles extreme ingest rates via decoupled HTTP batch pipelines, and implements a built-in Time-To-Live (TTL) retention policy that can be dynamically updated via the Admin dashboard.
+- **Web Server (Bun)**: A pure, dumb rendering layer. Subscribes exclusively to the `ws-events` Kafka topic to stream real-time lifecycle updates seamlessly to connected clients over WebSockets. Handles RBAC and UI serving.
 
 ## 🚀 Quick Start
 
@@ -47,7 +45,7 @@ The system comes with **Role-Based Access Control (RBAC)** initialized securely 
 **Features:**
 - **Real-Time Logs & Lifecycle Tracking**: WebSockets stream incoming logs and track their exact stage through the pipeline (`Ingested` -> `Normalized` -> `Persisted` -> `Classified`) natively in the UI.
 - **Health & Metrics Dashboard**: The dedicated `/metrics` page features a dynamic Chart.js visualization of the Error Rate (%) across all applications by the hour, and an Error Leaderboard.
-- **Live TTL Configuration**: Admins can change the Alert Deduplication Time-To-Live globally without restarting any workers from the `/config` page.
+- **Live TTL Configuration**: Admins can change the Alert Deduplication TTL (Redis) and the Log Retention TTL policies (ClickHouse) globally on the fly without restarting any services from the `/config` page.
 
 ## 🧪 Testing
 
@@ -59,7 +57,7 @@ We provide load-testing scripts to simulate intense production traffic. Tests ca
    ```
    **To verify RBAC Rules:** Login to the dashboard as `eng1` or `eng2` and observe that the real-time stream and historical logs *only* display logs for the specific fruit microservices that the engineer is authorized to view.
 
-2. **Extreme Load Test**: Fires 1 Million logs in massive bursts to test the architecture limits. Benthos will easily batch-insert these into ClickHouse, and the Web Server will safely stream a deterministic sample to the dashboard without crashing.
+2. **Extreme Load Test**: Fires 1 Million logs in massive bursts to test the architecture limits. The distributed Benthos pipelines will batch-insert these securely into ClickHouse, while the Web Server safely consumes streams directly via the native Kafka topics.
    ```bash
    nix-shell ../shell.nix --run ./scripts/test-extreme.sh
    ```
