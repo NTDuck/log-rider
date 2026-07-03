@@ -252,15 +252,13 @@
         let authToken = null;
         let userRole = null;
 
-        function getCookie(name) {
-            const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-            return match ? match[2] : null;
-        }
-
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const errEl = document.getElementById('login-error');
+            errEl.classList.add('hidden');
+            
             try {
                 const res = await fetch('/login', {
                     method: 'POST',
@@ -269,50 +267,83 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    authToken = data.token;
-                    userRole = data.role;
+                    localStorage.setItem('logrider_token', data.token);
+                    localStorage.setItem('logrider_role', data.role);
                     showAlerts();
                 } else {
-                    const errEl = document.getElementById('login-error');
                     errEl.textContent = data.error || 'Login failed';
                     errEl.classList.remove('hidden');
                 }
             } catch (err) {
                 console.error('Login error:', err);
+                errEl.textContent = 'Login failed';
+                errEl.classList.remove('hidden');
             }
         });
 
-        // Auto-login if cookie exists
-        (async function checkSession() {
-            const token = getCookie('logrider_token');
-            if (!token) return;
-            try {
-                const res = await fetch('/api/config/ttl', { headers: { 'Authorization': `Bearer ${token}` } });
-                if (res.ok) {
-                    authToken = token;
-                    // Determine role from another check
-                    try {
-                        const uRes = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
-                        userRole = uRes.ok ? 'admin' : 'engineer';
-                    } catch { userRole = 'engineer'; }
-                    showAlerts();
-                }
-            } catch {}
-        })();
+        if (localStorage.getItem('logrider_token')) {
+            showAlerts();
+        }
 
         function showAlerts() {
+            const role = localStorage.getItem('logrider_role') || 'unknown';
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('alerts-screen').classList.remove('hidden');
             document.getElementById('user-controls').classList.remove('hidden');
             document.getElementById('user-controls').classList.add('flex');
-            document.getElementById('role-badge').textContent = userRole === 'admin' ? 'Admin' : 'Engineer';
-            if (userRole === 'admin') document.getElementById('nav-config').classList.remove('hidden');
-            connectWebSocket();
+            document.getElementById('role-badge').textContent = role === 'admin' ? 'Admin' : 'Engineer';
+            if (role === 'admin') document.getElementById('nav-config').classList.remove('hidden');
+            fetchHistoricalAlerts().then(() => connectWebSocket());
+        }
+
+        async function fetchHistoricalAlerts() {
+            try {
+                const token = localStorage.getItem('logrider_token');
+                if (!token) return;
+                const res = await fetch('/api/alerts/recent', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.alerts && data.alerts.length > 0) {
+                    const emptyState = document.getElementById('empty-state');
+                    if (emptyState) emptyState.remove();
+
+                    // Reversing to process oldest first so newest appears at top
+                    data.alerts.reverse().forEach(log => {
+                        const appName = log.Application_Name || 'unknown';
+                        const signature = btoa(encodeURIComponent(appName + '|' + (log.Message || ''))).substring(0, 24);
+                        
+                        if (!(appName in appFilters)) {
+                            appFilters[appName] = true;
+                            renderAppChips();
+                        }
+                        
+                        alertState[signature] = {
+                            count: parseInt(log.alert_count) || 1,
+                            Application_Name: appName,
+                            Log_Level: log.Log_Level,
+                            Message: log.Message,
+                            Timestamp: log.Timestamp
+                        };
+                        
+                        totalAlerts += alertState[signature].count;
+                        if (log.Log_Level === 'CRITICAL') criticalAlerts += alertState[signature].count;
+                        
+                        renderAlertRow(signature);
+                    });
+                    updateSummary();
+                    applyAppFilter();
+                }
+            } catch (err) {
+                console.error("Failed to load historical alerts", err);
+            }
         }
 
         function logout() {
-            document.cookie = 'logrider_token=; Max-Age=0; Path=/';
-            authToken = null;
+            localStorage.removeItem('logrider_token');
+            localStorage.removeItem('logrider_role');
+            if (ws) ws.close();
             window.location.href = '/dashboard';
         }
 
@@ -353,22 +384,22 @@
                         criticalAlerts += (log.alert_count ? (log.alert_count - (alertState[signature]?.count || 0)) : 1);
                     }
 
-                    if (!alertState[signature]) {
+                    if (alertState[signature]) {
+                        alertState[signature].count = log.alert_count ? Math.max(alertState[signature].count, log.alert_count) : alertState[signature].count + 1;
+                        alertState[signature].Timestamp = log.Timestamp;
+                        updateAlertRow(signature);
+                    } else {
                         alertState[signature] = {
                             count: log.alert_count || 1,
-                            Log_Level: log.Log_Level,
                             Application_Name: appName,
-                            Message: log.Message || '',
-                            Timestamp: log.Timestamp || new Date().toISOString()
+                            Log_Level: log.Log_Level,
+                            Message: log.Message,
+                            Timestamp: log.Timestamp
                         };
+                        
                         renderAlertRow(signature);
-                    } else {
-                        alertState[signature].count = Math.max(alertState[signature].count, log.alert_count || alertState[signature].count + 1);
-                        alertState[signature].Timestamp = log.Timestamp || new Date().toISOString();
-                        updateAlertRow(signature);
+                        updateSummary();
                     }
-
-                    updateSummary();
                 } catch (err) {
                     console.error('Malformed log payload', err);
                 }

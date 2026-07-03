@@ -547,20 +547,35 @@
                     data = { message: event.data, level: 'info' };
                 }
 
+                let isHydratedLog = false;
+                let isTags = false;
+                let logData = null;
+                let status = data.status || 'Normalized';
+
                 if (data.type === 'HYDRATED_LOG') {
-                    const logData = data.log || {};
-                    logData.status = data.status;
+                    isHydratedLog = true;
+                    logData = data.log || {};
+                    status = data.status;
+                } else if (data.type === 'TAGS') {
+                    isTags = true;
+                } else if (data.Application_Name && data.Log_Level) {
+                    isHydratedLog = true;
+                    logData = data;
+                }
+
+                if (isHydratedLog && logData) {
+                    logData.status = status;
                     const traceId = logData.Trace_ID;
                     if (traceId) {
                         const rows = document.querySelectorAll(`tr[data-trace-id="${escapeHTML(traceId)}"]`);
                         if (rows.length > 0) {
                             rows.forEach(row => {
                                 let statusHtml = '';
-                                if (data.status === 'Classified' || (logData.Tags && logData.Tags.length > 0)) {
+                                if (status === 'Classified' || (logData.Tags && logData.Tags.length > 0)) {
                                     statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold inline-block">Classified</span>';
-                                } else if (data.status === 'Persisted') {
+                                } else if (status === 'Persisted') {
                                     statusHtml = '<span class="text-blue-600 dark:text-blue-400 font-bold inline-block">Persisted</span>';
-                                } else if (data.status === 'Ingested') {
+                                } else if (status === 'Ingested') {
                                     statusHtml = '<span class="text-purple-600 dark:text-purple-400 font-bold inline-block">Ingested</span>';
                                 } else {
                                     statusHtml = '<span class="text-yellow-600 dark:text-yellow-400 font-bold inline-block">Normalized</span>';
@@ -571,7 +586,7 @@
                         }
                     }
                     renderLog(logData, true);
-                } else if (data.type === 'TAGS') {
+                } else if (isTags) {
                     if (data.Trace_ID) {
                         const traceId = escapeHTML(data.Trace_ID);
                         const rows = document.querySelectorAll(`tr[data-trace-id="${traceId}"]`);
@@ -684,9 +699,9 @@
         }
 
         function applyFilters() {
-            const selectedLevels = Array.from(document.querySelectorAll('.level-cb:checked')).map(cb => cb.value);
-            const selectedApps = Array.from(document.querySelectorAll('.app-cb:checked')).map(cb => cb.value);
-            const selectedTags = Array.from(document.querySelectorAll('.tag-cb:checked')).map(cb => cb.value);
+            const selectedLevels = Array.from(document.querySelectorAll('.level-cb.active')).map(cb => cb.getAttribute('data-val'));
+            const selectedApps = Array.from(document.querySelectorAll('.app-cb.active')).map(cb => cb.getAttribute('data-val'));
+            const selectedTags = Array.from(document.querySelectorAll('.tag-cb.active')).map(cb => cb.getAttribute('data-val'));
             
             if (document.getElementById('level-count')) document.getElementById('level-count').textContent = '(' + selectedLevels.length + ')';
             if (document.getElementById('app-count')) document.getElementById('app-count').textContent = '(' + selectedApps.length + ')';
@@ -701,15 +716,13 @@
                 const app = row.getAttribute('data-app') || '';
                 const level = row.getAttribute('data-level');
                 
-                const matchApp = selectedApps.length === 0 ? false : selectedApps.includes(app);
-                const matchLevel = selectedLevels.length === 0 ? false : selectedLevels.includes(level);
+                const matchApp = selectedApps.length === 0 ? true : selectedApps.includes(app);
+                const matchLevel = selectedLevels.length === 0 ? true : selectedLevels.includes(level);
                 
                 const tagsCell = row.children[5];
                 // Tags cell contains .tag-pill elements
                 const rowTags = tagsCell ? Array.from(tagsCell.querySelectorAll('.tag-pill')).map(el => el.textContent.trim()) : [];
-                const matchTags = selectedTags.length === 0 && knownTags.size > 0 ? false : 
-                                  (knownTags.size === 0 ? true : 
-                                  (rowTags.length === 0 ? true : rowTags.some(t => selectedTags.includes(t))));
+                const matchTags = selectedTags.length === 0 ? true : rowTags.some(t => selectedTags.includes(t));
                 
                 let matchSearch = true;
                 if (searchVal && searchCol) {

@@ -7,7 +7,6 @@ echo "Clearing old ClickHouse data..."
 curl -s -X POST "http://localhost:8123/?user=default&password=password" -d "TRUNCATE TABLE IF EXISTS logrider.logs_enriched"
 curl -s -X POST "http://localhost:8123/?user=default&password=password" -d "TRUNCATE TABLE IF EXISTS logrider.logs"
 curl -s -X POST "http://localhost:8123/?user=default&password=password" -d "TRUNCATE TABLE IF EXISTS logrider.log_tags"
-curl -s -X POST "http://localhost:8123/?user=default&password=password" -d "TRUNCATE TABLE IF EXISTS logrider.logs_raw_null"
 
 # Using k6 run to fire 250 requests/sec for 2 seconds = exactly 500 requests
 # 2 * 250 = 500 logs in 2 seconds.

@@ -456,6 +456,51 @@ bunServer = Bun.serve({
                 return Response.json({ error: 'Internal error fetching recent logs' }, { status: 500 });
             }
         }
+        
+        if (req.method === 'GET' && url.pathname === '/api/alerts/recent') {
+            try {
+                let token = req.headers.get('authorization')?.replace('Bearer ', '');
+                if (!token) {
+                    const cookie = req.headers.get('cookie');
+                    if (cookie) {
+                        const match = cookie.match(/logrider_token=([^;]+)/);
+                        if (match) token = match[1];
+                    }
+                }
+                if (!token) return Response.json({ error: 'No token' }, { status: 401 });
+                
+                const sessionStr = await redisClient.get(`session:${token}`);
+                if (!sessionStr) return Response.json({ error: 'Invalid token' }, { status: 401 });
+                
+                const session = JSON.parse(sessionStr);
+                
+                let query;
+                if (session.is_admin) {
+                    query = `SELECT Application_Name, Log_Level, Message, max(Timestamp) as Timestamp, count() as alert_count FROM logrider.logs_enriched WHERE Log_Level IN ('ERROR', 'CRITICAL') AND Timestamp >= now() - INTERVAL 24 HOUR GROUP BY Application_Name, Log_Level, Message ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
+                } else {
+                    const apps = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',').map(a => a.trim()) : (session.allowed_apps || []);
+                    const safeApps = apps.map(app => app.replace(/'/g, "''"));
+                    const inClause = safeApps.map(app => `'${app}'`).join(',');
+                    if (safeApps.length === 0) return Response.json({ alerts: [] });
+                    query = `SELECT Application_Name, Log_Level, Message, max(Timestamp) as Timestamp, count() as alert_count FROM logrider.logs_enriched WHERE Log_Level IN ('ERROR', 'CRITICAL') AND Application_Name IN (${inClause}) AND Timestamp >= now() - INTERVAL 24 HOUR GROUP BY Application_Name, Log_Level, Message ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
+                }
+
+                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                    method: 'POST',
+                    body: query
+                });
+                
+                if (!chRes.ok) {
+                    throw new Error(`ClickHouse error: ${await chRes.text()}`);
+                }
+                
+                const chData = await chRes.json();
+                return Response.json({ alerts: chData.data });
+            } catch (err) {
+                console.error(err);
+                return Response.json({ error: 'Internal error fetching recent alerts' }, { status: 500 });
+            }
+        }
 
         if (url.pathname === '/api/ws') {
             const cookie = req.headers.get('cookie');
