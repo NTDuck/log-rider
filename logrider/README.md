@@ -16,7 +16,7 @@ The system utilizes a heavily optimized, multi-tier architecture to handle extre
 - **Alert Worker (Bun)**: Consumes from the `alerts-raw` Kafka topic using `kafkajs` batching (`eachBatch`). Deduplicates burst errors via Redis pipelining and natively produces verified alerts to `ws-events`. Replicated 10x via `docker-compose` for massive horizontal scale.
 - **Classifier Worker (Python)**: An ultra-fast Python worker built with `confluent-kafka` and `fasttext`. Consumes from `logs-normalized`, performs AI text classifications natively, and produces categorized tags to `logs-tagged` and `ws-events`.
 - **ClickHouse**: Columnar database acting as permanent storage. Handles extreme ingest rates via decoupled HTTP batch pipelines, and implements a built-in Time-To-Live (TTL) retention policy that can be dynamically updated via the Admin dashboard.
-- **Web Server (Bun)**: A pure, dumb rendering layer. Subscribes exclusively to the `ws-events` Kafka topic to stream real-time lifecycle updates seamlessly to connected clients over WebSockets. Handles RBAC and UI serving.
+- **Web Server (Bun)**: A pure, dumb rendering layer. Subscribes to the `alerts-state` and `ws-events` Redis channels to stream real-time lifecycle updates seamlessly to connected clients over WebSockets. Handles RBAC and UI serving.
 
 ## 🚀 Quick Start
 
@@ -43,7 +43,8 @@ The system comes with **Role-Based Access Control (RBAC)** initialized securely 
 - **Engineer 2**: `eng2` / `eng123` (Restricted visibility to `kiwi-service` and `papaya-service`).
 
 **Features:**
-- **Real-Time Logs & Lifecycle Tracking**: WebSockets stream incoming logs and track their exact stage through the pipeline (`Ingested` -> `Normalized` -> `Persisted` -> `Classified`) natively in the UI.
+- **Real-Time Logs & Lifecycle Tracking**: WebSockets stream incoming logs and track their exact stage through the pipeline (`Ingested` -> `Normalized` -> `Persisted` -> `Classified`) natively in the UI. Advanced global search and interactive chip-based filtering allow for instantaneous log exploration.
+- **Active Alerts Dashboard**: A dedicated `/alerts` page for real-time monitoring of critical and error-level logs, featuring active incident tracking and grouped suppression rules to mitigate alert fatigue.
 - **Health & Metrics Dashboard**: The dedicated `/metrics` page features a dynamic Chart.js visualization of the Error Rate (%) across all applications by the hour, and an Error Leaderboard.
 - **Live TTL Configuration**: Admins can change the Alert Deduplication TTL (Redis) and the Log Retention TTL policies (ClickHouse) globally on the fly without restarting any services from the `/config` page.
 

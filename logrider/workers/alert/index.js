@@ -75,22 +75,6 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                         const { log, key, errorHash, offset } = messagesProcessed[i];
                         const count = counts[i]; // Result of the EVALSHA
                         
-                        let alertMessage = log.Message || `CRITICAL ALERT: ${log.Application_Name} has encountered an error.`;
-                        if (count >= 100) {
-                            alertMessage = `ESCALATION: ${log.Application_Name} is failing rapidly! (${count} identical errors)`;
-                        }
-
-                        const alertPayload = {
-                            message: alertMessage,
-                            log,
-                            count,
-                            errorHash
-                        };
-                        
-                        statePipeline.zAdd('active_alerts_idx', { score: expiry, value: key });
-                        statePipeline.hSet('active_alerts_data', key, JSON.stringify(alertPayload));
-                        stateUpdates++;
-                        
                         // Resolve offset so commitOffsetsIfNecessary works
                         resolveOffset(offset);
                         
@@ -99,10 +83,6 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                         } else if (count === 100) {
                             console.log(`[TELEGRAM] Sent escalation alert for ${log.Application_Name} (Count reached 100)`);
                         }
-                    }
-                    
-                    if (stateUpdates > 0) {
-                        await statePipeline.exec();
                     }
                     
                     console.debug(`[DEBUG] Processed batch of ${batch.messages.length} alerts from ${batch.topic}`);
@@ -115,33 +95,6 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
             }
         });
         
-        // Publish state loop
-        setInterval(async () => {
-            try {
-                const now = Date.now();
-                // Clean up expired
-                const expiredKeys = await redisClient.zRange('active_alerts_idx', 0, now, { BY: 'SCORE' });
-                if (expiredKeys.length > 0) {
-                    const multi = redisClient.multi();
-                    multi.zRemRangeByScore('active_alerts_idx', 0, now);
-                    multi.hDel('active_alerts_data', expiredKeys);
-                    await multi.exec();
-                }
-                
-                // Fetch active
-                const activeData = await redisClient.hGetAll('active_alerts_data');
-                const alerts = Object.values(activeData).map(v => JSON.parse(v));
-                
-                const globalState = JSON.stringify({
-                    type: 'ALERTS_STATE',
-                    alerts: alerts
-                });
-                
-                await redisClient.publish('alerts-state', globalState);
-            } catch (err) {
-                console.error('State publish error', err);
-            }
-        }, 1000);
         console.log('Listening to alerts-raw on Kafka with Batching');
     } catch (e) {
         console.error('Initialization error:', e);

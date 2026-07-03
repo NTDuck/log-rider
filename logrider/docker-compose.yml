@@ -146,6 +146,18 @@ services:
       REDIS_URL: redis://redis:6379
       CLICKHOUSE_URI: http://clickhouse:8123/?user=default&password=password
       POSTGRES_URI: postgres://logrider:password@postgres:5432/logrider
+
+  benthos-alerts-forwarder:
+    image: jeffail/benthos:latest
+    volumes:
+      - ./pipelines/forwarder.yaml:/benthos.yaml
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: -c /benthos.yaml
+
   benthos-tags:
     image: jeffail/benthos:latest
     environment:

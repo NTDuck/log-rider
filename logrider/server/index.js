@@ -79,7 +79,7 @@ let bunServer;
 
         await redisSubscriber.connect();
         
-        await redisSubscriber.subscribe('alerts-state', (message) => {
+        await redisSubscriber.subscribe('alerts-stream', (message) => {
             if (bunServer) {
                 try {
                     const parsed = JSON.parse(message);
@@ -87,14 +87,13 @@ let bunServer;
                         if (ws.data.is_admin) {
                             ws.send(message);
                         } else if (ws.data.allowed_apps) {
-                            const filteredAlerts = (parsed.alerts || []).filter(a => 
-                                ws.data.allowed_apps.includes(a.log?.Application_Name)
-                            );
-                            ws.send(JSON.stringify({ type: 'ALERTS_STATE', alerts: filteredAlerts }));
+                            if (ws.data.allowed_apps.includes(parsed.log?.Application_Name)) {
+                                ws.send(message);
+                            }
                         }
                     }
                 } catch (e) {
-                    console.error('Error handling alerts-state message:', e);
+                    console.error('Error handling alerts-stream message:', e);
                 }
             }
         });
@@ -114,7 +113,7 @@ let bunServer;
             }
         });
         
-        console.log('Subscribed to Redis channels alerts-state and ws-events');
+        console.log('Subscribed to Redis channels alerts-stream and ws-events');
     } catch (e) {
         console.error('Initialization error:', e);
     }
@@ -499,11 +498,11 @@ bunServer = Bun.serve({
             wsClients.add(ws);
             console.log(`Client connected to WebSocket: ${ws.data.username}`);
             if (ws.data.is_admin) {
-                ws.subscribe('alerts-state:global');
+                ws.subscribe('alerts-stream:global');
                 ws.subscribe('ws-frontend:global');
             } else if (ws.data.allowed_apps) {
                 for (const app of ws.data.allowed_apps) {
-                    ws.subscribe(`alerts-state:${app}`);
+                    ws.subscribe(`alerts-stream:${app}`);
                     ws.subscribe(`ws-frontend:${app}`);
                 }
             }
@@ -513,11 +512,11 @@ bunServer = Bun.serve({
             wsClients.delete(ws);
             console.log(`Client disconnected: ${ws.data.username}`);
             if (ws.data.is_admin) {
-                ws.unsubscribe('alerts-state:global');
+                ws.unsubscribe('alerts-stream:global');
                 ws.unsubscribe('ws-frontend:global');
             } else if (ws.data.allowed_apps) {
                 for (const app of ws.data.allowed_apps) {
-                    ws.unsubscribe(`alerts-state:${app}`);
+                    ws.unsubscribe(`alerts-stream:${app}`);
                     ws.unsubscribe(`ws-frontend:${app}`);
                 }
             }

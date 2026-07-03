@@ -27,6 +27,15 @@
             }
         }
     </script>
+    <script>
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+        } else {
+            document.documentElement.classList.add('light');
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
 </head>
 <body class="bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200">
     <header class="bg-aws-nav text-white flex items-center justify-between px-4 py-3 sticky top-0 z-50">
@@ -167,82 +176,114 @@
         }
 
         let ws;
+        let activeAlerts = {};
+
+        async function md5(message) {
+            const msgUint8 = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('MD5', msgUint8).catch(() => crypto.subtle.digest('SHA-1', msgUint8));
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex.substring(0, 8);
+        }
+
         function connectWS() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/ws?token=${token}`;
+            let wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws`;
             ws = new WebSocket(wsUrl);
 
-            ws.onmessage = (event) => {
+            ws.onmessage = async (event) => {
                 let data;
                 try { data = JSON.parse(event.data); } catch (e) { return; }
                 
-                if (data.type === 'ALERTS_STATE') {
-                    if (!data.alerts || data.alerts.length === 0) {
-                        document.getElementById('alerts-container').innerHTML = `
-                            <tr id="no-alerts-row">
-                                <td colspan="5" class="px-5 py-8 text-center text-aws-textMuted dark:text-aws-textMutedDark">No active critical alerts</td>
-                            </tr>
-                        `;
-                        return;
+                if (data.type === 'ALERT_STREAM') {
+                    const log = data.log;
+                    const errorHash = await md5(log.Message || '');
+                    
+                    if (!activeAlerts[errorHash]) {
+                        activeAlerts[errorHash] = {
+                            errorHash,
+                            count: 0,
+                            log: log,
+                            message: log.Message || `CRITICAL ALERT: ${log.Application_Name} has encountered an error.`
+                        };
                     }
                     
-                    const container = document.getElementById('alerts-container');
-                    const noAlerts = document.getElementById('no-alerts-row');
-                    if (noAlerts) noAlerts.remove();
+                    activeAlerts[errorHash].count += 1;
+                    activeAlerts[errorHash].log.Timestamp = log.Timestamp; // update time
                     
-                    const existingRows = new Set(Array.from(container.children).map(c => c.id));
-                    const newRows = new Set(data.alerts.map(a => `alert-${a.errorHash}`));
-                    
-                    for (const id of existingRows) {
-                        if (!newRows.has(id)) {
-                            const el = document.getElementById(id);
-                            if (el) el.remove();
-                        }
+                    if (activeAlerts[errorHash].count >= 100) {
+                        activeAlerts[errorHash].message = `ESCALATION: ${log.Application_Name} is failing rapidly! (${activeAlerts[errorHash].count} identical errors)`;
                     }
-
-                    data.alerts.sort((a, b) => b.count - a.count);
                     
-                    for (const alert of data.alerts) {
-                        const errorHash = alert.errorHash;
-                        const count = alert.count || 1;
-                        const app = alert.log?.Application_Name || '-';
-                        const msg = escapeHTML(alert.log?.Message || alert.message);
-                        const time = alert.log?.Timestamp || alert.log?.timestamp || '-';
-                        
-                        let rowClass = "hover:bg-blue-50/50 dark:hover:bg-white/5 transition-colors";
-                        let statusHtml = '<span class="bg-yellow-500 text-white text-xs font-bold px-2 py-0.5 rounded uppercase">Tracking</span>';
-                        
-                        if (count >= 100) {
-                            rowClass += " bg-red-50 dark:bg-red-900/20";
-                            statusHtml = '<span class="bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded uppercase">Escalated</span>';
-                        }
-                        
-                        const rowId = `alert-${errorHash}`;
-                        let tr = document.getElementById(rowId);
-                        
-                        if (tr) {
-                            tr.className = rowClass;
-                            tr.querySelector('.alert-count').innerText = count;
-                            tr.querySelector('.alert-time').innerHTML = escapeHTML(time);
-                            tr.querySelector('.alert-status').innerHTML = statusHtml;
-                            container.appendChild(tr);
-                        } else {
-                            tr = document.createElement('tr');
-                            tr.id = rowId;
-                            tr.className = rowClass;
-                            tr.innerHTML = `
-                                <td class="px-5 py-3 font-mono text-xs alert-time">${escapeHTML(time)}</td>
-                                <td class="px-5 py-3 font-medium text-xs">${escapeHTML(app)}</td>
-                                <td class="px-5 py-3 font-mono text-xs whitespace-normal break-words alert-msg text-red-600 dark:text-red-400 font-bold">${msg}</td>
-                                <td class="px-5 py-3 font-bold text-center alert-count text-lg">${count}</td>
-                                <td class="px-5 py-3 alert-status">${statusHtml}</td>
-                            `;
-                            container.appendChild(tr);
-                        }
-                    }
+                    renderAlerts();
                 }
             };
+
+            ws.onclose = () => {
+                setTimeout(connectWS, 2000);
+            };
+        }
+
+        function renderAlerts() {
+            const container = document.getElementById('alerts-container');
+            const noAlerts = document.getElementById('no-alerts-row');
             
+            const alertKeys = Object.keys(activeAlerts);
+            if (alertKeys.length === 0) {
+                if (!noAlerts) {
+                    container.innerHTML = `
+                        <tr id="no-alerts-row">
+                            <td colspan="5" class="px-5 py-8 text-center text-aws-textMuted dark:text-aws-textMutedDark">No active critical alerts</td>
+                        </tr>
+                    `;
+                }
+                return;
+            }
+            
+            if (noAlerts) noAlerts.remove();
+            
+            const alertsArray = Object.values(activeAlerts);
+            alertsArray.sort((a, b) => b.count - a.count);
+            
+            for (const alert of alertsArray) {
+                const errorHash = alert.errorHash;
+                const count = alert.count || 1;
+                const app = alert.log?.Application_Name || '-';
+                const msg = escapeHTML(alert.message);
+                const time = alert.log?.Timestamp || alert.log?.timestamp || '-';
+                
+                let rowClass = "hover:bg-blue-50/50 dark:hover:bg-white/5 transition-colors";
+                let statusHtml = '<span class="bg-yellow-500 text-white text-xs font-bold px-2 py-0.5 rounded uppercase">Tracking</span>';
+                
+                if (count >= 100) {
+                    rowClass += " bg-red-50 dark:bg-red-900/20";
+                    statusHtml = '<span class="bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded uppercase">Escalated</span>';
+                }
+                
+                const rowId = `alert-${errorHash}`;
+                let tr = document.getElementById(rowId);
+                
+                if (tr) {
+                    tr.className = rowClass;
+                    tr.querySelector('.alert-count').innerText = count;
+                    tr.querySelector('.alert-time').innerHTML = escapeHTML(time);
+                    tr.querySelector('.alert-status').innerHTML = statusHtml;
+                    tr.querySelector('.alert-msg').innerText = msg;
+                    container.appendChild(tr);
+                } else {
+                    tr = document.createElement('tr');
+                    tr.id = rowId;
+                    tr.className = rowClass;
+                    tr.innerHTML = `
+                        <td class="px-5 py-3 font-mono text-xs alert-time">${escapeHTML(time)}</td>
+                        <td class="px-5 py-3 font-medium text-xs">${escapeHTML(app)}</td>
+                        <td class="px-5 py-3 text-xs alert-msg">${msg}</td>
+                        <td class="px-5 py-3 font-bold text-xs"><span class="px-2 py-1 bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded text-aws-primary dark:text-aws-primaryDark">x<span class="alert-count">${count}</span></span></td>
+                        <td class="px-5 py-3 text-right alert-status">${statusHtml}</td>
+                    `;
+                    container.appendChild(tr);
+                }
+            }
+        }
             ws.onclose = () => {
                 setTimeout(connectWS, 2000);
             };
