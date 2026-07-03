@@ -85,32 +85,21 @@ let bunServer;
 
         await redisSubscriber.connect();
         
-        const consumer = kafka.consumer({ groupId: `ws-server-${crypto.randomUUID()}` });
-        await consumer.connect();
-        await consumer.subscribe({ topic: 'alerts-raw', fromBeginning: false });
-
-        consumer.run({
-            eachMessage: async ({ message }) => {
-                if (bunServer) {
-                    try {
-                        const parsed = JSON.parse(message.value.toString());
-                        for (const ws of wsClients) {
-                            if (ws.data.is_admin) {
-                                ws.send(JSON.stringify(parsed));
-                            } else if (ws.data.allowed_apps) {
-                                const appName = parsed.Application_Name;
-                                if (ws.data.allowed_apps.includes('*') || ws.data.allowed_apps.includes(appName)) {
-                                    ws.send(JSON.stringify(parsed));
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.error('Error handling alerts-raw message:', e);
+        await redisSubscriber.subscribe('alerts-stream', (message) => {
+            if (bunServer) {
+                try {
+                    const parsed = JSON.parse(message);
+                    const appName = parsed.Application_Name;
+                    if (appName) {
+                        bunServer.publish(`alerts-stream:${appName}`, message);
                     }
+                    bunServer.publish(`alerts-stream:global`, message);
+                } catch (e) {
+                    console.error('Error handling alerts-stream message:', e);
                 }
-            },
+            }
         });
-        
+
         await redisSubscriber.subscribe('ws-events', (message) => {
             if (bunServer) {
                 try {

@@ -348,12 +348,14 @@
                         renderAppChips();
                     }
 
-                    totalAlerts++;
-                    if (log.Log_Level === 'CRITICAL') criticalAlerts++;
+                    totalAlerts += (log.alert_count ? (log.alert_count - (alertState[signature]?.count || 0)) : 1);
+                    if (log.Log_Level === 'CRITICAL') {
+                        criticalAlerts += (log.alert_count ? (log.alert_count - (alertState[signature]?.count || 0)) : 1);
+                    }
 
                     if (!alertState[signature]) {
                         alertState[signature] = {
-                            count: 1,
+                            count: log.alert_count || 1,
                             Log_Level: log.Log_Level,
                             Application_Name: appName,
                             Message: log.Message || '',
@@ -361,7 +363,7 @@
                         };
                         renderAlertRow(signature);
                     } else {
-                        alertState[signature].count++;
+                        alertState[signature].count = Math.max(alertState[signature].count, log.alert_count || alertState[signature].count + 1);
                         alertState[signature].Timestamp = log.Timestamp || new Date().toISOString();
                         updateAlertRow(signature);
                     }

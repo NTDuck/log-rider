@@ -80,8 +80,12 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                         
                         if (count === 1) {
                             console.log(`[TELEGRAM] Sent immediate alert for ${log.Application_Name} (Error: ${log.Message})`);
+                            log.alert_count = count;
+                            redisClient.publish('alerts-stream', JSON.stringify(log));
                         } else if (count === 100) {
                             console.log(`[TELEGRAM] Sent escalation alert for ${log.Application_Name} (Count reached 100)`);
+                            log.alert_count = count;
+                            redisClient.publish('alerts-stream', JSON.stringify(log));
                         }
                     }
                     
