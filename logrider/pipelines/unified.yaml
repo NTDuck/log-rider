@@ -8,6 +8,8 @@ input:
 
 pipeline:
   processors:
+    - unarchive:
+        format: json_array
     - try:
       - mapping: |
           root = this

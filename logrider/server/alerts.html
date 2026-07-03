@@ -38,9 +38,10 @@
     </script>
 </head>
 <body class="bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200">
-    <header class="bg-aws-nav text-white flex items-center justify-between px-4 py-3 sticky top-0 z-50">
-        <div class="flex items-center space-x-6">
-            <a href="/dashboard" class="flex items-center space-x-2 no-underline text-white hover:text-gray-200">
+    <header class="bg-aws-nav text-white sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between py-3 w-full">
+            <div class="flex items-center space-x-6">
+                <a href="/dashboard" class="flex items-center space-x-2 no-underline text-white hover:text-gray-200">
                 <span class="font-semibold text-lg tracking-tight flex items-center">
                     log-rider
                 </span>
@@ -194,8 +195,14 @@
                 let data;
                 try { data = JSON.parse(event.data); } catch (e) { return; }
                 
-                if (data.type === 'ALERT_STREAM') {
-                    const log = data.log;
+                let log = null;
+                if (data.type === 'ALERT_STREAM' && data.log) {
+                    log = data.log;
+                } else if (data.Log_Level === 'ERROR' || data.Log_Level === 'CRITICAL' || data.Application_Name) {
+                    log = data;
+                }
+                
+                if (log) {
                     const errorHash = await md5(log.Message || '');
                     
                     if (!activeAlerts[errorHash]) {

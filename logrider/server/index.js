@@ -87,7 +87,8 @@ let bunServer;
                         if (ws.data.is_admin) {
                             ws.send(message);
                         } else if (ws.data.allowed_apps) {
-                            if (ws.data.allowed_apps.includes(parsed.log?.Application_Name)) {
+                            const appName = parsed.log?.Application_Name || parsed.Application_Name;
+                            if (ws.data.allowed_apps.includes('*') || ws.data.allowed_apps.includes(appName)) {
                                 ws.send(message);
                             }
                         }
@@ -427,9 +428,11 @@ bunServer = Bun.serve({
                         return Response.json({ logs: [] });
                     }
                     const appsArray = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',') : session.allowed_apps;
-                    // Escape single quotes to prevent SQL injection
-                    const appsStr = appsArray.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
-                    query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${appsStr}) ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
+                    if (!appsArray.includes('*')) {
+                        // Escape single quotes to prevent SQL injection
+                        const appsStr = appsArray.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
+                        query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${appsStr}) ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
+                    }
                 }
 
                 const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
