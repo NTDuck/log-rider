@@ -8,74 +8,32 @@ input:
 
 pipeline:
   processors:
-    - unarchive:
-        format: json_array
-    - try:
-      - mapping: |
-          root = this
-          root.Timestamp = (this.Timestamp | now()).ts_format("2006-01-02 15:04:05.999")
-          root.Log_Level = (this.Log_Level | "INFO").uppercase()
-          root.Application_Name = this.Application_Name | "unknown"
-          root.Message = this.Message | ""
-          root.Trace_ID = this.Trace_ID | uuid_v4()
-    - catch:
-      - mapping: |
-          root = this
-          root.error = error()
+    # 1. Extract values if deeply nested by standard HTTP proxies
+    - mapping: |
+        root = if this.type() == "object" && this.exists("value") { this.value } else { this }
+        
+    # 2. Normalize and enrich the data struct
+    - mapping: |
+        root = this
+        root.Trace_ID = this.Trace_ID | uuid_v4()
+        root.Status = "Normalized"
 
 output:
   broker:
     pattern: fan_out
     outputs:
-      - switch:
-          cases:
-            - check: 'this.exists("error")'
-              output:
-                kafka:
-                  addresses:
-                    - redpanda:29092
-                  topic: dlq-logs
-            - output:
-                drop: {}
-      - switch:
-          cases:
-            - check: '!this.exists("error")'
-              output:
-                broker:
-                  pattern: fan_out
-                  outputs:
-                    - kafka:
-                        addresses:
-                          - redpanda:29092
-                        topic: logs-persist
-                    - fallback:
-                        - redis_pubsub:
-                            url: redis://redis:6379
-                            channel: ws-events
-                          processors:
-                            - mapping: |
-                                root.type = "HYDRATED_LOG"
-                                root.status = "Normalized"
-                                root.log = this
-                    - switch:
-                        cases:
-                          - check: 'this.Log_Level == "ERROR" || this.Log_Level == "CRITICAL"'
-                            output:
-                              kafka:
-                                addresses:
-                                  - redpanda:29092
-                                topic: alerts-raw
-                          - output:
-                              drop: {}
-                    - fallback:
-                        - kafka:
-                            addresses:
-                              - redpanda:29092
-                            topic: logs-normalized
-                          processors:
-                            - mapping: |
-                                root = this
-                                root.Message = deleted()
+      - kafka:
+          addresses: [ "redpanda:29092" ]
+          topic: logs-persist
+      
+      - kafka:
+          addresses: [ "redpanda:29092" ]
+          topic: alerts-raw
+        processors:
+          # Filter strictly for high-severity issues
+          - mapping: |
+              root = if this.Log_Level == "ERROR" || this.Log_Level == "CRITICAL" { this } else { deleted() }
 
-            - output:
-                drop: {}
+      - redis_pubsub:
+          url: redis://redis:6379
+          channel: ws-events

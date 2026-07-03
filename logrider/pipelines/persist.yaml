@@ -4,35 +4,33 @@ input:
       - redpanda:29092
     topics:
       - logs-persist
-    consumer_group: "logrider_persist_5"
-    start_from_oldest: false
-    batching:
-      count: 10000
-      period: 1s
+    consumer_group: "logrider_persist"
+
+buffer:
+  memory:
+    limit: 524288000
+    batch_policy:
+      count: 5000
+      period: "1s"
+
+pipeline:
+  processors:
+    # Crucial: Converts the batch of JSON objects into newline-separated strings (NDJSON)
+    # This is exactly what ClickHouse's JSONEachRow format requires.
+    - archive:
+        format: lines
 
 output:
-  broker:
-    pattern: fan_out
-    outputs:
-      - fallback:
-          - http_client:
-              url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider.logs_raw_null%20FORMAT%20JSONEachRow&user=default&password=password"
-              verb: POST
-              headers:
-                Content-Type: application/x-ndjson
-            processors:
-              - archive:
-                  format: lines
-          - kafka:
-              addresses:
-                - redpanda:29092
-              topic: dlq-logs
-
-      - fallback:
-          - kafka:
-              addresses:
-                - redpanda:29092
-              topic: ws-events
-            processors:
-              - mapping: |
-                  root = {"type": "HYDRATED_LOG", "status": "Persisted", "log": this}
+  fallback:
+    - http_client:
+        url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider.logs_raw_null%20FORMAT%20JSONEachRow&user=default&password=password"
+        verb: POST
+        headers:
+          Content-Type: application/x-ndjson
+        # Only allow 1 in-flight request per Benthos thread to avoid overwhelming ClickHouse
+        max_in_flight: 1
+    # Safety net: If ClickHouse is down, route failed batches here rather than crashing
+    - kafka:
+        addresses:
+          - redpanda:29092
+        topic: dlq-clickhouse

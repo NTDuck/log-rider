@@ -124,8 +124,11 @@ services:
       dockerfile: Dockerfile
     environment:
       REDPANDA_BROKERS: redpanda:29092
+      REDIS_URL: redis://redis:6379
     depends_on:
       redpanda:
+        condition: service_healthy
+      redis:
         condition: service_healthy
   web-server:
     build: ./server

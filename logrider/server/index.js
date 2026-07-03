@@ -3,7 +3,13 @@ import { createClient } from 'redis';
 import path from 'path';
 import crypto from 'crypto';
 import pg from 'pg';
+import { Kafka } from 'kafkajs';
 const { Pool } = pg;
+
+const kafka = new Kafka({
+  clientId: 'logrider-web-server',
+  brokers: ['redpanda:29092']
+});
 
 
 const PORT = process.env.SERVER_PORT || 3000;
@@ -79,24 +85,30 @@ let bunServer;
 
         await redisSubscriber.connect();
         
-        await redisSubscriber.subscribe('alerts-stream', (message) => {
-            if (bunServer) {
-                try {
-                    const parsed = JSON.parse(message);
-                    for (const ws of wsClients) {
-                        if (ws.data.is_admin) {
-                            ws.send(message);
-                        } else if (ws.data.allowed_apps) {
-                            const appName = parsed.log?.Application_Name || parsed.Application_Name;
-                            if (ws.data.allowed_apps.includes('*') || ws.data.allowed_apps.includes(appName)) {
-                                ws.send(message);
+        const consumer = kafka.consumer({ groupId: `ws-server-${crypto.randomUUID()}` });
+        await consumer.connect();
+        await consumer.subscribe({ topic: 'alerts-raw', fromBeginning: false });
+
+        consumer.run({
+            eachMessage: async ({ message }) => {
+                if (bunServer) {
+                    try {
+                        const parsed = JSON.parse(message.value.toString());
+                        for (const ws of wsClients) {
+                            if (ws.data.is_admin) {
+                                ws.send(JSON.stringify(parsed));
+                            } else if (ws.data.allowed_apps) {
+                                const appName = parsed.Application_Name;
+                                if (ws.data.allowed_apps.includes('*') || ws.data.allowed_apps.includes(appName)) {
+                                    ws.send(JSON.stringify(parsed));
+                                }
                             }
                         }
+                    } catch (e) {
+                        console.error('Error handling alerts-raw message:', e);
                     }
-                } catch (e) {
-                    console.error('Error handling alerts-stream message:', e);
                 }
-            }
+            },
         });
         
         await redisSubscriber.subscribe('ws-events', (message) => {
@@ -124,12 +136,6 @@ bunServer = Bun.serve({
     port: PORT,
     async fetch(req, server) {
         const url = new URL(req.url);
-        
-        if (req.method === 'GET' && url.pathname === '/') {
-            return new Response('<h1>LogRider Server</h1><p>Running successfully on Bun.</p>', {
-                headers: { 'Content-Type': 'text/html' }
-            });
-        }
 
         if (req.method === 'GET' && url.pathname === '/health') {
             return Response.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -405,7 +411,7 @@ bunServer = Bun.serve({
 
         if (req.method === 'GET' && url.pathname === '/api/logs/recent') {
             try {
-                // Try header first, then cookie
+                // Auth: try header first, then cookie
                 let token = req.headers.get('authorization')?.replace('Bearer ', '');
                 if (!token) {
                     const cookie = req.headers.get('cookie');
@@ -421,18 +427,17 @@ bunServer = Bun.serve({
                 
                 const session = JSON.parse(sessionStr);
                 
-                let query = `SELECT * FROM logrider.logs_enriched ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
-                
-                if (!session.is_admin) {
-                    if (!session.allowed_apps || session.allowed_apps.length === 0) {
-                        return Response.json({ logs: [] });
-                    }
-                    const appsArray = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',') : session.allowed_apps;
-                    if (!appsArray.includes('*')) {
-                        // Escape single quotes to prevent SQL injection
-                        const appsStr = appsArray.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
-                        query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${appsStr}) ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
-                    }
+                let query;
+
+                // Admin users see all logs
+                if (session.is_admin) {
+                    query = `SELECT * FROM logrider.logs_enriched ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
+                } else {
+                    const apps = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',').map(a => a.trim()) : (session.allowed_apps || []);
+                    // Sanitize to prevent SQL injection, then filter
+                    const safeApps = apps.map(app => app.replace(/'/g, "''"));
+                    const inClause = safeApps.map(app => `'${app}'`).join(',');
+                    query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${inClause}) ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
                 }
 
                 const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {

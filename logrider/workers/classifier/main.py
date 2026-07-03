@@ -1,5 +1,6 @@
 import os
 import json
+import redis
 import fasttext
 from confluent_kafka import Consumer, Producer
 
@@ -16,17 +17,21 @@ model = fasttext.train_supervised('train.txt', epoch=25, lr=1.0)
 print("Model trained.")
 
 brokers = os.environ.get('REDPANDA_BROKERS', 'redpanda:29092')
+redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379')
 
 consumer = Consumer({
     'bootstrap.servers': brokers,
     'group.id': 'classifier-python-group',
     'auto.offset.reset': 'latest'
 })
-consumer.subscribe(['logs-normalized'])
+consumer.subscribe(['logs-persist'])
 
 producer = Producer({'bootstrap.servers': brokers})
 
-print("Starting Python Classifier worker listening to logs-normalized...")
+# Redis client for publishing WS events
+redis_client = redis.Redis.from_url(redis_url)
+
+print("Starting Python Classifier worker listening to logs-persist...")
 
 while True:
     msg = consumer.poll(1.0)
@@ -71,8 +76,10 @@ while True:
         }
         
         producer.produce('logs-tagged', json.dumps(clickhouse_message).encode('utf-8'))
-        producer.produce('ws-events', json.dumps(ws_message).encode('utf-8'))
         producer.poll(0)
+        
+        # Publish to Redis pub/sub for real-time WebSocket updates
+        redis_client.publish('ws-events', json.dumps(ws_message))
         
         print(f"[DEBUG] Classified {log['Trace_ID']} and sent to logs-tagged and ws-events")
         
