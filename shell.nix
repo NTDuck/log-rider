@@ -17,6 +17,7 @@ pkgs.mkShell {
 
     pkgs.websocat
     pkgs.k6
+    pkgs.redis
   ];
 
   shellHook = ''

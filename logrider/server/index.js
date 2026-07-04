@@ -544,36 +544,48 @@ bunServer = Bun.serve({
                 let ttlStr = await redisClient.get('config:noti_ttl');
                 let ttl = ttlStr ? parseInt(ttlStr, 10) : 86400; // Default 24 hours
                 
-                // Cleanup expired alerts
-                await redisClient.zRemRangeByScore('notifications:index', '-inf', Date.now() - (ttl * 1000));
+                // Cleanup expired alert keys from the index (and companion hash)
+                const cutoff = Date.now() - (ttl * 1000);
+                const expiredKeys = await redisClient.zRangeByScore('notifications:index', '-inf', cutoff);
+                if (expiredKeys.length > 0) {
+                    await redisClient.hDel('notifications:data', expiredKeys);
+                    await redisClient.zRemRangeByScore('notifications:index', '-inf', cutoff);
+                }
                 
-                // Fetch valid alerts
-                const alertsRaw = await redisClient.zRange('notifications:index', 0, -1);
+                // Fetch valid alert keys (members of the zset)
+                const alertKeys = await redisClient.zRange('notifications:index', 0, -1);
+
                 let alerts = [];
                 
-                for (const raw of alertsRaw) {
-                    try {
-                        const parsed = JSON.parse(raw);
-                        if (parsed.type === 'ALERT' && parsed.log) {
-                            const log = parsed.log;
-                            log.alert_count = parsed.count || 1;
-                            
-                            // Apply RBAC filtering
-                            if (session.is_admin) {
-                                alerts.push(log);
-                            } else {
-                                const allowedApps = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',').map(a => a.trim()) : (session.allowed_apps || []);
-                                if (allowedApps.includes(log.Application_Name)) {
+                if (alertKeys.length > 0) {
+                    // Batch-fetch all data from the companion hash
+                    const rawValues = await redisClient.hmGet('notifications:data', alertKeys);
+                    for (const raw of rawValues) {
+                        if (!raw) continue;
+                        try {
+                            const parsed = JSON.parse(raw);
+                            if (parsed.type === 'ALERT' && parsed.log) {
+                                const log = parsed.log;
+                                log.alert_count = parsed.count || 1;
+                                
+                                // Apply RBAC filtering
+                                if (session.is_admin) {
                                     alerts.push(log);
+                                } else {
+                                    const allowedApps = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',').map(a => a.trim()) : (session.allowed_apps || []);
+                                    if (allowedApps.includes(log.Application_Name)) {
+                                        alerts.push(log);
+                                    }
                                 }
                             }
+                        } catch (e) {
+                            console.error('Error parsing alert from Redis:', e);
                         }
-                    } catch (e) {
-                        console.error('Error parsing alert from Redis:', e);
                     }
                 }
                 
                 return Response.json({ alerts });
+
             } catch (err) {
                 console.error(err);
                 return Response.json({ error: 'Internal error fetching recent alerts' }, { status: 500 });
@@ -617,14 +629,22 @@ bunServer = Bun.serve({
         open(ws) {
             wsClients.add(ws);
             console.log(`Client connected to WebSocket: ${ws.data.username}`);
+            // Admin users get the global streams.
             if (ws.data.is_admin) {
                 ws.subscribe('alerts-stream:global');
                 ws.subscribe('ws-frontend:global');
             } else if (ws.data.allowed_apps) {
+                // Non-admin users should still receive global alerts
+                // (e.g., system-wide notifications) as well as their
+                // app-specific streams.
+                ws.subscribe('alerts-stream:global');
                 for (const app of ws.data.allowed_apps) {
                     ws.subscribe(`alerts-stream:${app}`);
                     ws.subscribe(`ws-frontend:${app}`);
                 }
+                // Global log stream for non-admin users is also useful
+                // for any logs that are not app-scoped.
+                ws.subscribe('ws-frontend:global');
             }
         },
         message(ws, message) {},

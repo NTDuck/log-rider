@@ -82,13 +82,17 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                         resolveOffset(offset);
                         
                         if (action === "new" || action === "threshold") {
-                            // Publish to Web UI and Persist
+                            // Publish to Web UI via the alerts-stream channel (server subscribes to this)
                             const alertMsg = JSON.stringify({ type: 'ALERT', log, count });
-                            await redisClient.publish('ws-logs', alertMsg);
-                            await redisClient.zAdd('notifications:index', {
-                                score: Date.now(),
-                                value: alertMsg
-                            });
+                            await redisClient.publish('alerts-stream', alertMsg);
+
+                            // Persist using a stable per-signature key as zset member.
+                            // Redis ZADD with the same member value simply updates the score,
+                            // so this is naturally idempotent / dedup-safe.
+                            const notifKey = `${log.Application_Name}:${errorHash}`;
+                            const notifData = JSON.stringify({ type: 'ALERT', log, count });
+                            await redisClient.hSet('notifications:data', notifKey, notifData);
+                            await redisClient.zAdd('notifications:index', [{ score: Date.now(), value: notifKey }]);
 
                             // Find subscribers
                             // Admins

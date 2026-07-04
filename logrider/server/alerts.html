@@ -415,7 +415,7 @@
 
             tr.innerHTML = `
                 <td class="px-5 py-3">
-                    <span id="count-${sig}" class="inline-flex items-center justify-center min-w-[40px] px-2 py-0.5 rounded-full text-xs font-bold bg-aws-primary/10 text-aws-primary dark:bg-aws-linkDark/10 dark:text-aws-linkDark border border-aws-primary/20 dark:border-aws-linkDark/20">[x1]</span>
+                    <span id="count-${sig}" class="inline-flex items-center justify-center min-w-[40px] px-2 py-0.5 rounded-full text-xs font-bold bg-aws-primary/10 text-aws-primary dark:bg-aws-linkDark/10 dark:text-aws-linkDark border border-aws-primary/20 dark:border-aws-linkDark/20">[x${state.count}]</span>
                 </td>
                 <td class="px-5 py-3">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${levelClass}">${state.Log_Level}</span>

@@ -98,6 +98,9 @@
     <!-- Top Navigation -->
     <!-- TOPBAR -->
 
+    <!-- Global Alert Toast Container -->
+    <div id="global-alert-container" class="fixed bottom-4 right-4 z-[9999] flex flex-col-reverse gap-2 pointer-events-none"></div>
+
     <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         <!-- Login Screen -->
@@ -148,13 +151,13 @@
                 <div class="lg:col-span-2 space-y-6">
                     <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm flex flex-col h-[700px]">
                         <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark flex justify-between items-center bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
-                            <h2 class="text-lg font-bold">Live Log Stream</h2>
+
                             <div class="flex items-center space-x-2 text-sm text-aws-textMuted dark:text-aws-textMutedDark">
                                 <span class="relative flex h-2.5 w-2.5 mr-1">
                                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                   <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
                                 </span>
-                                Streaming via WebSocket
+
                             </div>
                         </div>
                         <div class="px-5 py-3 border-b border-aws-border dark:border-aws-borderDark bg-gray-50 dark:bg-black/10">
