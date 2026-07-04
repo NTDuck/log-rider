@@ -63,5 +63,5 @@ AS SELECT
     Application_Name,
     countIf(Log_Level IN ('ERROR', 'CRITICAL')) AS error_count,
     count() AS total_count
-FROM logrider.logs_raw_null
+FROM logrider.logs_enriched
 GROUP BY hour, Application_Name;

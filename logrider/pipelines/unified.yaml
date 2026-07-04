@@ -11,29 +11,34 @@ pipeline:
     # 1. Extract values if deeply nested by standard HTTP proxies
     - mapping: |
         root = if this.type() == "object" && this.exists("value") { this.value } else { this }
-        
+
     # 2. Normalize and enrich the data struct
     - mapping: |
         root = this
         root.Trace_ID = this.Trace_ID | uuid_v4()
-        root.Status = "Normalized"
 
 output:
   broker:
     pattern: fan_out
     outputs:
+      # Step 1: Broadcast "Ingested" immediately so dashboard shows the log first
+      - redis_pubsub:
+          url: redis://redis:6379
+          channel: ws-events
+        processors:
+          - mapping: |
+              root = this
+              root.Status = "Ingested"
+
+      # Step 2: Route to classifier (which will broadcast Normalized then forward to persist)
       - kafka:
           addresses: [ "redpanda:29092" ]
-          topic: logs-persist
-      
+          topic: log-normalized
+
+      # Step 3: Route errors/criticals to alert pipeline
       - kafka:
           addresses: [ "redpanda:29092" ]
           topic: alerts-raw
         processors:
-          # Filter strictly for high-severity issues
           - mapping: |
               root = if this.Log_Level == "ERROR" || this.Log_Level == "CRITICAL" { this } else { deleted() }
-
-      - redis_pubsub:
-          url: redis://redis:6379
-          channel: ws-events

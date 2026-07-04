@@ -161,15 +161,3 @@ services:
         condition: service_healthy
     command: -c /benthos.yaml
 
-  benthos-tags:
-    image: jeffail/benthos:latest
-    environment:
-      CLICKHOUSE_DSN: clickhouse://default:password@clickhouse:9000/logrider
-    volumes:
-      - ./pipelines/tags.yaml:/benthos.yaml
-    depends_on:
-      redpanda:
-        condition: service_healthy
-      clickhouse:
-        condition: service_healthy
-    command: -c /benthos.yaml

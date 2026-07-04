@@ -1,3 +1,5 @@
-fasttext-wheel
+optimum[onnxruntime]
+transformers
+torch
 confluent-kafka==2.3.0
 redis

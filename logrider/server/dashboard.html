@@ -547,15 +547,17 @@
                     data = { message: event.data, level: 'info' };
                 }
 
+
+                // Benthos sets "Status" (capital S); classifier sets "status" (lowercase)
+                let status = data.Status || data.status || 'Normalized';
                 let isHydratedLog = false;
                 let isTags = false;
                 let logData = null;
-                let status = data.status || 'Normalized';
 
                 if (data.type === 'HYDRATED_LOG') {
                     isHydratedLog = true;
                     logData = data.log || {};
-                    status = data.status;
+                    status = data.Status || data.status || 'Normalized';
                 } else if (data.type === 'TAGS') {
                     isTags = true;
                 } else if (data.Application_Name && data.Log_Level) {
@@ -571,10 +573,10 @@
                         if (rows.length > 0) {
                             rows.forEach(row => {
                                 let statusHtml = '';
-                                if (status === 'Classified' || (logData.Tags && logData.Tags.length > 0)) {
-                                    statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold inline-block">Classified</span>';
-                                } else if (status === 'Persisted') {
+                                if (status === 'Persisted') {
                                     statusHtml = '<span class="text-blue-600 dark:text-blue-400 font-bold inline-block">Persisted</span>';
+                                } else if (status === 'Classified' || (logData.Tags && logData.Tags.length > 0)) {
+                                    statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold inline-block">Classified</span>';
                                 } else if (status === 'Ingested') {
                                     statusHtml = '<span class="text-purple-600 dark:text-purple-400 font-bold inline-block">Ingested</span>';
                                 } else {
@@ -799,17 +801,19 @@
                 tr.setAttribute('data-trace-id', escapeHTML(traceId));
             }
 
+
+
+            const statusVal = data.Status || data.status || '';
             let statusHtml = '';
-            if (data.status === 'Classified' || (data.Tags && data.Tags.length > 0)) {
+            if (statusVal === 'Classified' || (data.Tags && data.Tags.length > 0)) {
                 statusHtml = '<span class="text-green-600 dark:text-green-400 font-bold inline-block">Classified</span>';
-            } else if (data.status === 'Persisted' || (!isLive && !data.status)) {
+            } else if (statusVal === 'Persisted' || (!isLive && !statusVal)) {
                 statusHtml = '<span class="text-blue-600 dark:text-blue-400 font-bold inline-block">Persisted</span>';
-            } else if (data.status === 'Ingested') {
+            } else if (statusVal === 'Ingested') {
                 statusHtml = '<span class="text-purple-600 dark:text-purple-400 font-bold inline-block">Ingested</span>';
             } else {
                 statusHtml = '<span class="text-yellow-600 dark:text-yellow-400 font-bold inline-block">Normalized</span>';
             }
-
             addAppToFilter(rawAppName);
 
             tr.innerHTML = `
