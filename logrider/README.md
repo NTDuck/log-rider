@@ -45,6 +45,17 @@ The system comes with **Role-Based Access Control (RBAC)** initialized securely 
 **Features:**
 - **Real-Time Logs & Lifecycle Tracking**: WebSockets stream incoming logs and track their exact stage through the pipeline (`Ingested` -> `Normalized` -> `Persisted` -> `Classified`) natively in the UI. Advanced global search and interactive chip-based filtering allow for instantaneous log exploration.
 - **Active Alerts Dashboard**: A dedicated `/alerts` page for real-time monitoring of critical and error-level logs, featuring active incident tracking and grouped suppression rules to mitigate alert fatigue.
+- **Telegram Bot Integration**: Engineers and Admins can receive instant, rate-limited, deduplicated critical error alerts directly in Telegram. The bot strictly enforces the web app's Role-Based Access Control (RBAC).
+  - **Setup**: Login to the dashboard, click the **Telegram** button in the top navigation, and copy the provided one-time token.
+  - **User Commands**:
+    - `/link <token>`: Securely link your account and immediately start receiving alerts for your authorized apps.
+    - `/subscribe` & `/unsubscribe`: Toggle your notification stream on or off without unlinking your account.
+    - `/status`: View your current RBAC role, linked apps, and notification status.
+    - `/mute <minutes>`: Temporarily mute notifications for a set duration.
+  - **Admin Commands**:
+    - `/listusers`: View all linked Telegram accounts and their roles.
+    - `/revoke <telegram_id>`: Forcibly unlink a user.
+    - `/broadcast <message>`: Send a system announcement to all active subscribers.
 - **Health & Metrics Dashboard**: The dedicated `/metrics` page features a dynamic Chart.js visualization of the Error Rate (%) across all applications by the hour, and an Error Leaderboard.
 - **Live TTL Configuration**: Admins can change the Alert Deduplication TTL (Redis) and the Log Retention TTL policies (ClickHouse) globally on the fly without restarting any services from the `/config` page.
 
