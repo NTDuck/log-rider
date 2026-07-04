@@ -82,6 +82,14 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                         resolveOffset(offset);
                         
                         if (action === "new" || action === "threshold") {
+                            // Publish to Web UI and Persist
+                            const alertMsg = JSON.stringify({ type: 'ALERT', log, count });
+                            await redisClient.publish('ws-logs', alertMsg);
+                            await redisClient.zAdd('notifications:index', {
+                                score: Date.now(),
+                                value: alertMsg
+                            });
+
                             // Find subscribers
                             // Admins
                             const admins = await redisClient.sMembers('users:admins');

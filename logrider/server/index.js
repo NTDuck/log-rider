@@ -303,6 +303,40 @@ bunServer = Bun.serve({
             }
         }
 
+        if (req.method === 'GET' && url.pathname === '/api/config/noti-ttl') {
+            try {
+                let ttl = await redisClient.get('config:noti_ttl');
+                ttl = ttl ? parseInt(ttl, 10) : 86400; // default 24h
+                return Response.json({ ttl });
+            } catch (err) {
+                console.error("Error fetching Noti TTL from Redis:", err);
+                return Response.json({ error: "Internal server error" }, { status: 500 });
+            }
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/config/noti-ttl') {
+            try {
+                const token = req.headers.get('authorization')?.replace('Bearer ', '');
+                if (!token) return Response.json({ error: 'No token' }, { status: 401 });
+                
+                const sessionStr = await redisClient.get(`session:${token}`);
+                if (!sessionStr) return Response.json({ error: 'Invalid token' }, { status: 401 });
+                
+                const session = JSON.parse(sessionStr);
+                if (!session.is_admin) return Response.json({ error: 'Forbidden. Admins only.' }, { status: 403 });
+                
+                const body = await req.json();
+                const { ttl } = body;
+                if (!ttl || isNaN(ttl) || ttl <= 0) return Response.json({ error: 'Invalid TTL value' }, { status: 400 });
+                
+                await redisClient.set('config:noti_ttl', parseInt(ttl, 10).toString());
+                return Response.json({ success: true, ttl: parseInt(ttl, 10) });
+            } catch (err) {
+                console.error(err);
+                return Response.json({ error: 'Internal error' }, { status: 500 });
+            }
+        }
+
         if (req.method === 'GET' && url.pathname === '/api/config/clickhouse-ttl') {
             try {
                 const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
@@ -495,28 +529,39 @@ bunServer = Bun.serve({
                 
                 const session = JSON.parse(sessionStr);
                 
-                let query;
-                if (session.is_admin) {
-                    query = `SELECT Application_Name, Log_Level, Message, max(Timestamp) as Timestamp, count() as alert_count FROM logrider.logs_enriched WHERE Log_Level IN ('ERROR', 'CRITICAL') AND Timestamp >= now() - INTERVAL 24 HOUR GROUP BY Application_Name, Log_Level, Message ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
-                } else {
-                    const apps = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',').map(a => a.trim()) : (session.allowed_apps || []);
-                    const safeApps = apps.map(app => app.replace(/'/g, "''"));
-                    const inClause = safeApps.map(app => `'${app}'`).join(',');
-                    if (safeApps.length === 0) return Response.json({ alerts: [] });
-                    query = `SELECT Application_Name, Log_Level, Message, max(Timestamp) as Timestamp, count() as alert_count FROM logrider.logs_enriched WHERE Log_Level IN ('ERROR', 'CRITICAL') AND Application_Name IN (${inClause}) AND Timestamp >= now() - INTERVAL 24 HOUR GROUP BY Application_Name, Log_Level, Message ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
-                }
-
-                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
-                    method: 'POST',
-                    body: query
-                });
+                let ttlStr = await redisClient.get('config:noti_ttl');
+                let ttl = ttlStr ? parseInt(ttlStr, 10) : 86400; // Default 24 hours
                 
-                if (!chRes.ok) {
-                    throw new Error(`ClickHouse error: ${await chRes.text()}`);
+                // Cleanup expired alerts
+                await redisClient.zRemRangeByScore('notifications:index', '-inf', Date.now() - (ttl * 1000));
+                
+                // Fetch valid alerts
+                const alertsRaw = await redisClient.zRange('notifications:index', 0, -1);
+                let alerts = [];
+                
+                for (const raw of alertsRaw) {
+                    try {
+                        const parsed = JSON.parse(raw);
+                        if (parsed.type === 'ALERT' && parsed.log) {
+                            const log = parsed.log;
+                            log.alert_count = parsed.count || 1;
+                            
+                            // Apply RBAC filtering
+                            if (session.is_admin) {
+                                alerts.push(log);
+                            } else {
+                                const allowedApps = typeof session.allowed_apps === 'string' ? session.allowed_apps.split(',').map(a => a.trim()) : (session.allowed_apps || []);
+                                if (allowedApps.includes(log.Application_Name)) {
+                                    alerts.push(log);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error parsing alert from Redis:', e);
+                    }
                 }
                 
-                const chData = await chRes.json();
-                return Response.json({ alerts: chData.data });
+                return Response.json({ alerts });
             } catch (err) {
                 console.error(err);
                 return Response.json({ error: 'Internal error fetching recent alerts' }, { status: 500 });

@@ -131,6 +131,9 @@
                     <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                     <span id="role-badge" class="text-gray-200"></span>
                 </div>
+                <button onclick="toggleAlerts()" id="bell-btn" class="p-1.5 rounded-full hover:bg-white/10 transition-colors focus:outline-none" aria-label="Toggle Popups">
+                    <svg id="bell-icon" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                </button>
                 <button onclick="generateTelegramLink()" class="bg-[#0088cc] hover:bg-[#0077b5] text-white px-3 py-1 text-xs font-bold rounded-full transition-colors shadow-sm flex items-center gap-1">
                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.223-.548.223l.188-2.85 5.18-4.686c.223-.204-.054-.31-.346-.116l-6.4 4.024-2.76-.86c-.6-.188-.614-.6.126-.89l10.81-4.168c.5-.188.943.116.85 1.35z"/></svg>
                     Telegram
@@ -319,7 +322,7 @@
 
     <script>
         async function generateTelegramLink() {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('logrider_token');
             if (!token) return;
             try {
                 const res = await fetch('/api/telegram/generate-link-token', {
@@ -337,7 +340,7 @@
             }
         }
         
-        // Dark Mode Setup
+        // --- Dark Mode ---
         const themeToggleBtn = document.getElementById('theme-toggle');
         const darkIcon = document.getElementById('theme-toggle-dark-icon');
         const lightIcon = document.getElementById('theme-toggle-light-icon');
@@ -576,6 +579,11 @@
                 let isHydratedLog = false;
                 let isTags = false;
                 let logData = null;
+
+                if (data.type === 'ALERT') {
+                    showGlobalAlert(data.log, data.count);
+                    return;
+                }
 
                 if (data.type === 'HYDRATED_LOG') {
                     isHydratedLog = true;
@@ -867,6 +875,60 @@
             if (logsContainer.children.length > 500) {
                 logsContainer.removeChild(logsContainer.lastChild);
             }
+        }
+        // Global Alert Logic
+        function toggleAlerts() {
+            const current = localStorage.getItem('alerts_enabled') !== 'false';
+            localStorage.setItem('alerts_enabled', !current);
+            updateAlertsIcon();
+        }
+        function updateAlertsIcon() {
+            const enabled = localStorage.getItem('alerts_enabled') !== 'false';
+            const icon = document.getElementById('bell-icon');
+            if (!icon) return;
+            if (enabled) {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>';
+                icon.classList.remove('text-gray-500');
+                icon.classList.add('text-white');
+            } else {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path><line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="2"></line>';
+                icon.classList.remove('text-white');
+                icon.classList.add('text-gray-500');
+            }
+        }
+        
+        function showGlobalAlert(log, count) {
+            if (localStorage.getItem('alerts_enabled') === 'false') return;
+            const container = document.getElementById('global-alert-container');
+            if (!container) return;
+            
+            const toast = document.createElement('div');
+            toast.className = 'pointer-events-auto w-72 max-w-sm bg-white dark:bg-aws-panelDark border border-red-500 dark:border-red-600 rounded shadow-lg p-3 flex flex-col transform transition-all duration-300 translate-x-full opacity-0';
+            
+            toast.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <h3 class="text-xs font-bold text-red-600 dark:text-red-400">CRITICAL ALERT</h3>
+                    </div>
+                    <span class="bg-red-100 text-red-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full dark:bg-red-900 dark:text-red-200">x${count}</span>
+                </div>
+                <div class="mt-1">
+                    <p class="text-xs font-medium text-aws-text dark:text-aws-textDark">${escapeHTML(log.Application_Name || 'unknown')}</p>
+                    <p class="text-[10px] text-aws-textMuted dark:text-aws-textMutedDark mt-0.5 line-clamp-2">${escapeHTML(log.Message || 'No message')}</p>
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+            });
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
         }
     </script>
 </body>

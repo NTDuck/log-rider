@@ -366,10 +366,17 @@
 
             ws.onmessage = (event) => {
                 try {
-                    const log = JSON.parse(event.data);
+                    let data = JSON.parse(event.data);
+                    let log = data;
+                    let count = 1;
+                    if (data.type === 'ALERT') {
+                        log = data.log;
+                        count = data.count || 1;
+                    }
                     // Only process ERROR and CRITICAL
                     if (log.Log_Level !== 'ERROR' && log.Log_Level !== 'CRITICAL') return;
 
+                    log.alert_count = count;
                     const signature = btoa(encodeURIComponent((log.Application_Name || 'unknown') + '|' + (log.Message || ''))).substring(0, 24);
                     const appName = log.Application_Name || 'unknown';
 

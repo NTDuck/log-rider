@@ -51,11 +51,6 @@ The system comes with **Role-Based Access Control (RBAC)** initialized securely 
     - `/link <token>`: Securely link your account and immediately start receiving alerts for your authorized apps.
     - `/subscribe` & `/unsubscribe`: Toggle your notification stream on or off without unlinking your account.
     - `/status`: View your current RBAC role, linked apps, and notification status.
-    - `/mute <minutes>`: Temporarily mute notifications for a set duration.
-  - **Admin Commands**:
-    - `/listusers`: View all linked Telegram accounts and their roles.
-    - `/revoke <telegram_id>`: Forcibly unlink a user.
-    - `/broadcast <message>`: Send a system announcement to all active subscribers.
 - **Health & Metrics Dashboard**: The dedicated `/metrics` page features a dynamic Chart.js visualization of the Error Rate (%) across all applications by the hour, and an Error Leaderboard.
 - **Live TTL Configuration**: Admins can change the Alert Deduplication TTL (Redis) and the Log Retention TTL policies (ClickHouse) globally on the fly without restarting any services from the `/config` page.
 

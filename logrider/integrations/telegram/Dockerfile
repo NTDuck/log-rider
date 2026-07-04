@@ -1,9 +1,13 @@
-FROM oven/bun:1 as base
-WORKDIR /usr/src/app
+FROM golang:alpine
 
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile || bun install
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
 
 COPY . .
 
-CMD ["bun", "run", "index.js"]
+RUN go mod tidy
+RUN go build -o bot .
+
+CMD ["./bot"]
