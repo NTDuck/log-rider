@@ -121,6 +121,17 @@ let bunServer;
     }
 })();
 
+async function serveHTML(filename) {
+    try {
+        const fileContent = await Bun.file(path.join(import.meta.dir, filename)).text();
+        const topbarContent = await Bun.file(path.join(import.meta.dir, 'components', 'topbar.html')).text();
+        const rendered = fileContent.replace('<!-- TOPBAR -->', topbarContent);
+        return new Response(rendered, { headers: { 'Content-Type': 'text/html' } });
+    } catch(e) {
+        return new Response('File not found', { status: 404 });
+    }
+}
+
 bunServer = Bun.serve({
     port: PORT,
     async fetch(req, server) {
@@ -131,20 +142,21 @@ bunServer = Bun.serve({
         }
 
         if (req.method === 'GET' && url.pathname === '/dashboard') {
-            return new Response(Bun.file(path.join(import.meta.dir, 'dashboard.html')));
+            return await serveHTML('dashboard.html');
         }
 
         if (req.method === 'GET' && url.pathname === '/alerts') {
-            return new Response(Bun.file(path.join(import.meta.dir, 'alerts.html')));
+            return await serveHTML('alerts.html');
         }
         
         if (req.method === 'GET' && url.pathname === '/config') {
-            return new Response(Bun.file(path.join(import.meta.dir, 'config.html')));
+            return await serveHTML('config.html');
         }
         
         if (req.method === 'GET' && url.pathname === '/metrics') {
-            return new Response(Bun.file(path.join(import.meta.dir, 'metrics.html')));
+            return await serveHTML('metrics.html');
         }
+
 
         if (req.method === 'POST' && url.pathname === '/login') {
             try {
@@ -197,7 +209,7 @@ bunServer = Bun.serve({
                 await redisClient.setEx(`link_token:${linkToken}`, 600, JSON.stringify({
                     user_id: session.username,
                     role: session.role || (session.is_admin ? 'admin' : 'engineer'),
-                    app_ids: session.allowed_apps ? session.allowed_apps.split(',').map(a => a.trim()).filter(a => a) : []
+                    app_ids: Array.isArray(session.allowed_apps) ? session.allowed_apps : []
                 }));
                 return Response.json({ token: linkToken });
             } catch (error) {
