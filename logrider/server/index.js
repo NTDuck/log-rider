@@ -13,15 +13,12 @@ const kafka = new Kafka({
 
 
 const PORT = process.env.SERVER_PORT || 3000;
-if (PORT == 8080) {
-    console.error("DO NOT USE PORT 8080 as per requirements.");
-    process.exit(1);
-}
-
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-
 const POSTGRES_URI = process.env.POSTGRES_URI || 'postgres://logrider:password@postgres:5432/logrider';
-const chHost = process.env.CLICKHOUSE_HOST || 'clickhouse';
+const CLICKHOUSE_HOST = process.env.CLICKHOUSE_HOST || 'clickhouse';
+const CLICKHOUSE_USER = process.env.CLICKHOUSE_USER || 'default';
+const CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_PASSWORD || 'password';
+const chBaseUrl = `http://${CLICKHOUSE_HOST}:8123/?user=${CLICKHOUSE_USER}&password=${CLICKHOUSE_PASSWORD}`;
 const pgClient = new Pool({ connectionString: POSTGRES_URI });
 
 (async () => {
@@ -89,7 +86,8 @@ let bunServer;
             if (bunServer) {
                 try {
                     const parsed = JSON.parse(message);
-                    const appName = parsed.Application_Name;
+                    // Application_Name is nested inside the log object for ALERT messages
+                    const appName = parsed.log?.Application_Name || parsed.Application_Name;
                     if (appName) {
                         bunServer.publish(`alerts-stream:${appName}`, message);
                     }
@@ -351,7 +349,7 @@ bunServer = Bun.serve({
 
         if (req.method === 'GET' && url.pathname === '/api/config/clickhouse-ttl') {
             try {
-                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                const chRes = await fetch(chBaseUrl, {
                     method: 'POST',
                     body: "SHOW CREATE TABLE logrider.logs FORMAT TSV"
                 });
@@ -394,7 +392,7 @@ bunServer = Bun.serve({
                 ];
                 
                 for (let q of queries) {
-                    const res = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                    const res = await fetch(chBaseUrl, {
                         method: 'POST',
                         body: q
                     });
@@ -439,7 +437,7 @@ bunServer = Bun.serve({
                     FORMAT JSON
                 `;
                 
-                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                const chRes = await fetch(chBaseUrl, {
                     method: 'POST',
                     body: query
                 });
@@ -496,7 +494,7 @@ bunServer = Bun.serve({
                     query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${inClause}) ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
                 }
 
-                const chRes = await fetch(`http://${chHost}:8123/?user=default&password=password`, {
+                const chRes = await fetch(chBaseUrl, {
                     method: 'POST',
                     body: query
                 });

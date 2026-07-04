@@ -116,6 +116,12 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                             if (allChats.size > 0) {
                                 console.log(`[TELEGRAM] Queued ${action} alert for ${log.Application_Name} (Error: ${log.Message}) to ${allChats.size} chats`);
                             }
+                        } else if (action === "edit") {
+                            // Silently update the stored count so /alerts dashboard shows the real number.
+                            // No popup, no Telegram — this just keeps the database current between thresholds.
+                            const notifKey = `${log.Application_Name}:${errorHash}`;
+                            const notifData = JSON.stringify({ type: 'ALERT', log, count });
+                            await redisClient.hSet('notifications:data', notifKey, notifData);
                         }
                     }
                     

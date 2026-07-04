@@ -29,7 +29,7 @@ output:
       # Write the batch to ClickHouse
       - fallback:
           - http_client:
-              url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider.logs_enriched%20FORMAT%20JSONEachRow&user=default&password=password"
+              url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider.logs_enriched%20FORMAT%20JSONEachRow&user=${CLICKHOUSE_USER:default}&password=${CLICKHOUSE_PASSWORD:password}"
               verb: POST
               headers:
                 Content-Type: application/x-ndjson

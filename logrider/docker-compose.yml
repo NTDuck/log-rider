@@ -15,11 +15,7 @@ services:
         PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
       - --pandaproxy-addr 0.0.0.0:8082
       - --advertise-pandaproxy-addr localhost:8082
-    ports:
-      - 8081:8081
-      - 8082:8082
-      - 9092:9092
-      - 29092:29092
+    # Redpanda ports removed to prevent unauthenticated ingress
     healthcheck:
       test:
         - CMD
@@ -29,10 +25,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
   redis:
     image: redis:7-alpine
-    ports:
-      - 6379:6379
+    # Redis is internal-only
     healthcheck:
       test:
         - CMD
@@ -41,15 +37,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     environment:
-      CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: password
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password}
       CLICKHOUSE_DB: logrider
-    ports:
-      - 8123:8123
-      - 9000:9000
+    # ClickHouse ports removed to prevent exposure
     volumes:
       - >-
         ./persist/init-clickhouse.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql
@@ -63,28 +58,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: logrider
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: ${POSTGRES_USER:-logrider}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: logrider
-    ports:
-      - 5432:5432
+    # Postgres ports removed to prevent exposure
     volumes:
       - >-
         ./persist/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
     healthcheck:
       test:
         - CMD-SHELL
-        - pg_isready -U logrider -d logrider
+        - pg_isready -U ${POSTGRES_USER:-logrider} -d logrider
       interval: 10s
       timeout: 5s
       retries: 5
+
   benthos-pipeline:
     image: jeffail/benthos:latest
-    environment:
-      CLICKHOUSE_DSN: clickhouse://default:password@clickhouse:9000/logrider
     volumes:
       - ./pipelines/unified.yaml:/benthos.yaml
     depends_on:
@@ -95,10 +89,9 @@ services:
       clickhouse:
         condition: service_healthy
     command: -c /benthos.yaml
+
   benthos-persist:
     image: jeffail/benthos:latest
-    environment:
-      CLICKHOUSE_DSN: clickhouse://default:password@clickhouse:9000/logrider
     volumes:
       - ./pipelines/persist.yaml:/benthos.yaml
     depends_on:
@@ -109,15 +102,33 @@ services:
       clickhouse:
         condition: service_healthy
     command: -c /benthos.yaml
+
+  benthos-tags:
+    image: jeffail/benthos:latest
+    volumes:
+      - ./pipelines/tags.yaml:/benthos.yaml
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    command: -c /benthos.yaml
+
   alert-worker:
     build: ./workers/alert
     depends_on:
       redis:
         condition: service_healthy
+      redpanda:
+        condition: service_healthy
     environment:
       REDIS_URL: redis://redis:6379
+      REDPANDA_BROKERS: redpanda:29092
     deploy:
       replicas: 10
+
   classifier-worker:
     build:
       context: ./workers/classifier
@@ -130,6 +141,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
   telegram-bot:
     build: ./integrations/telegram
     depends_on:
@@ -138,10 +150,11 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+
   web-server:
     build: ./server
     ports:
-      - 3000:3000
+      - "${SERVER_PORT:-3000}:${SERVER_PORT:-3000}"
     depends_on:
       redis:
         condition: service_healthy
@@ -152,11 +165,13 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SERVER_PORT: 3000
+      SERVER_PORT: ${SERVER_PORT:-3000}
       REDPANDA_BROKERS: redpanda:29092
       REDIS_URL: redis://redis:6379
-      CLICKHOUSE_URI: http://clickhouse:8123/?user=default&password=password
-      POSTGRES_URI: postgres://logrider:password@postgres:5432/logrider
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password}
+      POSTGRES_URI: postgres://${POSTGRES_USER:-logrider}:${POSTGRES_PASSWORD:-password}@postgres:5432/logrider
 
   benthos-alerts-forwarder:
     image: jeffail/benthos:latest
@@ -168,4 +183,3 @@ services:
       redis:
         condition: service_healthy
     command: -c /benthos.yaml
-
