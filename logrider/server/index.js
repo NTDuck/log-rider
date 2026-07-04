@@ -185,6 +185,27 @@ bunServer = Bun.serve({
             }
         }
         
+        if (req.method === 'POST' && url.pathname === '/api/telegram/generate-link-token') {
+            try {
+                const token = req.headers.get('authorization')?.replace('Bearer ', '');
+                if (!token) return Response.json({ error: 'No token' }, { status: 401 });
+                const sessionStr = await redisClient.get(`session:${token}`);
+                if (!sessionStr) return Response.json({ error: 'Invalid token' }, { status: 401 });
+                const session = JSON.parse(sessionStr);
+                
+                const linkToken = crypto.randomBytes(16).toString('hex');
+                await redisClient.setEx(`link_token:${linkToken}`, 600, JSON.stringify({
+                    user_id: session.username,
+                    role: session.role || (session.is_admin ? 'admin' : 'engineer'),
+                    app_ids: session.allowed_apps ? session.allowed_apps.split(',').map(a => a.trim()).filter(a => a) : []
+                }));
+                return Response.json({ token: linkToken });
+            } catch (error) {
+                console.error('Error generating link token:', error);
+                return Response.json({ error: 'Internal server error' }, { status: 500 });
+            }
+        }
+        
         if (url.pathname.startsWith('/api/users')) {
             const token = req.headers.get('authorization')?.replace('Bearer ', '');
             if (!token) return Response.json({ error: 'No token' }, { status: 401 });

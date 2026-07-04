@@ -13,7 +13,6 @@ const kafka = new Kafka({
 });
 
 const consumer = kafka.consumer({ groupId: 'alert-worker-group' });
-const producer = kafka.producer();
 
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
 
@@ -22,79 +21,97 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
         await redisClient.connect();
         console.log('Connected to Redis');
         
-        await producer.connect();
         await consumer.connect();
         await consumer.subscribe({ topic: 'alerts-raw', fromBeginning: true });
 
-        // Lua script for atomic INCR + EXPIRE
+        // Lua script for atomic global dedup
         const luaScript = `
-            local count = redis.call("INCR", KEYS[1])
-            if count == 1 then
-                redis.call("EXPIRE", KEYS[1], ARGV[1])
+            local lastTime = redis.call("HGET", KEYS[1], "time")
+            local counter = redis.call("HGET", KEYS[1], "count")
+            if lastTime and tonumber(lastTime) > (ARGV[1] - ARGV[2]) then
+                counter = tonumber(counter or 1) + 1
+                redis.call("HSET", KEYS[1], "count", counter)
+                if counter == 10 or counter == 50 or counter == 100 then
+                    return {"threshold", counter}
+                else
+                    return {"edit", counter}
+                end
+            else
+                redis.call("HSET", KEYS[1], "time", ARGV[1], "count", 1)
+                redis.call("EXPIRE", KEYS[1], ARGV[2])
+                return {"new", 1}
             end
-            return count
         `;
         
-        // Ensure lua script is loaded in Redis to optimize bandwidth
         const scriptSha = await redisClient.scriptLoad(luaScript);
 
         await consumer.run({
             eachBatchAutoResolve: false,
             eachBatch: async ({ batch, resolveOffset, heartbeat, commitOffsetsIfNecessary }) => {
                 try {
-                    // Fetch dynamic TTL or default to 60 seconds
                     let ttl = await redisClient.get('config:alert_ttl');
                     ttl = ttl ? parseInt(ttl, 10) : 60;
                     
                     const pipeline = redisClient.multi();
                     const messagesProcessed = [];
 
+                    const now = Math.floor(Date.now() / 1000);
+
                     for (let message of batch.messages) {
                         const log = JSON.parse(message.value.toString());
                         const errorHash = crypto.createHash('md5').update(log.Message || '').digest('hex').substring(0, 8);
-                        const key = `alert_lock:${log.Application_Name}:${errorHash}`;
+                        const key = `dedup:global:${log.Application_Name}:${errorHash}`;
                         
-                        // Queue the EVALSHA command in the pipeline
                         pipeline.evalSha(scriptSha, {
                             keys: [key],
-                            arguments: [ttl.toString()]
+                            arguments: [now.toString(), ttl.toString()]
                         });
                         
-                        messagesProcessed.push({ log, key, errorHash, offset: message.offset });
+                        messagesProcessed.push({ log, errorHash, offset: message.offset });
                     }
                     
-                    // Execute all Lua scripts in a single network roundtrip!
-                    const counts = await pipeline.exec();
+                    const results = await pipeline.exec();
                     
-                    // Now process results and store active alerts
-                    const statePipeline = redisClient.multi();
-                    let stateUpdates = 0;
-                    const expiry = Date.now() + ttl * 1000;
-                    
+                    // Now process results
                     for (let i = 0; i < messagesProcessed.length; i++) {
-                        const { log, key, errorHash, offset } = messagesProcessed[i];
-                        const count = counts[i]; // Result of the EVALSHA
+                        const { log, errorHash, offset } = messagesProcessed[i];
+                        const res = results[i]; 
+                        const action = res[0];
+                        const count = res[1];
                         
-                        // Resolve offset so commitOffsetsIfNecessary works
                         resolveOffset(offset);
                         
-                        if (count === 1) {
-                            console.log(`[TELEGRAM] Sent immediate alert for ${log.Application_Name} (Error: ${log.Message})`);
-                            log.alert_count = count;
-                            redisClient.publish('alerts-stream', JSON.stringify(log));
-                        } else if (count === 100) {
-                            console.log(`[TELEGRAM] Sent escalation alert for ${log.Application_Name} (Count reached 100)`);
-                            log.alert_count = count;
-                            redisClient.publish('alerts-stream', JSON.stringify(log));
+                        if (action === "new" || action === "threshold") {
+                            // Find subscribers
+                            // Admins
+                            const admins = await redisClient.sMembers('users:admins');
+                            // App engineers
+                            const engineers = await redisClient.sMembers(`app:${log.Application_Name}:subscribers`);
+                            
+                            const allChats = new Set([...admins, ...engineers]);
+                            
+                            for (const chatId of allChats) {
+                                // Push to telegram outbound queue
+                                await redisClient.lPush('telegram_outbound', JSON.stringify({
+                                    chatId: parseInt(chatId),
+                                    appId: log.Application_Name,
+                                    errorHash,
+                                    count,
+                                    action, // "new" or "threshold"
+                                    log
+                                }));
+                            }
+                            if (allChats.size > 0) {
+                                console.log(`[TELEGRAM] Queued ${action} alert for ${log.Application_Name} (Error: ${log.Message}) to ${allChats.size} chats`);
+                            }
                         }
                     }
                     
-                    console.debug(`[DEBUG] Processed batch of ${batch.messages.length} alerts from ${batch.topic}`);
                     await commitOffsetsIfNecessary();
                     await heartbeat();
                 } catch (err) {
                     console.error('Error processing alert batch', err);
-                    throw err; // CRITICAL: let kafkajs know the batch failed so it can retry!
+                    throw err; 
                 }
             }
         });
