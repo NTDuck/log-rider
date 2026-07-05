@@ -46,7 +46,7 @@
 <body class="bg-aws-bg font-sans text-aws-text antialiased transition-colors duration-200 dark:bg-aws-bgDark dark:text-aws-textDark h-screen flex flex-col overflow-hidden">
     <!-- TOPBAR -->
 
-    <main class="mx-auto max-w-[1400px] w-full px-4 py-8 sm:px-6 lg:px-8 flex-1 flex flex-col overflow-hidden">
+    <main class="mx-auto max-w-[1400px] w-full px-4 py-8 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0 overflow-hidden">
         <div id="login-screen" class="mx-auto mt-12 max-w-md">
             <div class="overflow-hidden rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
                 <div class="border-b border-aws-border px-6 py-5 dark:border-aws-borderDark">
@@ -106,7 +106,7 @@
                 <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
                         <div class="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(300px,1fr)_180px_180px]">
-                            <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm">
+                            <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm w-full xl:max-w-md">
                                 <svg class="w-4 h-4 text-gray-400 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                 <input id="search-query" type="text" oninput="renderAlerts()" placeholder="Search by application or message..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
                             </div>

@@ -170,6 +170,12 @@ bunServer = Bun.serve({
       });
     }
 
+    if (req.method === "GET" && url.pathname.startsWith("/public/")) {
+      const filePath = path.join(import.meta.dir, url.pathname);
+      const file = Bun.file(filePath);
+      return new Response(file);
+    }
+
     if (req.method === "GET" && url.pathname === "/dashboard") {
       return await serveHTML("dashboard.html");
     }
@@ -697,16 +703,19 @@ bunServer = Bun.serve({
 
         // Admin users see all logs
         if (session.is_admin) {
-          query = `SELECT * FROM logrider.logs_enriched ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
+          query = `SELECT * FROM logrider.logs_enriched ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
         } else {
           const apps =
             typeof session.allowed_apps === "string"
               ? session.allowed_apps.split(",").map((a) => a.trim())
               : session.allowed_apps || [];
+          if (apps.length === 0) {
+            return Response.json({ logs: [] });
+          }
           // Sanitize to prevent SQL injection, then filter
           const safeApps = apps.map((app) => app.replace(/'/g, "''"));
           const inClause = safeApps.map((app) => `'${app}'`).join(",");
-          query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${inClause}) ORDER BY Timestamp DESC LIMIT 100 FORMAT JSON`;
+          query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${inClause}) ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
         }
 
         const chRes = await fetch(chBaseUrl, {
@@ -788,63 +797,39 @@ bunServer = Bun.serve({
         let ttlStr = await redisClient.get("config:noti_ttl");
         let ttl = ttlStr ? parseInt(ttlStr, 10) : 86400; // Default 24 hours
 
-        // Cleanup expired alert keys from the index (and companion hash)
-        const cutoff = Date.now() - ttl * 1000;
-        const expiredKeys = await redisClient.zRangeByScore(
-          "notifications:index",
-          "-inf",
-          cutoff,
-        );
-        if (expiredKeys.length > 0) {
-          await redisClient.hDel("notifications:data", expiredKeys);
-          await redisClient.zRemRangeByScore(
-            "notifications:index",
-            "-inf",
-            cutoff,
-          );
+        let query = "";
+        
+        if (session.is_admin) {
+            query = `SELECT * FROM logrider.logs_enriched WHERE (Log_Level = 'ERROR' OR Log_Level = 'CRITICAL') AND Timestamp >= now() - INTERVAL ${ttl} SECOND ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
+        } else {
+            const apps = typeof session.allowed_apps === "string" ? session.allowed_apps.split(",").map((a) => a.trim()) : session.allowed_apps || [];
+            if (apps.length === 0) return Response.json({ alerts: [] });
+            
+            const safeApps = apps.map((app) => app.replace(/'/g, "''"));
+            const inClause = safeApps.map((app) => `'${app}'`).join(",");
+            query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${inClause}) AND (Log_Level = 'ERROR' OR Log_Level = 'CRITICAL') AND Timestamp >= now() - INTERVAL ${ttl} SECOND ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
         }
 
-        // Fetch valid alert keys (members of the zset)
-        const alertKeys = await redisClient.zRange(
-          "notifications:index",
-          0,
-          -1,
-        );
+        const chRes = await fetch(chBaseUrl, {
+            method: "POST",
+            body: query,
+        });
 
-        let alerts = [];
-
-        if (alertKeys.length > 0) {
-          // Batch-fetch all data from the companion hash
-          const rawValues = await redisClient.hmGet(
-            "notifications:data",
-            alertKeys,
-          );
-          for (const raw of rawValues) {
-            if (!raw) continue;
-            try {
-              const parsed = JSON.parse(raw);
-              if (parsed.type === "ALERT" && parsed.log) {
-                const log = parsed.log;
-                log.alert_count = parsed.count || 1;
-
-                // Apply RBAC filtering
-                if (session.is_admin) {
-                  alerts.push(log);
-                } else {
-                  const allowedApps =
-                    typeof session.allowed_apps === "string"
-                      ? session.allowed_apps.split(",").map((a) => a.trim())
-                      : session.allowed_apps || [];
-                  if (allowedApps.includes(log.Application_Name)) {
-                    alerts.push(log);
-                  }
-                }
-              }
-            } catch (e) {
-              console.error("Error parsing alert from Redis:", e);
-            }
-          }
+        if (!chRes.ok) {
+            throw new Error(`ClickHouse error: ${await chRes.text()}`);
         }
+
+        const chData = await chRes.json();
+        const rows = chData.data || [];
+        
+        let alerts = rows.map((row) => ({
+          Trace_ID: row.Trace_ID,
+          Application_Name: row.Application_Name,
+          Log_Level: row.Log_Level,
+          Message: row.Message,
+          Timestamp: row.Timestamp,
+          alert_count: 1
+        }));
 
         return Response.json({ alerts });
       } catch (err) {

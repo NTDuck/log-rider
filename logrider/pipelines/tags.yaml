@@ -5,7 +5,7 @@ input:
     topics:
       - logs-classified
     consumer_group: "logrider_tags_1"
-    start_from_oldest: false
+    start_from_oldest: true
     batching:
       count: 10000
       period: 1s

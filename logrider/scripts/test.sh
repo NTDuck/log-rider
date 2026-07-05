@@ -5,32 +5,34 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
 
-# "$SCRIPT_DIR/cleanup.sh"
+RUN_ID="test-$(date +%s)-$RANDOM"
+APP_NAME="logrider-test-$RUN_ID"
+EXPECTED=500
 
-echo "Running standard load test (500 diverse logs)..."
+echo "Running standard load test: $EXPECTED logs for $APP_NAME"
 
-payload=$(python3 - <<'PY'
-import json, uuid, datetime, random
+PAYLOAD=$(APP_NAME="$APP_NAME" EXPECTED="$EXPECTED" python3 - <<'PY'
+import json, os, uuid, random, datetime
 
-apps = ["sshd(pam_unix)", "ftpd", "syslogd 1.4.1", "logrotate"]
+app = os.environ["APP_NAME"]
+n = int(os.environ["EXPECTED"])
 levels = ["INFO", "WARN", "ERROR", "CRITICAL"]
 messages = [
     "authentication failure",
-    "check pass; user unknown",
-    "connection from remote host",
+    "connection accepted",
     "service restarted",
+    "disk threshold warning",
+    "critical daemon failure",
 ]
 
-now = datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
-
 records = []
-for _ in range(500):
+for _ in range(n):
     records.append({
         "value": {
-            "Application_Name": random.choice(apps),
+            "Application_Name": app,
             "Log_Level": random.choice(levels),
             "Message": random.choice(messages),
-            "Timestamp": now,
+            "Timestamp": datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z",
             "Trace_ID": str(uuid.uuid4()),
         }
     })
@@ -39,43 +41,59 @@ print(json.dumps({"records": records}))
 PY
 )
 
-RESP=$(docker compose -f "$COMPOSE_FILE" exec -e PAYLOAD="$payload" -T redpanda bash -lc '
+docker compose -f "$COMPOSE_FILE" exec -e PAYLOAD="$PAYLOAD" -T redpanda bash -lc '
   curl -fsS \
     -X POST \
     -H "Content-Type: application/vnd.kafka.json.v2+json" \
     --data-binary "$PAYLOAD" \
     http://localhost:8082/topics/logs-ingested
-')
+' >/tmp/logrider-pandaproxy-response.json
 
-echo "$RESP"
+echo "Waiting for persistence..."
+for i in $(seq 1 90); do
+  COUNT=$(docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client \
+    -u "${CLICKHOUSE_USER:-default}" \
+    --password "${CLICKHOUSE_PASSWORD:-password}" \
+    -q "SELECT count() FROM logrider.logs_enriched WHERE Application_Name = '$APP_NAME' FORMAT TSV" | tr -d '[:space:]')
 
-echo "Waiting for pipeline flush..."
-MAX_WAIT=60
-WAIT_COUNT=0
-while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-    COUNT=$(docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client -q "SELECT count() FROM logrider.logs_enriched" | tr -d '[:space:]')
-    if [ "$COUNT" -ge 500 ]; then
-        break
-    fi
-    sleep 1
-    WAIT_COUNT=$((WAIT_COUNT + 1))
-done
+  echo "  persisted=$COUNT/$EXPECTED"
 
-echo "Verifying ClickHouse entries..."
-COUNT=$(docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client -q "SELECT count() FROM logrider.logs_enriched" | tr -d '[:space:]')
-echo "Total logs in ClickHouse: $COUNT"
+  if [ "$COUNT" -eq "$EXPECTED" ]; then
+    echo "PASS: $EXPECTED logs persisted for $APP_NAME"
+    break
+  fi
 
-if [ "$COUNT" -ne 500 ]; then
-    echo "Expected exactly 500 logs after cleanup + test run, got $COUNT"
-
+  if [ "$i" -eq 90 ]; then
+    echo "FAIL: expected $EXPECTED persisted logs for $APP_NAME"
+    echo "Pandaproxy response:"
+    cat /tmp/logrider-pandaproxy-response.json || true
     echo "DLQ sample:"
     docker compose -f "$COMPOSE_FILE" exec -T redpanda rpk topic consume dlq-clickhouse --num 5 || true
-
-    echo "Persist worker logs:"
-    docker compose -f "$COMPOSE_FILE" logs --tail=100 benthos-persist
-
-    echo "ClickHouse logs:"
-    docker compose -f "$COMPOSE_FILE" logs --tail=100 clickhouse
-
+    echo "Benthos persist logs:"
+    docker compose -f "$COMPOSE_FILE" logs --tail=100 benthos-persist || true
     exit 1
-fi
+  fi
+  sleep 1
+done
+
+echo "Waiting for classification tags..."
+for i in $(seq 1 120); do
+  TAG_COUNT=$(docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client \
+    -u "${CLICKHOUSE_USER:-default}" \
+    --password "${CLICKHOUSE_PASSWORD:-password}" \
+    -q "SELECT count() FROM logrider.log_tags WHERE Application_Name = '$APP_NAME' FORMAT TSV" | tr -d '[:space:]')
+
+  echo "  classified=$TAG_COUNT/$EXPECTED"
+
+  if [ "$TAG_COUNT" -eq "$EXPECTED" ]; then
+    echo "PASS: $EXPECTED logs classified for $APP_NAME"
+    exit 0
+  fi
+  
+  if [ "$i" -eq 120 ]; then
+    echo "FAIL: logs persisted but classification did not complete"
+    docker compose -f "$COMPOSE_FILE" logs --tail=150 classifier-worker benthos-tags || true
+    exit 1
+  fi
+  sleep 1
+done

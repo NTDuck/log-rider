@@ -151,6 +151,7 @@
             <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg flex justify-between items-center">
                 <h2 class="text-lg font-bold">User Management</h2>
                 <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm w-64">
+                    <svg class="w-4 h-4 text-gray-400 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     <select id="global-search-col" class="bg-transparent text-sm font-bold text-aws-text dark:text-aws-textDark focus:outline-none cursor-pointer pl-1" onchange="renderUsers()">
                         <option value="username">Username</option>
                     </select>
@@ -408,7 +409,7 @@
                             <div class="group/chip inline-flex items-center mr-1 mb-1">
                                 <div class="inline-flex h-7 items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-medium transition-colors dark:border-gray-600 dark:bg-white/10">
                                     <span>${a}</span>
-                                    <button class="inline-flex items-center justify-center rounded-full text-red-500 bg-gray-200 dark:bg-gray-700 hover:text-red-600 dark:hover:text-red-400 transition-all duration-300 ease-in-out overflow-hidden w-0 h-5 opacity-0 ml-0 group-hover/chip:w-5 group-hover/chip:opacity-100 group-hover/chip:ml-1" onclick="removeApp(event, '${u.username}', '${a}')">
+                                    <button class="inline-flex items-center justify-center rounded-full text-red-500 bg-gray-200 dark:bg-gray-700 hover:text-red-600 dark:hover:text-red-400 transition-all duration-300 ease-in-out overflow-hidden max-w-0 opacity-0 ml-0 group-hover/chip:max-w-[20px] group-hover/chip:w-5 group-hover/chip:opacity-100 group-hover/chip:ml-1 h-5" onclick="removeApp(event, '${u.username}', '${a}')">
                                         <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                     </button>
                                 </div>

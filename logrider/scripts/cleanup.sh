@@ -9,13 +9,7 @@ COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
 CH_USER="${CLICKHOUSE_USER:-default}"
 CH_PASS="${CLICKHOUSE_PASSWORD:-password}"
 
-echo "Purging Redpanda topics..."
-docker compose -f "$COMPOSE_FILE" exec -T redpanda rpk topic delete \
-  logs-ingested logs-normalized logs-persist logs-classified \
-  alerts-ingested dlq-logs dlq-clickhouse || true
-
-sleep 2
-"$SCRIPT_DIR/setup-topics.sh"
+echo "Cleanup started. Redpanda topics were intentionally not deleted."
 
 # Helper to print row count and sample rows before truncating a table
 print_and_truncate() {
