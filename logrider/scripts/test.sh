@@ -5,7 +5,7 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
 
-"$SCRIPT_DIR/cleanup.sh"
+# "$SCRIPT_DIR/cleanup.sh"
 
 echo "Running standard load test (500 diverse logs)..."
 
@@ -67,7 +67,7 @@ echo "Total logs in ClickHouse: $COUNT"
 
 if [ "$COUNT" -ne 500 ]; then
     echo "Expected exactly 500 logs after cleanup + test run, got $COUNT"
-    
+
     echo "DLQ sample:"
     docker compose -f "$COMPOSE_FILE" exec -T redpanda rpk topic consume dlq-clickhouse --num 5 || true
 
@@ -76,6 +76,6 @@ if [ "$COUNT" -ne 500 ]; then
 
     echo "ClickHouse logs:"
     docker compose -f "$COMPOSE_FILE" logs --tail=100 clickhouse
-    
+
     exit 1
 fi

@@ -196,14 +196,6 @@
         }
 
         const MAX_LOGS = 500;
-        function pruneLogs() {
-            while (logsByTraceId.size > MAX_LOGS) {
-                const oldest = [...logsByTraceId.entries()]
-                    .sort(([, a], [, b]) => new Date(a.Timestamp) - new Date(b.Timestamp))[0]?.[0];
-                if (!oldest) break;
-                logsByTraceId.delete(oldest);
-            }
-        }
 
         let ws;
 
@@ -328,7 +320,6 @@
             }
 
             logsByTraceId.set(next.Trace_ID, next);
-            pruneLogs();
             ensureApplicationOption(next.Application_Name);
             return next;
         }
@@ -412,7 +403,7 @@
         }
 
         function renderLogs() {
-            const visibleLogs = getVisibleLogs().slice(0, 500);
+            const visibleLogs = getVisibleLogs();
             updateSummaryCards();
 
             if (visibleLogs.length === 0) {

@@ -5,7 +5,7 @@ services:
       - redpanda
       - start
       - --smp 1
-      - --memory 1G
+      - --memory 768M
       - --reserve-memory 0M
       - --overprovisioned
       - --node-id 0
@@ -15,6 +15,7 @@ services:
         PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
       - --pandaproxy-addr 0.0.0.0:8082
       - --advertise-pandaproxy-addr localhost:8082
+    mem_limit: 1g
     # Redpanda ports removed to prevent unauthenticated ingress
     healthcheck:
       test:
@@ -28,6 +29,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    mem_limit: 256m
     # Redis is internal-only
     healthcheck:
       test:
@@ -40,6 +42,7 @@ services:
 
   clickhouse:
     image: clickhouse/clickhouse-server:latest
+    mem_limit: 1.5g
     environment:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password}
@@ -61,6 +64,7 @@ services:
 
   postgres:
     image: postgres:15-alpine
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-logrider}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
@@ -79,6 +83,7 @@ services:
 
   benthos-pipeline:
     image: jeffail/benthos:latest
+    mem_limit: 256m
     volumes:
       - ./pipelines/unified.yaml:/benthos.yaml
     depends_on:
@@ -92,6 +97,7 @@ services:
 
   benthos-persist:
     image: jeffail/benthos:latest
+    mem_limit: 256m
     volumes:
       - ./pipelines/persist.yaml:/benthos.yaml
     depends_on:
@@ -114,8 +120,8 @@ services:
         condition: service_healthy
 
   benthos-tags:
-    profiles: ["full"]
     image: jeffail/benthos:latest
+    mem_limit: 256m
     volumes:
       - ./pipelines/tags.yaml:/benthos.yaml
     depends_on:
@@ -128,8 +134,8 @@ services:
     command: -c /benthos.yaml
 
   alert-worker:
-    profiles: ["full"]
     build: ./workers/alert
+    mem_limit: 256m
     depends_on:
       redis:
         condition: service_healthy
@@ -142,13 +148,16 @@ services:
       replicas: 10
 
   classifier-worker:
-    profiles: ["full"]
     build:
       context: ./workers/classifier
       dockerfile: Dockerfile
+    mem_limit: 1536m
     environment:
       REDPANDA_BROKERS: redpanda:29092
       REDIS_URL: redis://redis:6379
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      TOKENIZERS_PARALLELISM: "false"
     depends_on:
       redpanda:
         condition: service_healthy
@@ -156,8 +165,8 @@ services:
         condition: service_healthy
 
   telegram-bot:
-    profiles: ["full"]
     build: ./integrations/telegram
+    mem_limit: 128m
     depends_on:
       redis:
         condition: service_healthy
@@ -166,8 +175,8 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
 
   web-server:
-    profiles: ["full"]
     build: ./server
+    mem_limit: 512m
     ports:
       - "${SERVER_PORT:-3000}:${SERVER_PORT:-3000}"
     depends_on:
@@ -189,8 +198,8 @@ services:
       POSTGRES_URI: postgres://${POSTGRES_USER:-logrider}:${POSTGRES_PASSWORD:-password}@postgres:5432/logrider
 
   benthos-alerts-forwarder:
-    profiles: ["full"]
     image: jeffail/benthos:latest
+    mem_limit: 128m
     volumes:
       - ./pipelines/forwarder.yaml:/benthos.yaml
     depends_on:
