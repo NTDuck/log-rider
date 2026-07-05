@@ -57,7 +57,7 @@ export default function () {
     },
   };
 
-  const res = http.post('http://localhost:8082/topics/logs-raw', payload, params);
+  const res = http.post('http://localhost:8082/topics/logs-ingested', payload, params);
   
   check(res, {
     'is status 200': (r) => r.status === 200,

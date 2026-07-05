@@ -35,7 +35,7 @@ done
 
 PAYLOAD="{\"records\": [$RECORDS]}"
 
-curl -s -X POST http://localhost:8082/topics/logs-raw \
+curl -s -X POST http://localhost:8082/topics/logs-ingested \
     -H "Content-Type: application/vnd.kafka.json.v2+json" \
     -d "$PAYLOAD"
 

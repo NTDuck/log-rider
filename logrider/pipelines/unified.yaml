@@ -3,7 +3,7 @@ input:
     addresses:
       - redpanda:29092
     topics:
-      - logs-raw
+      - logs-ingested
     consumer_group: "logrider_unified"
 
 pipeline:
@@ -33,12 +33,12 @@ output:
       # Step 2: Route to classifier (which will broadcast Normalized then forward to persist)
       - kafka:
           addresses: [ "redpanda:29092" ]
-          topic: log-normalized
+          topic: logs-normalized
 
       # Step 3: Route errors/criticals to alert pipeline
       - kafka:
           addresses: [ "redpanda:29092" ]
-          topic: alerts-raw
+          topic: alerts-ingested
         processors:
           - mapping: |
               root = if this.Log_Level == "ERROR" || this.Log_Level == "CRITICAL" { this } else { deleted() }

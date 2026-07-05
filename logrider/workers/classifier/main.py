@@ -22,12 +22,12 @@ consumer = Consumer({
     'auto.offset.reset': 'latest',
     'fetch.wait.max.ms': 500
 })
-consumer.subscribe(['log-normalized'])
+consumer.subscribe(['logs-normalized'])
 
 producer = Producer({'bootstrap.servers': brokers})
 redis_client = redis.Redis.from_url(redis_url)
 
-print("Starting Python Classifier worker listening to log-normalized...")
+print("Starting Python Classifier worker listening to logs-normalized...")
 
 BATCH_SIZE = 32
 

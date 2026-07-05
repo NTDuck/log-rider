@@ -6,15 +6,15 @@ LogRider is a high-performance, real-time distributed log ingestion, processing,
 
 The system utilizes a heavily optimized, multi-tier architecture to handle extreme throughput and real-time observability:
 
-- **Redpanda & Pandaproxy**: High-performance Kafka-compatible broker handling all inter-service messaging via native topics (`logs-raw`, `logs-persist`, `alerts-raw`, `logs-normalized`, `logs-tagged`, `ws-events`). Ingestion directly hits Pandaproxy (`http://localhost:8082/topics/logs-raw`) using HTTP POSTs, bypassing Node/Bun event loops.
+- **Redpanda & Pandaproxy**: High-performance Kafka-compatible broker handling all inter-service messaging via native topics (`logs-ingested`, `logs-persist`, `alerts-ingested`, `logs-normalized`, `logs-classified`, `ws-events`). Ingestion directly hits Pandaproxy (`http://localhost:8082/topics/logs-ingested`) using HTTP POSTs, bypassing Node/Bun event loops.
 - **Benthos Pipelines (`unified`, `persist`, `tags`)**: 
-  - `unified`: Consumes `logs-raw`, normalizes payloads, generates UUIDs, and routes to specific Kafka topics.
+  - `unified`: Consumes `logs-ingested`, normalizes payloads, generates UUIDs, and routes to specific Kafka topics.
   - `persist`: Consumes `logs-persist` and performs high-throughput HTTP batch inserts (`JSONEachRow`) into ClickHouse.
-  - `tags`: Consumes `logs-tagged` and batch inserts AI classifications directly into ClickHouse.
+  - `tags`: Consumes `logs-classified` and batch inserts AI classifications directly into ClickHouse.
 - **Redis**: Functions purely as a high-speed state store for **Alert Deduplication**. Utilizes Redis `pipeline.exec()` coupled with Kafka consumer batching to atomically process thousands of alerts simultaneously via Lua scripts.
 - **PostgreSQL**: Stateful, durable storage for user accounts, credentials, and RBAC configurations.
-- **Alert Worker (Bun)**: Consumes from the `alerts-raw` Kafka topic using `kafkajs` batching (`eachBatch`). Deduplicates burst errors via Redis pipelining and natively produces verified alerts to `ws-events`. Replicated 10x via `docker-compose` for massive horizontal scale.
-- **Classifier Worker (Python)**: An ultra-fast Python worker built with `confluent-kafka` and `fasttext`. Consumes from `logs-normalized`, performs AI text classifications natively, and produces categorized tags to `logs-tagged` and `ws-events`.
+- **Alert Worker (Bun)**: Consumes from the `alerts-ingested` Kafka topic using `kafkajs` batching (`eachBatch`). Deduplicates burst errors via Redis pipelining and natively produces verified alerts to `ws-events`. Replicated 10x via `docker-compose` for massive horizontal scale.
+- **Classifier Worker (Python)**: An ultra-fast Python worker built with `confluent-kafka` and `fasttext`. Consumes from `logs-normalized`, performs AI text classifications natively, and produces categorized tags to `logs-classified` and `ws-events`.
 - **ClickHouse**: Columnar database acting as permanent storage. Handles extreme ingest rates via decoupled HTTP batch pipelines, and implements a built-in Time-To-Live (TTL) retention policy that can be dynamically updated via the Admin dashboard.
 - **Web Server (Bun)**: A pure, dumb rendering layer. Subscribes to the `alerts-state` and `ws-events` Redis channels to stream real-time lifecycle updates seamlessly to connected clients over WebSockets. Handles RBAC and UI serving.
 

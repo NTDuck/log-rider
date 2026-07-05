@@ -34,7 +34,7 @@ echo "- Checking Alerts Worker Redis Output"
 timeout 5 docker exec logrider-redis-1 redis-cli PSUBSCRIBE "alerts-state:*" > /tmp/alerts-state.log &
 sleep 2
 # Inject an error log
-curl -s -X POST http://localhost:8082/topics/logs-raw -H "Content-Type: application/vnd.kafka.json.v2+json" -d '{"records":[{"value":{"Application_Name":"test-app","Log_Level":"ERROR","Message":"test error","Trace_ID":"12345678-1234-1234-1234-123456789abc"}}]}' >/dev/null
+curl -s -X POST http://localhost:8082/topics/logs-ingested -H "Content-Type: application/vnd.kafka.json.v2+json" -d '{"records":[{"value":{"Application_Name":"test-app","Log_Level":"ERROR","Message":"test error","Trace_ID":"12345678-1234-1234-1234-123456789abc"}}]}' >/dev/null
 sleep 7
 if grep -q "ALERTS_STATE" /tmp/alerts-state.log; then
     echo "  [PASS] Alert worker is publishing to alerts-state"
@@ -47,7 +47,7 @@ echo "- Checking Classifier Worker Redis Output (TAGS)"
 timeout 5 docker exec logrider-redis-1 redis-cli PSUBSCRIBE "ws-frontend:*" > /tmp/tags-state.log &
 sleep 2
 # Inject another log to ensure it gets tagged
-curl -s -X POST http://localhost:8082/topics/logs-raw -H "Content-Type: application/vnd.kafka.json.v2+json" -d '{"records":[{"value":{"Application_Name":"test-app","Log_Level":"INFO","Message":"test message","Trace_ID":"12345678-1234-1234-1234-123456789abd"}}]}' >/dev/null
+curl -s -X POST http://localhost:8082/topics/logs-ingested -H "Content-Type: application/vnd.kafka.json.v2+json" -d '{"records":[{"value":{"Application_Name":"test-app","Log_Level":"INFO","Message":"test message","Trace_ID":"12345678-1234-1234-1234-123456789abd"}}]}' >/dev/null
 sleep 7
 if grep -q "TAGS" /tmp/tags-state.log; then
     echo "  [PASS] Classifier worker is publishing TAGS to ws-frontend"

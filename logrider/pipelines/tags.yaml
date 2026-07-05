@@ -3,7 +3,7 @@ input:
     addresses:
       - redpanda:29092
     topics:
-      - logs-tagged
+      - logs-classified
     consumer_group: "logrider_tags_1"
     start_from_oldest: false
     batching:

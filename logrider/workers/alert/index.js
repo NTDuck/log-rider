@@ -22,7 +22,7 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
         console.log('Connected to Redis');
         
         await consumer.connect();
-        await consumer.subscribe({ topic: 'alerts-raw', fromBeginning: true });
+        await consumer.subscribe({ topic: 'alerts-ingested', fromBeginning: true });
 
         // Lua script for atomic global dedup
         const luaScript = `
@@ -134,7 +134,7 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
             }
         });
         
-        console.log('Listening to alerts-raw on Kafka with Batching');
+        console.log('Listening to alerts-ingested on Kafka with Batching');
     } catch (e) {
         console.error('Initialization error:', e);
     }

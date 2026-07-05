@@ -3,7 +3,7 @@ input:
     addresses:
       - redpanda:29092
     topics:
-      - alerts-raw
+      - alerts-ingested
     consumer_group: "alerts_forwarder"
 
 pipeline:
