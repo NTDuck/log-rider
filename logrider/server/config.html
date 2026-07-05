@@ -98,9 +98,6 @@
         
         <!-- TTL Panel -->
         <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
-            <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
-                <h2 class="text-lg font-bold">Alert Deduplication Rules</h2>
-            </div>
             <div class="p-5">
                 <label class="block text-sm font-bold mb-4 text-center">Redis Alert TTL</label>
                 <div class="flex items-center space-x-4 w-full">
@@ -166,25 +163,8 @@
                             <th class="px-4 py-3 align-top w-48">
                                 <span>Username</span>
                             </th>
-                            <th class="px-4 py-3 align-top w-32 relative dropdown">
-                                <div class="flex items-center cursor-pointer">
-                                    <span>Role <span id="role-count" class="ml-1 font-normal opacity-80"></span></span>
-                                    <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                </div>
-                                <div class="dropdown-content absolute bg-white dark:bg-aws-panelDark border border-gray-200 dark:border-gray-700 shadow-lg rounded mt-1 p-2 z-10 font-normal normal-case text-xs min-w-[150px]">
-                                    <div class="flex justify-between mb-2 border-b border-gray-200 dark:border-gray-600 pb-2">
-                                        <button type="button" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-aws-primary" onclick="setRoleFilter(true)" title="Select All">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                        </button>
-                                        <button type="button" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-red-500" onclick="setRoleFilter(false)" title="Deselect All">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                        </button>
-                                    </div>
-                                    <div class="flex flex-wrap gap-1 mt-2">
-                                        <button type="button" class="r-filter chip-btn active" data-val="admin" onclick="toggleChip(this); renderUsers()">admin</button>
-                                        <button type="button" class="r-filter chip-btn active" data-val="engineer" onclick="toggleChip(this); renderUsers()">engineer</button>
-                                    </div>
-                                </div>
+                            <th class="px-4 py-3 align-top w-32">
+                                <span>Role</span>
                             </th>
                             <th class="px-4 py-3 align-top">
                                 <span>Allowed Apps</span>
@@ -235,6 +215,7 @@
             lightIcon.classList.toggle('hidden');
             document.documentElement.classList.toggle('dark');
             localStorage.setItem('color-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+            document.querySelectorAll('input[type="range"]').forEach(updateSliderColor);
         });
 
         function logout() {
@@ -244,10 +225,12 @@
 
         function updateSliderColor(slider) {
             if (!slider) return;
-            const ratio = slider.value / slider.max;
-            // Hue from 120 (green) at 0, to 0 (red) at max
-            const hue = 120 * (1 - ratio);
-            slider.style.accentColor = `hsl(${hue}, 80%, 50%)`;
+            const changed = slider.dataset.original !== undefined && slider.value !== slider.dataset.original;
+            if (changed) {
+                slider.style.accentColor = '#0972d3';
+            } else {
+                slider.style.accentColor = document.documentElement.classList.contains('dark') ? '#ffffff' : '#16191f';
+            }
         }
         
         document.addEventListener('DOMContentLoaded', () => {
@@ -264,6 +247,7 @@
                 if (idx !== -1) {
                     const el = document.getElementById('ttl-input');
                     el.value = idx;
+                    el.dataset.original = idx;
                     updateSliderColor(el);
                 }
             }
@@ -275,6 +259,7 @@
                 if (idx !== -1) {
                     const el = document.getElementById('noti-ttl-input');
                     el.value = idx;
+                    el.dataset.original = idx;
                     updateSliderColor(el);
                 }
             }
@@ -282,15 +267,17 @@
             const resChTTL = await fetch('/api/config/clickhouse-ttl', { headers: { 'Authorization': 'Bearer ' + token } });
             if (resChTTL.ok) {
                 const data = await resChTTL.json();
+                const el = document.getElementById('ch-ttl-input');
                 const idx = chTTLValues.indexOf(data.ttl_hours);
-                if (idx !== -1) document.getElementById('ch-ttl-input').value = idx;
+                if (idx !== -1) el.value = idx;
                 else {
                     chTTLValues.push(data.ttl_hours);
                     chTTLValues.sort((a,b)=>a-b);
-                    document.getElementById('ch-ttl-input').max = chTTLValues.length - 1;
-                    document.getElementById('ch-ttl-input').value = chTTLValues.indexOf(data.ttl_hours);
+                    el.max = chTTLValues.length - 1;
+                    el.value = chTTLValues.indexOf(data.ttl_hours);
                 }
-                updateSliderColor(document.getElementById('ch-ttl-input'));
+                el.dataset.original = el.value;
+                updateSliderColor(el);
             }
             const resUsers = await fetch('/api/users', { headers: { 'Authorization': 'Bearer ' + token } });
             if (resUsers.ok) {
@@ -319,6 +306,9 @@
                 body: JSON.stringify({ ttl: val })
             });
             if (res.ok) {
+                const el = document.getElementById('ttl-input');
+                el.dataset.original = el.value;
+                updateSliderColor(el);
                 const p = document.getElementById('ttl-status');
                 p.innerText = 'Saved!';
                 p.classList.remove('hidden');
@@ -336,6 +326,9 @@
                 body: JSON.stringify({ ttl: val })
             });
             if (res.ok) {
+                const el = document.getElementById('noti-ttl-input');
+                el.dataset.original = el.value;
+                updateSliderColor(el);
                 const p = document.getElementById('noti-ttl-status');
                 p.innerText = 'Saved!';
                 p.classList.remove('hidden');
@@ -352,6 +345,9 @@
                 body: JSON.stringify({ ttl_hours: ttl })
             });
             if (res.ok) {
+                const el = document.getElementById('ch-ttl-input');
+                el.dataset.original = el.value;
+                updateSliderColor(el);
                 document.getElementById('ch-ttl-status').innerText = 'ClickHouse TTL Saved!';
                 document.getElementById('ch-ttl-status').classList.remove('hidden');
                 setTimeout(() => document.getElementById('ch-ttl-status').classList.add('hidden'), 2000);
@@ -376,9 +372,6 @@
         function renderUsers() {
             const searchCol = document.getElementById('global-search-col') ? document.getElementById('global-search-col').value : null;
             const searchVal = document.getElementById('global-search-val') ? document.getElementById('global-search-val').value.toLowerCase() : '';
-            const checkedRoles = Array.from(document.querySelectorAll('.r-filter.active')).map(btn => btn.getAttribute('data-val'));
-            
-            if (document.getElementById('role-count')) document.getElementById('role-count').textContent = '(' + checkedRoles.length + ')';
             
             const sorted = [...window.allUsers].sort((a, b) => {
                 if (a.role === b.role) return a.username.localeCompare(b.username);
@@ -395,7 +388,6 @@
                 }
                 
                 if (!matchSearch) return;
-                if (!checkedRoles.includes(u.role)) return;
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-blue-50/50 dark:hover:bg-white/5 transition-colors group";

@@ -41,6 +41,9 @@
                     <svg id="bell-icon" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.03 2.03 0 0 1 18 14.158V11a6.002 6.002 0 0 0-4-5.659V5a2 2 0 1 0-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9"></path>
                     </svg>
+                    <svg id="bell-off-icon" class="hidden h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0M3.124 3.124l17.752 17.752"></path>
+                    </svg>
                 </button>
 
                 <button id="telegram-link-btn" type="button" onclick="generateTelegramLink()" title="Telegram link" aria-label="Telegram link" class="inline-flex h-9 w-9 items-center justify-center rounded text-slate-300 transition-colors hover:bg-[#0088cc]/20 hover:text-[#7dd3fc]">
@@ -50,7 +53,12 @@
                 </button>
 
                 <div class="mx-1 hidden h-5 w-px bg-white/15 sm:block"></div>
-                <span id="role-badge" class="max-w-[180px] truncate rounded-full border border-white/10 bg-white/10 px-3 py-1 text-sm font-medium text-slate-100"></span>
+                <span id="role-badge" class="flex max-w-[180px] items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-sm font-medium text-slate-100">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                    </svg>
+                    <span id="role-badge-text" class="truncate"></span>
+                </span>
 
                 <button onclick="logout()" title="Sign out" aria-label="Sign out" class="inline-flex h-9 w-9 items-center justify-center rounded text-slate-300 transition-colors hover:bg-white/10 hover:text-white">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
@@ -222,9 +230,16 @@
         window.updateAlertsIcon = function() {
             const enabled = localStorage.getItem('alerts_enabled') !== 'false';
             const icon = document.getElementById('bell-icon');
-            if (!icon) return;
-            icon.classList.toggle('text-slate-500', !enabled);
-            icon.classList.toggle('text-slate-300', enabled);
+            const offIcon = document.getElementById('bell-off-icon');
+            const btn = document.getElementById('bell-btn');
+            
+            if (icon) icon.classList.toggle('hidden', !enabled);
+            if (offIcon) offIcon.classList.toggle('hidden', enabled);
+            
+            if (btn) {
+                btn.classList.toggle('text-slate-500', !enabled);
+                btn.classList.toggle('text-slate-300', enabled);
+            }
         };
     }
 
@@ -243,7 +258,7 @@
             const role = localStorage.getItem('logrider_role');
             const username = localStorage.getItem('logrider_username');
             const controls = document.getElementById('user-controls');
-            const badge = document.getElementById('role-badge');
+            const badge = document.getElementById('role-badge-text');
             const nav = document.getElementById('top-nav');
             const configNav = document.getElementById('nav-config');
 
