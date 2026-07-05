@@ -33,7 +33,7 @@ The Web Server will automatically boot and bind to port `3000`.
 
 ## 📊 Dashboard & Analytics
 
-Navigate to [http://localhost:3000/dashboard](http://localhost:3000/dashboard). The UI is heavily inspired by the AWS Management Console for a premium, familiar developer experience.
+Navigate to [http://localhost:3001/dashboard](http://localhost:3001/dashboard). The UI is heavily inspired by the AWS Management Console for a premium, familiar developer experience.
 
 The system comes with **Role-Based Access Control (RBAC)** initialized securely in Postgres on startup.
 
