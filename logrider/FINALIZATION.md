@@ -2,6 +2,11 @@
 - Telegram bot [...]
 - Alert dedup UI [...] -> noti
 
+- Fix regressions (verify: scripts)
+- Fix UI
+- Slides
+- Report
+
 ## BUGS
 
 - [PATCHED] Status column does not update in real time (requires refresh)
