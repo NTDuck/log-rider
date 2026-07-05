@@ -14,13 +14,18 @@ Log producer
   -> Benthos unified pipeline
       -> Redis ws-events for live "Ingested" events
       -> Kafka logs-normalized
+      -> Kafka logs-persist
       -> Kafka alerts-ingested for ERROR / CRITICAL logs
   -> Python classifier
       -> Redis ws-events for classification events
-      -> Kafka logs-persist
+      -> Kafka logs-classified
+  -> Benthos tags pipeline
+      -> ClickHouse logrider.log_tags
   -> Benthos persist pipeline
       -> Redis ws-events for "Persisted" events
       -> ClickHouse logrider.logs_enriched
+  -> Historical log API
+      -> ClickHouse logrider.logs_enriched + logrider.log_tags merge
 
 alerts-ingested
   -> Bun alert worker
@@ -117,20 +122,25 @@ Create them with:
 ./scripts/setup-topics.sh
 ```
 
-That script currently contains redundant topic creation and should be cleaned up, but it is idempotent.
-
 ## Demo And Test Scripts
 
-The scripts in `scripts/` are useful but currently need cleanup:
+The scripts in `scripts/` are intended to be runnable from anywhere and now use the Compose-internal Pandaproxy path instead of assuming host port `8082` is published:
 
-- `test.sh` is intended to send exactly 500 logs in 2 seconds and wait for ClickHouse rows.
-- `test-extreme.sh` is intended for a larger k6 load.
+- `test.sh` sends exactly 500 logs in 2 seconds and expects exactly 500 rows after a prior cleanup.
+- `test-extreme.sh` is a configurable higher-rate k6 load generator.
 - `test-alert.sh` sends repeated critical logs.
 - `test-simple.sh` sends five example logs.
-- `verify_features.sh` checks a subset of UI/API/worker behavior.
+- `verify_features.sh` smoke-tests login, metrics, log history, and Redis pub/sub events.
 - `cleanup.sh` truncates ClickHouse demo tables and flushes Redis.
 
-Current caveat: several scripts post to `http://localhost:8082/topics/logs-ingested`, but `docker-compose.yml` does not publish Pandaproxy port `8082` to the host. Run those requests from inside the Redpanda container, publish Pandaproxy intentionally for a local demo, or add a real authenticated ingestion endpoint.
+Recommended local demo sequence:
+
+```bash
+./scripts/setup-topics.sh
+./scripts/cleanup.sh
+./scripts/test.sh
+./scripts/verify_features.sh
+```
 
 ## Known Limitations
 
@@ -140,4 +150,4 @@ Current caveat: several scripts post to `http://localhost:8082/topics/logs-inges
 - Alert deduplication does not match the original exact requirement. It notifies on first occurrence and threshold counts rather than producing exactly one notification for 100 identical errors within one minute.
 - ClickHouse schema and queries need tuning for application/level filters.
 - `docker-compose.yml` uses some `latest` images and does not define persistent named volumes for Redpanda, Redis, Postgres, or ClickHouse data.
-- There are stale or redundant files and scripts, including unused `.gitkeep` files in non-empty directories, a likely unused `schema.json`, and stale verification checks.
+- There are still stale or redundant files and schema artifacts, including `schema.json`, `test-ws.js`, the unused `logrider.logs` / `logs_raw_null` / `logs_enriched_mv` ClickHouse objects, and media files that are not part of the running stack.

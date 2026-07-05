@@ -20,17 +20,25 @@ The current codebase is not the Rust/Redpanda/ClickHouse actor design described 
 - Go Telegram bot integration.
 - Python classifier worker using Hugging Face / ONNX Runtime.
 
+Recent repo work has already corrected several operational gaps that older notes may still mention:
+
+- `scripts/test.sh` no longer truncates ClickHouse; cleanup is a separate concern.
+- `scripts/k6-load.js` and `scripts/k6-simple.js` no longer depend on remote `jslib.k6.io` imports.
+- `/api/logs/recent` now merges `log_tags` rows back into historical log responses so classified tags can survive a dashboard refresh, assuming the classifier/tag pipeline is producing rows.
+- The topic setup and smoke-test scripts were cleaned up to use the actual topic names and the Compose-internal Pandaproxy path.
+
 ## Actual Data Flow
 
 The implementation currently uses this flow:
 
 1. External log producers post Kafka REST payloads to the Redpanda Pandaproxy topic `logs-ingested`.
 2. `pipelines/unified.yaml` consumes `logs-ingested`, unwraps optional `value`, assigns `Trace_ID` if missing, broadcasts an `Ingested` status to Redis `ws-events`, publishes the log to `logs-normalized`, and routes `ERROR` / `CRITICAL` logs to `alerts-ingested`.
-3. `workers/classifier/main.py` consumes `logs-normalized`, classifies messages, publishes tag/status events to Redis `ws-events`, and produces enriched logs to `logs-persist`.
+3. `workers/classifier/main.py` consumes `logs-normalized`, classifies messages, publishes tag/status events to Redis `ws-events`, and produces tag records to `logs-classified`.
 4. `pipelines/persist.yaml` consumes `logs-persist`, broadcasts `Persisted` status, and inserts batches into ClickHouse `logrider.logs_enriched`.
-5. `workers/alert/index.js` consumes `alerts-ingested`, deduplicates by application and message hash in Redis, publishes alert events to Redis `alerts-stream`, stores recent notification state in Redis, and pushes Telegram jobs to `telegram_outbound`.
-6. `integrations/telegram/main.go` links Telegram chats to LogRider users and consumes `telegram_outbound`.
-7. `server/index.js` serves pages, REST APIs, and WebSocket fan-out from Redis pub/sub channels.
+5. `pipelines/tags.yaml` consumes `logs-classified` and writes tag rows into ClickHouse `logrider.log_tags`.
+6. `workers/alert/index.js` consumes `alerts-ingested`, deduplicates by application and message hash in Redis, publishes alert events to Redis `alerts-stream`, stores recent notification state in Redis, and pushes Telegram jobs to `telegram_outbound`.
+7. `integrations/telegram/main.go` links Telegram chats to LogRider users and consumes `telegram_outbound`.
+8. `server/index.js` serves pages, REST APIs, and WebSocket fan-out from Redis pub/sub channels.
 
 ## Important Mismatches To Keep In Mind
 
@@ -40,6 +48,7 @@ The implementation currently uses this flow:
 - Alert deduplication is real Redis Lua state, but it sends notifications on first occurrence and again at thresholds 10, 50, and 100, so it does not satisfy the "100 times within 1 minute results in exactly one notification" requirement.
 - The ClickHouse schema uses native types for level, timestamp, and trace IDs, but hot tables are ordered by `(Timestamp, Trace_ID)`, not by the common application/level filters.
 - Configuration is only partially centralized in `.env.example`; many ports, topic names, defaults, image tags, credentials, and demo users remain hardcoded.
+- In the current runtime, the classifier/tag path still needs sceptical verification after restarts. The code is wired for `logs-normalized -> logs-classified -> log_tags`, but a fresh stack may spend significant time loading the model before any tags appear.
 
 ## Operational Entry Points
 
@@ -47,12 +56,13 @@ From `logrider/`:
 
 - `docker compose up -d` starts the stack.
 - `docker compose ps` checks service status.
-- `scripts/setup-topics.sh` creates Redpanda topics, but it contains redundant topic creation and should be cleaned up.
-- `scripts/test.sh` is intended to send 500 logs in 2 seconds, but currently depends on host access to `localhost:8082`, which Compose does not publish.
+- `scripts/setup-topics.sh` creates the currently used Redpanda topics with explicit partition counts.
+- `scripts/test.sh` sends exactly 500 logs through Pandaproxy from inside the Compose network and expects exactly 500 ClickHouse rows after a prior cleanup.
 - `scripts/cleanup.sh` clears ClickHouse tables and Redis.
+- `scripts/verify_features.sh` smoke-tests login, metrics, log history, and Redis pub/sub events against the live stack.
 
 ## Documentation State
 
 The root `README.md` is only a repository placeholder. The application documentation is `logrider/README.md`.
 
-The most current audit is `specs/06-evaluation/2995290a203781930f2dbfa0947411da2867e80f.md`, created against commit `2995290a203781930f2dbfa0947411da2867e80f`.
+The most current audit should be the latest file in `specs/06-evaluation/`, keyed by the evaluated commit hash.

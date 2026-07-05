@@ -39,7 +39,13 @@
   - Search bar: Add search icon to the left of "global-search-col" element, separated; add slide down/up animation for dropdown menu, make dropdown menu properly formatted e.g. font
 - /alerts:
   - Remove "Filter by application" section
-  - 
+
+[[OUDATED]]
+
+Benchmarks
+- ALL Timestamps should be displayed based on browser's timezone (instead of UTC)s
+Configs
+Icon log-rider
 
 ## REGRESSIONS
 (anything previously worked but does not anymore due to new changes will show up here)
@@ -49,3 +55,5 @@
 Should notis persist?
 
 (2) Change machine?
+
+(3) Is Báo cáo nộp only (present?)

@@ -1,43 +1,34 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-# Sends 5 logs, one for each level via Redpanda REST Proxy
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
+
+# Sends 5 logs, one for each level via Redpanda Pandaproxy from inside the compose network.
 LEVELS=("DEBUG" "INFO" "WARN" "ERROR" "CRITICAL")
 APPS=("auth-service" "billing-app" "payment-gateway" "user-profile" "inventory-sys")
 MESSAGES=("connection timeout" "successful login" "high latency detected" "database query failed" "system crashed")
 
-RECORDS=""
+records=()
 for i in {0..4}; do
-    LEVEL=${LEVELS[$i]}
-    APP=${APPS[$i]}
-    MSG=${MESSAGES[$i]}
-    TRACE=$(cat /proc/sys/kernel/random/uuid)
-    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
-    
-    RECORD=$(cat <<JSON
-{
-  "value": {
-    "Application_Name": "$APP",
-    "Log_Level": "$LEVEL",
-    "Message": "$MSG",
-    "Timestamp": "$TIMESTAMP",
-    "Trace_ID": "$TRACE"
-  }
-}
-JSON
-)
-    if [ $i -lt 4 ]; then
-        RECORDS="$RECORDS $RECORD,"
-    else
-        RECORDS="$RECORDS $RECORD"
-    fi
-    echo "Prepared $LEVEL log for $APP"
+    level=${LEVELS[$i]}
+    app=${APPS[$i]}
+    msg=${MESSAGES[$i]}
+    trace=$(cat /proc/sys/kernel/random/uuid)
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
+
+    records+=("{\"value\":{\"Application_Name\":\"$app\",\"Log_Level\":\"$level\",\"Message\":\"$msg\",\"Timestamp\":\"$timestamp\",\"Trace_ID\":\"$trace\"}}")
+    echo "Prepared $level log for $app"
 done
 
-PAYLOAD="{\"records\": [$RECORDS]}"
+payload=$(printf '{"records":[%s]}' "$(IFS=,; echo "${records[*]}")")
 
-curl -s -X POST http://localhost:8082/topics/logs-ingested \
-    -H "Content-Type: application/vnd.kafka.json.v2+json" \
-    -d "$PAYLOAD"
+docker compose -f "$COMPOSE_FILE" exec -T redpanda bash -lc "
+  curl -sS -X POST http://localhost:8082/topics/logs-ingested \
+    -H 'Content-Type: application/vnd.kafka.json.v2+json' \
+    -d '$payload'
+"
 
-echo ""
+echo
 echo "Test complete."

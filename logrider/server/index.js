@@ -21,6 +21,21 @@ const CLICKHOUSE_USER = process.env.CLICKHOUSE_USER || "default";
 const CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_PASSWORD || "password";
 const chBaseUrl = `http://${CLICKHOUSE_HOST}:8123/?user=${CLICKHOUSE_USER}&password=${CLICKHOUSE_PASSWORD}`;
 const pgClient = new Pool({ connectionString: POSTGRES_URI });
+pgClient.on("error", (err) =>
+  console.error("Postgres Pool Error", err.message),
+);
+
+function quoteClickHouseString(value) {
+  return `'${String(value).replace(/\\/g, "\\\\").replace(/'/g, "''")}'`;
+}
+
+function getIntervalStr(period) {
+  if (period === "1h") return "1 HOUR";
+  if (period === "7d") return "7 DAY";
+  if (period === "14d") return "14 DAY";
+  if (period === "28d") return "28 DAY";
+  return "24 HOUR";
+}
 
 (async () => {
   let retries = 5;
@@ -531,11 +546,7 @@ bunServer = Bun.serve({
         const session = JSON.parse(sessionStr);
 
         const period = url.searchParams.get("period") || "24h";
-        let intervalStr = "24 HOUR";
-        if (period === "1h") intervalStr = "1 HOUR";
-        else if (period === "7d") intervalStr = "7 DAY";
-        else if (period === "14d") intervalStr = "14 DAY";
-        else if (period === "28d") intervalStr = "28 DAY";
+        const intervalStr = getIntervalStr(period);
 
         const query = `
                     SELECT
@@ -577,6 +588,86 @@ bunServer = Bun.serve({
         console.error(err);
         return Response.json(
           { error: "Internal error fetching analytics" },
+          { status: 500 },
+        );
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/analytics/overview") {
+      try {
+        const token = req.headers.get("authorization")?.replace("Bearer ", "");
+        if (!token)
+          return Response.json({ error: "No token" }, { status: 401 });
+
+        const sessionStr = await redisClient.get(`session:${token}`);
+        if (!sessionStr)
+          return Response.json({ error: "Invalid token" }, { status: 401 });
+
+        const session = JSON.parse(sessionStr);
+        const period = url.searchParams.get("period") || "24h";
+        const intervalStr = getIntervalStr(period);
+
+        let filterClause = "";
+        if (!session.is_admin) {
+          const apps =
+            typeof session.allowed_apps === "string"
+              ? session.allowed_apps.split(",").map((a) => a.trim())
+              : session.allowed_apps || [];
+          if (apps.length === 0) {
+            return Response.json({ apps: [], levels: [] });
+          }
+          filterClause = `AND Application_Name IN (${apps.map(quoteClickHouseString).join(",")})`;
+        }
+
+        const appsQuery = `
+          SELECT
+            Application_Name,
+            count() AS total_count,
+            countIf(Log_Level = 'ERROR') AS error_count,
+            countIf(Log_Level = 'CRITICAL') AS critical_count
+          FROM logrider.logs_enriched
+          WHERE Timestamp >= now() - INTERVAL ${intervalStr}
+            ${filterClause}
+          GROUP BY Application_Name
+          ORDER BY error_count DESC, critical_count DESC, total_count DESC
+          FORMAT JSON
+        `;
+
+        const levelsQuery = `
+          SELECT
+            Log_Level,
+            count() AS count
+          FROM logrider.logs_enriched
+          WHERE Timestamp >= now() - INTERVAL ${intervalStr}
+            AND Log_Level IN ('ERROR', 'CRITICAL')
+            ${filterClause}
+          GROUP BY Log_Level
+          ORDER BY count DESC
+          FORMAT JSON
+        `;
+
+        const [appsRes, levelsRes] = await Promise.all([
+          fetch(chBaseUrl, { method: "POST", body: appsQuery }),
+          fetch(chBaseUrl, { method: "POST", body: levelsQuery }),
+        ]);
+
+        if (!appsRes.ok) {
+          throw new Error(`ClickHouse overview apps error: ${await appsRes.text()}`);
+        }
+        if (!levelsRes.ok) {
+          throw new Error(`ClickHouse overview levels error: ${await levelsRes.text()}`);
+        }
+
+        const appsData = await appsRes.json();
+        const levelsData = await levelsRes.json();
+        return Response.json({
+          apps: appsData.data || [],
+          levels: levelsData.data || [],
+        });
+      } catch (err) {
+        console.error(err);
+        return Response.json(
+          { error: "Internal error fetching analytics overview" },
           { status: 500 },
         );
       }
@@ -628,15 +719,41 @@ bunServer = Bun.serve({
         }
 
         const chData = await chRes.json();
+        const rows = chData.data || [];
+        const traceIds = [...new Set(rows.map((row) => row.Trace_ID).filter(Boolean))];
+        let tagsByTraceId = new Map();
 
-        // Format output to match frontend expectation
-        const logs = chData.data.map((row) => ({
+        if (traceIds.length > 0) {
+          const tagsQuery = `
+            SELECT Trace_ID, Tags
+            FROM logrider.log_tags
+            WHERE Trace_ID IN (${traceIds.map(quoteClickHouseString).join(",")})
+            ORDER BY Timestamp DESC
+            FORMAT JSON
+          `;
+
+          const tagsRes = await fetch(chBaseUrl, {
+            method: "POST",
+            body: tagsQuery,
+          });
+
+          if (!tagsRes.ok) {
+            throw new Error(`ClickHouse tag query error: ${await tagsRes.text()}`);
+          }
+
+          const tagsData = await tagsRes.json();
+          tagsByTraceId = new Map(
+            (tagsData.data || []).map((row) => [row.Trace_ID, row.Tags || []]),
+          );
+        }
+
+        const logs = rows.map((row) => ({
           Trace_ID: row.Trace_ID,
           Application_Name: row.Application_Name,
           Log_Level: row.Log_Level,
           Message: row.Message,
           Timestamp: row.Timestamp,
-          Tags: row.Tags || [],
+          Tags: tagsByTraceId.get(row.Trace_ID) || row.Tags || [],
         }));
 
         return Response.json({ logs });
@@ -789,9 +906,6 @@ bunServer = Bun.serve({
           ws.subscribe(`alerts-stream:${app}`);
           ws.subscribe(`ws-frontend:${app}`);
         }
-        // Global log stream for non-admin users is also useful
-        // for any logs that are not app-scoped.
-        ws.subscribe("ws-frontend:global");
       }
     },
     message(ws, message) {},

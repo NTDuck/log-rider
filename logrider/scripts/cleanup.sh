@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Run from anywhere — navigate to the scripts directory first
-cd "$(dirname "$0")"
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
 
 # ClickHouse credentials — read from environment or fall back to defaults
-CH_HOST="${CLICKHOUSE_HOST:-localhost}"
 CH_USER="${CLICKHOUSE_USER:-default}"
 CH_PASS="${CLICKHOUSE_PASSWORD:-password}"
-CH_URL="http://${CH_HOST}:8123/?user=${CH_USER}&password=${CH_PASS}"
 
 # Helper to print row count and sample rows before truncating a table
 print_and_truncate() {
@@ -19,24 +20,24 @@ print_and_truncate() {
 
   # Check if the table exists in ClickHouse
   local exists
-  exists=$(docker compose -f ../docker-compose.yml exec -T clickhouse clickhouse-client -u "${CH_USER}" --password "${CH_PASS}" -q "SELECT count() FROM system.tables WHERE database='$db' AND name='$tbl' FORMAT TSV")
+  exists=$(docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client -u "${CH_USER}" --password "${CH_PASS}" -q "SELECT count() FROM system.tables WHERE database='$db' AND name='$tbl' FORMAT TSV")
   if [[ "$exists" != "1" ]]; then
     return
   fi
 
   # Show current row count
   local count
-  count=$(docker compose -f ../docker-compose.yml exec -T clickhouse clickhouse-client -u "${CH_USER}" --password "${CH_PASS}" -q "SELECT count() FROM $table FORMAT TSV")
+  count=$(docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client -u "${CH_USER}" --password "${CH_PASS}" -q "SELECT count() FROM $table FORMAT TSV")
   echo "  Rows before truncate: $count"
 
   # Show up to 5 sample rows if any
   if [[ "$count" -gt 0 ]]; then
     echo "  Sample rows (up to 5):"
-    docker compose -f ../docker-compose.yml exec -T clickhouse clickhouse-client -u "${CH_USER}" --password "${CH_PASS}" -q "SELECT * FROM $table LIMIT 5 FORMAT TSV" | sed 's/^/    /'
+    docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client -u "${CH_USER}" --password "${CH_PASS}" -q "SELECT * FROM $table LIMIT 5 FORMAT TSV" | sed 's/^/    /'
   fi
 
   # Truncate the table
-  docker compose -f ../docker-compose.yml exec -T clickhouse clickhouse-client -u "${CH_USER}" --password "${CH_PASS}" -q "TRUNCATE TABLE IF EXISTS $table"
+  docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client -u "${CH_USER}" --password "${CH_PASS}" -q "TRUNCATE TABLE IF EXISTS $table"
   echo "  Truncate completed."
   echo
 }
@@ -58,10 +59,8 @@ echo "All specified tables have been cleared."
 
 # Flush Redis via the Docker Compose redis service (works in any environment)
 echo "Flushing Redis..."
-pushd "$(dirname "$0")/.." > /dev/null
-if docker compose exec redis redis-cli FLUSHALL > /dev/null 2>&1; then
+if docker compose -f "$COMPOSE_FILE" exec -T redis redis-cli FLUSHALL > /dev/null 2>&1; then
   echo "Redis flushed."
 else
   echo "Could not flush Redis via docker compose exec. Is the stack running?"
 fi
-popd > /dev/null

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alerts - log-rider</title>
+    <title>LogRider Alerts</title>
     <link href="https://fonts.cdnfonts.com/css/amazon-ember" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -13,7 +13,7 @@
                 extend: {
                     colors: {
                         aws: {
-                            nav: '#0f1b2d', navDark: '#0b1426',
+                            nav: '#0f1b2d',
                             bg: '#f2f3f3',
                             bgDark: '#0f1b2d',
                             panel: '#ffffff',
@@ -25,9 +25,7 @@
                             textMuted: '#545b64',
                             textMutedDark: '#9ba7b6',
                             primary: '#0972d3',
-                            primaryHover: '#035b96',
-                            link: '#0073bb',
-                            linkDark: '#44b9ff'
+                            primaryHover: '#035b96'
                         }
                     },
                     fontFamily: {
@@ -39,486 +37,351 @@
         }
     </script>
     <style>
-        .chip-btn {
-            display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px;
-            font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-        .chip-btn.active {
-            background-color: rgba(9, 114, 211, 0.15); color: #0073bb; border-color: rgba(9, 114, 211, 0.3);
-        }
-        .dark .chip-btn.active {
-            background-color: rgba(68, 185, 255, 0.15); color: #44b9ff; border-color: rgba(68, 185, 255, 0.3);
-        }
-        .chip-btn:not(.active) {
-            background-color: #f3f4f6; color: #6b7280; border-color: #e5e7eb; opacity: 0.7;
-        }
-        .dark .chip-btn:not(.active) {
-            background-color: rgba(255,255,255,0.05); color: #9ca3af; border-color: rgba(255,255,255,0.1);
-        }
         .logs-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
         .logs-scroll::-webkit-scrollbar-track { background: transparent; }
-        .logs-scroll::-webkit-scrollbar-thumb { background: #aab7b8; border-radius: 4px; }
+        .logs-scroll::-webkit-scrollbar-thumb { background: #aab7b8; border-radius: 999px; }
         .dark .logs-scroll::-webkit-scrollbar-thumb { background: #545b64; }
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-down { animation: slideDown 0.2s ease-out forwards; }
-        @keyframes pulse-count {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.15); }
-            100% { transform: scale(1); }
-        }
-        .pulse-count { animation: pulse-count 0.15s ease-out; }
     </style>
 </head>
-<body class="bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200">
-
-    <!-- Top Navigation (identical to dashboard) -->
+<body class="bg-aws-bg font-sans text-aws-text antialiased transition-colors duration-200 dark:bg-aws-bgDark dark:text-aws-textDark">
     <!-- TOPBAR -->
 
-    <main class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        <!-- Login Screen (same as dashboard) -->
-        <div id="login-screen" class="max-w-md mx-auto mt-12">
-            <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark shadow-sm rounded-lg overflow-hidden">
-                <div class="px-6 py-5 border-b border-aws-border dark:border-aws-borderDark">
-                    <h2 class="text-xl font-bold text-aws-text dark:text-aws-textDark">Sign in</h2>
-                    <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark mt-1">Enter your credentials to access alerts</p>
+    <main class="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+        <div id="login-screen" class="mx-auto mt-12 max-w-md">
+            <div class="overflow-hidden rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                <div class="border-b border-aws-border px-6 py-5 dark:border-aws-borderDark">
+                    <h2 class="text-xl font-bold">Sign in</h2>
+                    <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Enter your credentials to access alerts.</p>
                 </div>
                 <div class="px-6 py-6">
                     <form id="login-form" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-bold text-aws-text dark:text-aws-textDark mb-1">Username</label>
-                            <input type="text" id="username" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link transition-shadow" required>
+                            <label class="mb-1 block text-sm font-bold">Username</label>
+                            <input id="username" type="text" required class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-aws-text dark:text-aws-textDark mb-1">Password</label>
-                            <input type="password" id="password" class="w-full px-3 py-1.5 text-sm border border-gray-400 dark:border-gray-600 rounded bg-white dark:bg-[#16191f] text-aws-text dark:text-aws-textDark focus:outline-none focus:border-aws-link focus:ring-1 focus:ring-aws-link transition-shadow" required>
+                            <label class="mb-1 block text-sm font-bold">Password</label>
+                            <input id="password" type="password" required class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
                         </div>
-                        <button type="submit" class="w-full py-1.5 px-4 bg-aws-primary hover:bg-aws-primaryHover text-white text-sm font-bold rounded-full shadow-sm transition-colors mt-2 border border-transparent">Sign in</button>
-                        <p id="login-error" class="text-red-600 dark:text-red-400 text-sm font-medium hidden"></p>
+                        <button type="submit" class="w-full rounded-full bg-aws-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-aws-primaryHover">Sign in</button>
+                        <p id="login-error" class="hidden text-sm font-medium text-red-500"></p>
                     </form>
                 </div>
-                <div class="px-6 py-4 bg-gray-50 dark:bg-black/20 border-t border-aws-border dark:border-aws-borderDark text-xs text-aws-textMuted dark:text-aws-textMutedDark">
+                <div class="border-t border-aws-border bg-gray-50 px-6 py-4 text-xs text-aws-textMuted dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
                     <span class="font-semibold">Demo accounts:</span> admin/admin123 or eng1/eng123
                 </div>
             </div>
         </div>
 
-        <!-- Alerts Dashboard -->
         <div id="alerts-screen" class="hidden space-y-6">
-            <div class="flex justify-between items-center">
+            <section class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark">Critical Alerts</h1>
-                    <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark mt-1">Real-time ERROR and CRITICAL log alerts with deduplication.</p>
+                    <h1 class="text-2xl font-bold">Alert Stream</h1>
+                    <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Recent and live ERROR / CRITICAL alerts grouped by application and message.</p>
                 </div>
-                <div class="flex items-center space-x-3">
-                    <div class="flex items-center space-x-2 text-sm text-aws-textMuted dark:text-aws-textMutedDark">
-                        <span class="relative flex h-2.5 w-2.5 mr-1">
-                          <span id="ws-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                          <span id="ws-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-                        </span>
-                        <span id="ws-status">Streaming</span>
+                <button onclick="handleRefresh()" class="inline-flex items-center gap-2 rounded-full bg-aws-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-aws-primaryHover">
+                    <svg id="refresh-icon" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span>Refresh</span>
+                </button>
+            </section>
+
+            <section class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Total Alerts</p>
+                    <p id="summary-total" class="mt-2 text-3xl font-bold">0</p>
+                </div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Critical</p>
+                    <p id="summary-critical" class="mt-2 text-3xl font-bold text-red-500">0</p>
+                </div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Unique Signatures</p>
+                    <p id="summary-unique" class="mt-2 text-3xl font-bold text-aws-primary">0</p>
+                </div>
+            </section>
+
+            <section class="rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                    <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+                        <div class="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_180px_180px]">
+                            <input id="search-query" type="text" oninput="renderAlerts()" placeholder="Search by application or message..." class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                            <select id="application-filter" onchange="renderAlerts()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                                <option value="">All Applications</option>
+                            </select>
+                            <select id="level-filter" onchange="renderAlerts()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                                <option value="">All Levels</option>
+                                <option value="ERROR">ERROR</option>
+                                <option value="CRITICAL">CRITICAL</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-end">
+                            <span class="relative flex h-3 w-3">
+                                <span id="ws-ping" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                                <span id="ws-dot" class="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
+                            </span>
+                        </div>
                     </div>
-                    <button onclick="clearAlerts()" class="px-4 py-1.5 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white flex items-center space-x-2 border border-transparent">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        <span>Clear</span>
-                    </button>
                 </div>
-            </div>
 
-            <!-- Summary Cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg p-4 shadow-sm">
-                    <p class="text-xs font-bold text-aws-textMuted dark:text-aws-textMutedDark uppercase">Total Alerts</p>
-                    <p id="total-count" class="text-3xl font-bold text-aws-text dark:text-aws-textDark mt-1">0</p>
-                </div>
-                <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg p-4 shadow-sm">
-                    <p class="text-xs font-bold text-aws-textMuted dark:text-aws-textMutedDark uppercase">Critical</p>
-                    <p id="critical-count" class="text-3xl font-bold text-red-600 dark:text-red-400 mt-1">0</p>
-                </div>
-                <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg p-4 shadow-sm">
-                    <p class="text-xs font-bold text-aws-textMuted dark:text-aws-textMutedDark uppercase">Unique Signatures</p>
-                    <p id="unique-count" class="text-3xl font-bold text-aws-primary dark:text-aws-linkDark mt-1">0</p>
-                </div>
-            </div>
-
-            <!-- App Filter Chips -->
-            <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
-                <div class="px-5 py-3 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg flex justify-between items-center">
-                    <span class="text-sm font-bold text-aws-text dark:text-aws-textDark">Filter by Application</span>
-                    <div class="flex space-x-2">
-                        <button onclick="selectAllApps(true)" class="text-xs font-bold text-aws-primary dark:text-aws-linkDark hover:underline">Select All</button>
-                        <span class="text-gray-300 dark:text-gray-600">|</span>
-                        <button onclick="selectAllApps(false)" class="text-xs font-bold text-red-500 hover:underline">Deselect All</button>
-                    </div>
-                </div>
-                <div class="px-5 py-3 flex flex-wrap gap-2" id="app-chips"></div>
-            </div>
-
-            <!-- Alert Table -->
-            <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm flex flex-col max-h-[600px]">
-                <div class="px-5 py-4 border-b border-aws-border dark:border-aws-borderDark bg-gray-50/50 dark:bg-black/10 rounded-t-lg">
-                    <h2 class="text-lg font-bold">Alert Feed</h2>
-                </div>
-                <div class="flex-1 overflow-auto logs-scroll">
-                    <table class="w-full text-left text-sm whitespace-nowrap">
-                        <thead class="bg-gray-50 dark:bg-black/20 text-aws-textMuted dark:text-aws-textMutedDark text-xs uppercase font-bold sticky top-0 z-10 border-b border-aws-border dark:border-aws-borderDark shadow-sm">
+                <div class="overflow-auto logs-scroll">
+                    <table class="min-w-full table-fixed text-left text-sm">
+                        <thead class="sticky top-0 z-10 border-b border-aws-border bg-gray-50 text-xs font-bold uppercase text-aws-textMuted shadow-sm dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
                             <tr>
-                                <th class="px-5 py-3 w-28">Count</th>
-                                <th class="px-5 py-3 w-28">Level</th>
-                                <th class="px-5 py-3 w-40">Application</th>
+                                <th class="w-[110px] px-5 py-3">Count</th>
+                                <th class="w-[120px] px-5 py-3">Level</th>
+                                <th class="w-[220px] px-5 py-3">Application</th>
                                 <th class="px-5 py-3">Message</th>
-                                <th class="px-5 py-3 w-44">Last Seen</th>
+                                <th class="w-[220px] px-5 py-3">Last Seen</th>
                             </tr>
                         </thead>
-                        <tbody id="alerts-body" class="divide-y divide-aws-border dark:divide-aws-borderDark text-[#16191f] dark:text-[#d5d9e2]">
-                            <tr id="empty-state">
-                                <td colspan="5" class="px-5 py-12 text-center text-aws-textMuted dark:text-aws-textMutedDark">
-                                    <svg class="w-8 h-8 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                                    Waiting for alerts...
-                                </td>
-                            </tr>
-                        </tbody>
+                        <tbody id="alerts-body" class="divide-y divide-aws-border dark:divide-aws-borderDark"></tbody>
                     </table>
                 </div>
-            </div>
+            </section>
         </div>
     </main>
 
     <script>
-        // --- Dark Mode ---
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        const darkIcon = document.getElementById('theme-toggle-dark-icon');
-        const lightIcon = document.getElementById('theme-toggle-light-icon');
+        const alertsBySignature = new Map();
+        let ws;
 
-        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-            lightIcon.classList.remove('hidden');
-        } else {
-            document.documentElement.classList.remove('dark');
-            darkIcon.classList.remove('hidden');
+        const loginScreen = document.getElementById('login-screen');
+        const alertsScreen = document.getElementById('alerts-screen');
+        const alertsBody = document.getElementById('alerts-body');
+        const applicationFilter = document.getElementById('application-filter');
+
+        function initTheme() {
+            const darkIcon = document.getElementById('theme-toggle-dark-icon');
+            const lightIcon = document.getElementById('theme-toggle-light-icon');
+            const prefersDark = localStorage.getItem('color-theme') === 'dark'
+                || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+            document.documentElement.classList.toggle('dark', prefersDark);
+            darkIcon?.classList.toggle('hidden', !document.documentElement.classList.contains('dark'));
+            lightIcon?.classList.toggle('hidden', document.documentElement.classList.contains('dark'));
+
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const nextDark = !document.documentElement.classList.contains('dark');
+                document.documentElement.classList.toggle('dark', nextDark);
+                localStorage.setItem('color-theme', nextDark ? 'dark' : 'light');
+                darkIcon?.classList.toggle('hidden', !nextDark);
+                lightIcon?.classList.toggle('hidden', nextDark);
+            });
         }
 
-        themeToggleBtn.addEventListener('click', function() {
-            darkIcon.classList.toggle('hidden');
-            lightIcon.classList.toggle('hidden');
-            if (localStorage.getItem('color-theme') === 'light' || !document.documentElement.classList.contains('dark')) {
-                document.documentElement.classList.add('dark');
-                localStorage.setItem('color-theme', 'dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-                localStorage.setItem('color-theme', 'light');
-            }
-        });
-
-        // --- Auth ---
-        let authToken = null;
-        let userRole = null;
-
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const errEl = document.getElementById('login-error');
-            errEl.classList.add('hidden');
-            
-            try {
-                const res = await fetch('/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    localStorage.setItem('logrider_token', data.token);
-                    localStorage.setItem('logrider_role', data.role);
-                    showAlerts();
-                } else {
-                    errEl.textContent = data.error || 'Login failed';
-                    errEl.classList.remove('hidden');
-                }
-            } catch (err) {
-                console.error('Login error:', err);
-                errEl.textContent = 'Login failed';
-                errEl.classList.remove('hidden');
-            }
-        });
-
-        if (localStorage.getItem('logrider_token')) {
-            showAlerts();
+        function setWsIndicator(isConnected) {
+            document.getElementById('ws-dot').className = `relative inline-flex h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`;
+            document.getElementById('ws-ping').className = isConnected
+                ? 'absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75'
+                : 'hidden';
         }
 
-        function showAlerts() {
-            const role = localStorage.getItem('logrider_role') || 'unknown';
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('alerts-screen').classList.remove('hidden');
-            document.getElementById('user-controls').classList.remove('hidden');
-            document.getElementById('user-controls').classList.add('flex');
-            document.getElementById('role-badge').textContent = role === 'admin' ? 'Admin' : 'Engineer';
-            if (role === 'admin') document.getElementById('nav-config').classList.remove('hidden');
-            fetchHistoricalAlerts().then(() => connectWebSocket());
-        }
-
-        async function fetchHistoricalAlerts() {
-            try {
-                const token = localStorage.getItem('logrider_token');
-                if (!token) return;
-                const res = await fetch('/api/alerts/recent', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data.alerts && data.alerts.length > 0) {
-                    const emptyState = document.getElementById('empty-state');
-                    if (emptyState) emptyState.remove();
-
-                    // Reversing to process oldest first so newest appears at top
-                    data.alerts.reverse().forEach(log => {
-                        const appName = log.Application_Name || 'unknown';
-                        const signature = btoa(encodeURIComponent(appName + '|' + (log.Message || ''))).substring(0, 24);
-                        
-                        if (!(appName in appFilters)) {
-                            appFilters[appName] = true;
-                            renderAppChips();
-                        }
-                        
-                        alertState[signature] = {
-                            count: parseInt(log.alert_count) || 1,
-                            Application_Name: appName,
-                            Log_Level: log.Log_Level,
-                            Message: log.Message,
-                            Timestamp: log.Timestamp
-                        };
-                        
-                        totalAlerts += alertState[signature].count;
-                        if (log.Log_Level === 'CRITICAL') criticalAlerts += alertState[signature].count;
-                        
-                        renderAlertRow(signature);
-                    });
-                    updateSummary();
-                    applyAppFilter();
-                }
-            } catch (err) {
-                console.error("Failed to load historical alerts", err);
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem('logrider_token');
-            localStorage.removeItem('logrider_role');
-            if (ws) ws.close();
-            window.location.href = '/dashboard';
-        }
-
-        // --- WebSocket & Alert State ---
-        const alertState = {};
-        const appFilters = {};
-        let ws = null;
-        let totalAlerts = 0;
-        let criticalAlerts = 0;
-
-        function connectWebSocket() {
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${wsProtocol}//${window.location.host}/api/ws`);
-
-            ws.onopen = () => {
-                document.getElementById('ws-status').textContent = 'Streaming';
-                document.getElementById('ws-dot').className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500';
-                document.getElementById('ws-ping').className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75';
-            };
-
-            ws.onmessage = (event) => {
-                try {
-                    let data = JSON.parse(event.data);
-                    let log = data;
-                    let count = 1;
-                    if (data.type === 'ALERT') {
-                        log = data.log;
-                        count = data.count || 1;
-                    }
-                    // Only process ERROR and CRITICAL
-                    if (log.Log_Level !== 'ERROR' && log.Log_Level !== 'CRITICAL') return;
-
-                    log.alert_count = count;
-                    const signature = btoa(encodeURIComponent((log.Application_Name || 'unknown') + '|' + (log.Message || ''))).substring(0, 24);
-                    const appName = log.Application_Name || 'unknown';
-
-                    // Track app for filter chips
-                    if (!(appName in appFilters)) {
-                        appFilters[appName] = true;
-                        renderAppChips();
-                    }
-
-                    totalAlerts += (log.alert_count ? (log.alert_count - (alertState[signature]?.count || 0)) : 1);
-                    if (log.Log_Level === 'CRITICAL') {
-                        criticalAlerts += (log.alert_count ? (log.alert_count - (alertState[signature]?.count || 0)) : 1);
-                    }
-
-                    if (alertState[signature]) {
-                        alertState[signature].count = log.alert_count ? Math.max(alertState[signature].count, log.alert_count) : alertState[signature].count + 1;
-                        alertState[signature].Timestamp = log.Timestamp;
-                        updateAlertRow(signature);
-                    } else {
-                        alertState[signature] = {
-                            count: log.alert_count || 1,
-                            Application_Name: appName,
-                            Log_Level: log.Log_Level,
-                            Message: log.Message,
-                            Timestamp: log.Timestamp
-                        };
-                        
-                        renderAlertRow(signature);
-                        updateSummary();
-                    }
-                } catch (err) {
-                    console.error('Malformed log payload', err);
-                }
-            };
-
-            ws.onclose = () => {
-                document.getElementById('ws-status').textContent = 'Disconnected';
-                document.getElementById('ws-dot').className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500';
-                document.getElementById('ws-ping').className = 'hidden';
-                // Auto-reconnect after 3s
-                setTimeout(connectWebSocket, 3000);
-            };
-
-            ws.onerror = () => {
-                document.getElementById('ws-status').textContent = 'Error';
-                document.getElementById('ws-dot').className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500';
-            };
-        }
-
-        function updateSummary() {
-            document.getElementById('total-count').textContent = totalAlerts;
-            document.getElementById('critical-count').textContent = criticalAlerts;
-            document.getElementById('unique-count').textContent = Object.keys(alertState).length;
-        }
-
-        function renderAlertRow(sig) {
-            const emptyState = document.getElementById('empty-state');
-            if (emptyState) emptyState.remove();
-
-            const state = alertState[sig];
-            const tbody = document.getElementById('alerts-body');
-            const tr = document.createElement('tr');
-            tr.id = `alert-${sig}`;
-            tr.className = 'animate-slide-down hover:bg-gray-50 dark:hover:bg-white/5 transition-colors';
-            if (!appFilters[state.Application_Name]) tr.classList.add('hidden');
-
-            const levelClass = state.Log_Level === 'CRITICAL'
-                ? 'bg-red-100 text-red-800 dark:bg-red-800/30 dark:text-red-300 border-red-200 dark:border-red-700/50'
-                : 'bg-orange-100 text-orange-800 dark:bg-orange-800/30 dark:text-orange-300 border-orange-200 dark:border-orange-700/50';
-
-            tr.innerHTML = `
-                <td class="px-5 py-3">
-                    <span id="count-${sig}" class="inline-flex items-center justify-center min-w-[40px] px-2 py-0.5 rounded-full text-xs font-bold bg-aws-primary/10 text-aws-primary dark:bg-aws-linkDark/10 dark:text-aws-linkDark border border-aws-primary/20 dark:border-aws-linkDark/20">[x${state.count}]</span>
-                </td>
-                <td class="px-5 py-3">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${levelClass}">${state.Log_Level}</span>
-                </td>
-                <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${state.Application_Name}</td>
-                <td class="px-5 py-3 text-sm max-w-md truncate">${escapeHtml(state.Message)}</td>
-                <td class="px-5 py-3 text-xs text-aws-textMuted dark:text-aws-textMutedDark font-mono" id="time-${sig}">${formatTimestamp(state.Timestamp)}</td>
-            `;
-
-            // Prepend (newest on top)
-            if (tbody.firstChild) {
-                tbody.insertBefore(tr, tbody.firstChild);
-            } else {
-                tbody.appendChild(tr);
-            }
-        }
-
-        function updateAlertRow(sig) {
-            const countEl = document.getElementById(`count-${sig}`);
-            const timeEl = document.getElementById(`time-${sig}`);
-            if (countEl) {
-                countEl.textContent = `[x${alertState[sig].count}]`;
-                countEl.classList.add('pulse-count');
-                setTimeout(() => countEl.classList.remove('pulse-count'), 150);
-            }
-            if (timeEl) {
-                timeEl.textContent = formatTimestamp(alertState[sig].Timestamp);
-            }
-            // Move row to top
-            const tr = document.getElementById(`alert-${sig}`);
-            const tbody = document.getElementById('alerts-body');
-            if (tr && tbody.firstChild !== tr) {
-                tbody.insertBefore(tr, tbody.firstChild);
-            }
-        }
-
-        function formatTimestamp(ts) {
-            try {
-                const d = new Date(ts);
-                return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.' + String(d.getMilliseconds()).padStart(3, '0');
-            } catch { return ts; }
-        }
-
-        function escapeHtml(s) {
+        function escapeHtml(value) {
             const div = document.createElement('div');
-            div.textContent = s;
+            div.textContent = value ?? '';
             return div.innerHTML;
         }
 
-        // --- App Filter Chips ---
-        function renderAppChips() {
-            const container = document.getElementById('app-chips');
-            container.innerHTML = '';
-            for (const app of Object.keys(appFilters).sort()) {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = `chip-btn ${appFilters[app] ? 'active' : ''}`;
-                btn.dataset.app = app;
-                btn.textContent = app;
-                btn.onclick = () => {
-                    appFilters[app] = !appFilters[app];
-                    btn.classList.toggle('active');
-                    applyAppFilter();
-                };
-                container.appendChild(btn);
-            }
+        function formatTimestamp(value) {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return escapeHtml(String(value || '-'));
+            return escapeHtml(date.toLocaleString('en-CA', {
+                hour12: false,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).replace(',', ''));
         }
 
-        function selectAllApps(selectAll) {
-            for (const app of Object.keys(appFilters)) {
-                appFilters[app] = selectAll;
-            }
-            renderAppChips();
-            applyAppFilter();
+        function alertSignature(log) {
+            return `${log.Application_Name || 'unknown'}|${log.Message || ''}`;
         }
 
-        function applyAppFilter() {
-            for (const sig of Object.keys(alertState)) {
-                const tr = document.getElementById(`alert-${sig}`);
-                if (!tr) continue;
-                const state = alertState[sig];
-                if (appFilters[state.Application_Name]) {
-                    tr.classList.remove('hidden');
-                } else {
-                    tr.classList.add('hidden');
-                }
-            }
+        function ensureApplicationOption(appName) {
+            if (!appName || [...applicationFilter.options].some((option) => option.value === appName)) return;
+            const option = document.createElement('option');
+            option.value = appName;
+            option.textContent = appName;
+            applicationFilter.appendChild(option);
         }
 
-        function clearAlerts() {
-            Object.keys(alertState).forEach(k => delete alertState[k]);
-            Object.keys(appFilters).forEach(k => delete appFilters[k]);
-            totalAlerts = 0;
-            criticalAlerts = 0;
+        function upsertAlert(log) {
+            const signature = alertSignature(log);
+            const existing = alertsBySignature.get(signature);
+            const next = {
+                Application_Name: log.Application_Name || 'unknown',
+                Log_Level: (log.Log_Level || 'ERROR').toUpperCase(),
+                Message: log.Message || '',
+                Timestamp: log.Timestamp,
+                alert_count: Number(log.alert_count || log.count || 1),
+            };
+
+            if (existing) {
+                existing.alert_count = Math.max(existing.alert_count, next.alert_count);
+                existing.Timestamp = next.Timestamp;
+                existing.Log_Level = next.Log_Level;
+            } else {
+                alertsBySignature.set(signature, next);
+            }
+
+            ensureApplicationOption(next.Application_Name);
+        }
+
+        function getVisibleAlerts() {
+            const query = document.getElementById('search-query').value.trim().toLowerCase();
+            const app = applicationFilter.value;
+            const level = document.getElementById('level-filter').value;
+
+            return [...alertsBySignature.values()]
+                .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp))
+                .filter((alert) => {
+                    if (app && alert.Application_Name !== app) return false;
+                    if (level && alert.Log_Level !== level) return false;
+                    if (!query) return true;
+                    return alert.Application_Name.toLowerCase().includes(query)
+                        || alert.Message.toLowerCase().includes(query);
+                });
+        }
+
+        function updateSummary() {
+            const alerts = [...alertsBySignature.values()];
+            document.getElementById('summary-total').textContent = alerts.reduce((sum, alert) => sum + alert.alert_count, 0);
+            document.getElementById('summary-critical').textContent = alerts
+                .filter((alert) => alert.Log_Level === 'CRITICAL')
+                .reduce((sum, alert) => sum + alert.alert_count, 0);
+            document.getElementById('summary-unique').textContent = alerts.length;
+        }
+
+        function renderAlerts() {
+            const alerts = getVisibleAlerts();
             updateSummary();
-            document.getElementById('alerts-body').innerHTML = `
-                <tr id="empty-state">
-                    <td colspan="5" class="px-5 py-12 text-center text-aws-textMuted dark:text-aws-textMutedDark">
-                        <svg class="w-8 h-8 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                        Waiting for alerts...
+
+            if (alerts.length === 0) {
+                alertsBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-5 py-12 text-center text-sm text-aws-textMuted dark:text-aws-textMutedDark">
+                            No alerts found! Yay!
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            alertsBody.innerHTML = alerts.map((alert) => `
+                <tr class="transition-colors hover:bg-blue-50/60 dark:hover:bg-white/5">
+                    <td class="px-5 py-3">
+                        <span class="inline-flex min-w-[54px] justify-center rounded-full bg-aws-primary/10 px-2 py-0.5 text-xs font-bold text-aws-primary dark:text-sky-300">x${alert.alert_count}</span>
                     </td>
-                </tr>`;
-            document.getElementById('app-chips').innerHTML = '';
+                    <td class="px-5 py-3">
+                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${alert.Log_Level === 'CRITICAL' ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}">${escapeHtml(alert.Log_Level)}</span>
+                    </td>
+                    <td class="px-5 py-3">${escapeHtml(alert.Application_Name)}</td>
+                    <td class="px-5 py-3 whitespace-normal break-words">${escapeHtml(alert.Message)}</td>
+                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${formatTimestamp(alert.Timestamp)}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function fetchHistoricalAlerts() {
+            const res = await fetch('/api/alerts/recent', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('logrider_token')}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch alerts');
+            const { alerts } = await res.json();
+            alertsBySignature.clear();
+            applicationFilter.innerHTML = '<option value="">All Applications</option>';
+            (alerts || []).forEach((alert) => upsertAlert(alert));
+            renderAlerts();
+        }
+
+        function connectWs() {
+            if (ws) ws.close();
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`);
+            ws.onopen = () => setWsIndicator(true);
+            ws.onclose = () => {
+                setWsIndicator(false);
+                setTimeout(connectWs, 3000);
+            };
+            ws.onerror = () => setWsIndicator(false);
+            ws.onmessage = (event) => {
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch {
+                    return;
+                }
+
+                const log = data.type === 'ALERT' ? { ...data.log, alert_count: data.count || 1 } : data;
+                if (!log?.Log_Level || (log.Log_Level !== 'ERROR' && log.Log_Level !== 'CRITICAL')) return;
+                upsertAlert(log);
+                renderAlerts();
+            };
+        }
+
+        async function handleRefresh() {
+            const icon = document.getElementById('refresh-icon');
+            const searchValue = document.getElementById('search-query').value;
+            icon.classList.add('animate-spin');
+            applicationFilter.value = '';
+            document.getElementById('level-filter').value = '';
+            await new Promise((resolve) => setTimeout(resolve, 350));
+            document.getElementById('search-query').value = searchValue;
+            await fetchHistoricalAlerts();
+            icon.classList.remove('animate-spin');
+        }
+
+        async function showAlerts() {
+            loginScreen.classList.add('hidden');
+            alertsScreen.classList.remove('hidden');
+            if (typeof syncTopbarUser === 'function') syncTopbarUser();
+            await fetchHistoricalAlerts();
+            connectWs();
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+            errorEl.classList.add('hidden');
+
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                errorEl.textContent = data.error || 'Login failed';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            localStorage.setItem('logrider_token', data.token);
+            localStorage.setItem('logrider_role', data.role);
+            localStorage.setItem('logrider_username', username);
+            await showAlerts();
+        });
+
+        window.logout = function() {
+            localStorage.removeItem('logrider_token');
+            localStorage.removeItem('logrider_role');
+            localStorage.removeItem('logrider_username');
+            if (ws) ws.close();
+            window.location.reload();
+        };
+
+        initTheme();
+        if (localStorage.getItem('logrider_token')) {
+            showAlerts().catch(console.error);
+        } else {
+            setWsIndicator(false);
         }
     </script>
 </body>

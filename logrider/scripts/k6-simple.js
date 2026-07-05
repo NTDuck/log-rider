@@ -1,6 +1,5 @@
 import http from 'k6/http';
 import { check } from 'k6';
-import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 export const options = {
   discardResponseBodies: true,
@@ -30,6 +29,26 @@ function getRandomMessage() {
   return msg.join(' ');
 }
 
+function randomHex(length) {
+  let out = '';
+  while (out.length < length) {
+    out += Math.floor(Math.random() * 0xffffffff)
+      .toString(16)
+      .padStart(8, '0');
+  }
+  return out.slice(0, length);
+}
+
+function uuidv4() {
+  const part1 = randomHex(8);
+  const part2 = randomHex(4);
+  const part3 = `4${randomHex(3)}`;
+  const variantNibble = (8 + getRandomInt(4)).toString(16);
+  const part4 = `${variantNibble}${randomHex(3)}`;
+  const part5 = randomHex(12);
+  return `${part1}-${part2}-${part3}-${part4}-${part5}`;
+}
+
 export default function () {
   const levels = ['INFO', 'WARN', 'ERROR', 'CRITICAL'];
   const records = [];
@@ -57,7 +76,8 @@ export default function () {
     },
   };
 
-  const res = http.post('http://localhost:8082/topics/logs-ingested', payload, params);
+  const ingestUrl = __ENV.INGEST_URL || 'http://localhost:8082/topics/logs-ingested';
+  const res = http.post(ingestUrl, payload, params);
   
   check(res, {
     'is status 200': (r) => r.status === 200,
