@@ -14,18 +14,16 @@ const pgClient = new Client({
 });
 await pgClient.connect();
 await pgClient.query("TRUNCATE TABLE users RESTART IDENTITY;");
-const adminHash = await Bun.password.hash("admin123");
-const eng1Hash = await Bun.password.hash("eng123");
-const eng2Hash = await Bun.password.hash("eng123");
+const hash = await Bun.password.hash("password");
 await pgClient.query(`
   INSERT INTO users (username, password_hash, role, allowed_apps) VALUES
   ($1, $2, $3, $4),
   ($5, $6, $7, $8),
   ($9, $10, $11, $12)
 `, [
-  "Ayin", adminHash, "admin", "*",
-  "Benjamin", eng1Hash, "engineer", "su(pam_unix),logrotate,syslogd 1.4.1",
-  "Carmen", eng2Hash, "engineer", "ftpd,snmpd,cups,sshd(pam_unix)"
+  "Ayin", hash, "admin", "*",
+  "Benjamin", hash, "engineer", "sshd(pam_unix),kernel,syslogd 1.4.1,su(pam_unix),logrotate,network",
+  "Carmen", hash, "engineer", "ftpd,snmpd,cups,rc,named,xinetd,login(pam_unix)"
 ]);
 await pgClient.end();
 console.log("Successfully created demo users: Ayin (Admin), Benjamin (Engineer), Carmen (Engineer)");

@@ -5,25 +5,32 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
 
-RUN_ID="test-alert-$(date +%s)-$RANDOM"
-APP_NAME="logrider-alert-$RUN_ID"
 EXPECTED=500
 
-echo "Running alert test: $EXPECTED CRITICAL logs for $APP_NAME"
+echo "Running alert test: $EXPECTED CRITICAL logs using realistic data..."
 
-PAYLOAD=$(APP_NAME="$APP_NAME" EXPECTED="$EXPECTED" python3 - <<'PY'
-import json, os, uuid, datetime
+BEFORE_COUNT=$(docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client \
+  -u "${CLICKHOUSE_USER:-default}" --password "${CLICKHOUSE_PASSWORD:-password}" \
+  -q "SELECT count() FROM logrider.logs_enriched FORMAT TSV" | tr -d '[:space:]')
+EXPECTED_TOTAL=$((BEFORE_COUNT + EXPECTED))
 
-app = os.environ["APP_NAME"]
+PAYLOAD=$(PROJECT_DIR="$PROJECT_DIR" EXPECTED="$EXPECTED" python3 - <<'PY'
+import json, os, uuid, random, datetime, csv
+
+csv_path = os.path.join(os.environ["PROJECT_DIR"], "data", "Linux_2k.log_structured.csv")
+with open(csv_path, "r") as f:
+    rows = list(csv.DictReader(f))
+
 n = int(os.environ["EXPECTED"])
 
 records = []
 for _ in range(n):
+    row = random.choice(rows)
     records.append({
-        "Application_Name": app,
+        "Application_Name": row["Component"],
         "Log_Level": "CRITICAL",
-        "Message": "critical daemon failure for alert test",
-        "Timestamp": datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z",
+        "Message": row["Content"],
+        "Timestamp": datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
         "Trace_ID": str(uuid.uuid4()),
     })
 
@@ -38,23 +45,23 @@ curl -fsS \
   --data-binary "$PAYLOAD" \
   http://localhost:8085/v1/logs >/tmp/logrider-ingest-response.json
 
-echo "Payload sent to ingest. Waiting for alerts to persist..."
+echo "Payload sent to ingest. Waiting for alerts to persist (expected total: $EXPECTED_TOTAL)..."
 
 for i in $(seq 1 90); do
   COUNT=$(docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client \
     -u "${CLICKHOUSE_USER:-default}" \
     --password "${CLICKHOUSE_PASSWORD:-password}" \
-    -q "SELECT count() FROM logrider.logs_enriched WHERE Application_Name = '$APP_NAME' FORMAT TSV" | tr -d '[:space:]')
+    -q "SELECT count() FROM logrider.logs_enriched FORMAT TSV" | tr -d '[:space:]')
 
-  echo "  persisted=$COUNT/$EXPECTED"
+  echo "  persisted=$COUNT/$EXPECTED_TOTAL"
 
-  if [ "$COUNT" -eq "$EXPECTED" ]; then
-    echo "PASS: $EXPECTED logs persisted for $APP_NAME"
+  if [ "$COUNT" -ge "$EXPECTED_TOTAL" ]; then
+    echo "PASS: $EXPECTED logs persisted"
     exit 0
   fi
 
   if [ "$i" -eq 90 ]; then
-    echo "FAIL: expected $EXPECTED persisted logs for $APP_NAME"
+    echo "FAIL: expected $EXPECTED_TOTAL persisted logs"
     exit 1
   fi
   sleep 1

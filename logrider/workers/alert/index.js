@@ -24,23 +24,21 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
         await consumer.connect();
         await consumer.subscribe({ topic: 'alerts-ingested', fromBeginning: true });
 
-        // Lua script for atomic global dedup
         const luaScript = `
-            local lastTime = redis.call("HGET", KEYS[1], "time")
-            local counter = redis.call("HGET", KEYS[1], "count")
-            if lastTime and tonumber(lastTime) > (ARGV[1] - ARGV[2]) then
-                counter = tonumber(counter or 1) + 1
-                redis.call("HSET", KEYS[1], "count", counter)
-                if counter == 10 or counter == 50 or counter == 100 then
-                    return {"threshold", counter}
-                else
-                    return {"edit", counter}
-                end
-            else
-                redis.call("HSET", KEYS[1], "time", ARGV[1], "count", 1)
-                redis.call("EXPIRE", KEYS[1], ARGV[2])
-                return {"new", 1}
-            end
+            local incKey = KEYS[1]
+            local dirtyQ = KEYS[2]
+            local now = tonumber(ARGV[1])
+            local ttl = tonumber(ARGV[2])
+
+            local count = redis.call("HINCRBY", incKey, "count", 1)
+            redis.call("HSET", incKey, "last_seen", now)
+            redis.call("HSETNX", incKey, "first_seen", now)
+            redis.call("HSETNX", incKey, "status", "Active")
+            redis.call("EXPIRE", incKey, ttl)
+
+            redis.call("ZADD", dirtyQ, "NX", now, incKey)
+
+            return count
         `;
         
         const scriptSha = await redisClient.scriptLoad(luaScript);
@@ -60,24 +58,26 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                     for (let message of batch.messages) {
                         const log = JSON.parse(message.value.toString());
                         const errorHash = crypto.createHash('md5').update(log.Message || '').digest('hex').substring(0, 8);
-                        const key = `dedup:global:${log.Application_Name}:${errorHash}`;
+                        const incKey = `incident:${log.Application_Name}:${errorHash}`;
                         
                         pipeline.evalSha(scriptSha, {
-                            keys: [key],
+                            keys: [incKey, "telegram:dirty_incidents"],
                             arguments: [now.toString(), ttl.toString()]
                         });
                         
+                        // We also need to store the message content in the incident hash if it's the first time
+                        pipeline.hSetNX(incKey, "message", log.Message || "");
+
                         messagesProcessed.push({ log, errorHash, offset: message.offset });
                     }
                     
                     const results = await pipeline.exec();
                     
-                    // Now process results
+                    // Now process results for WebSocket real-time updates
                     for (let i = 0; i < messagesProcessed.length; i++) {
                         const { log, errorHash, offset } = messagesProcessed[i];
-                        const res = results[i]; 
-                        const action = res[0];
-                        const count = res[1];
+                        const res = results[i * 2]; // because we have 2 pipeline commands per message
+                        const count = res;
                         
                         resolveOffset(offset);
                         
@@ -85,35 +85,9 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                         const notifKey = `${log.Application_Name}:${errorHash}`;
                         const notifData = JSON.stringify({ type: 'ALERT', log, count });
 
-                        // Always publish and persist the latest count so /alerts updates in real time.
                         await redisClient.publish('alerts-stream', alertMsg);
                         await redisClient.hSet('notifications:data', notifKey, notifData);
                         await redisClient.zAdd('notifications:index', [{ score: Date.now(), value: notifKey }]);
-
-                        if (action === "new" || action === "threshold") {
-                            // Find subscribers
-                            // Admins
-                            const admins = await redisClient.sMembers('users:admins');
-                            // App engineers
-                            const engineers = await redisClient.sMembers(`app:${log.Application_Name}:subscribers`);
-                            
-                            const allChats = new Set([...admins, ...engineers]);
-                            
-                            for (const chatId of allChats) {
-                                // Push to telegram outbound queue
-                                await redisClient.lPush('telegram_outbound', JSON.stringify({
-                                    chatId: parseInt(chatId),
-                                    appId: log.Application_Name,
-                                    errorHash,
-                                    count,
-                                    action, // "new" or "threshold"
-                                    log
-                                }));
-                            }
-                            if (allChats.size > 0) {
-                                console.log(`[TELEGRAM] Queued ${action} alert for ${log.Application_Name} (Error: ${log.Message}) to ${allChats.size} chats`);
-                            }
-                        }
                     }
                     
                     await commitOffsetsIfNecessary();

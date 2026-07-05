@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,15 +27,6 @@ type UserSession struct {
 	Role       string   `json:"role"`
 	AppIDs     []string `json:"app_ids"`
 	Subscribed bool     `json:"subscribed"`
-}
-
-type OutboundMessage struct {
-	ChatID    int64                  `json:"chatId"`
-	AppID     string                 `json:"appId"`
-	ErrorHash string                 `json:"errorHash"`
-	Count     int                    `json:"count"`
-	Action    string                 `json:"action"`
-	Log       map[string]interface{} `json:"log"`
 }
 
 func main() {
@@ -71,7 +63,7 @@ func main() {
 		log.Printf("Failed to set commands: %v", err)
 	}
 
-	go consumeOutbound(bot, rdb)
+	go consumeDirtyIncidents(bot, rdb)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -135,7 +127,6 @@ func handleLink(bot *tgbotapi.BotAPI, rdb *redis.Client, chatID int64, token str
 
 	rdb.Del(ctx, "link_token:"+token)
 
-	// Add to subscriptions
 	if session.Role == "admin" {
 		rdb.SAdd(ctx, "users:admins", chatID)
 	} else {
@@ -209,27 +200,138 @@ func handleStatus(bot *tgbotapi.BotAPI, rdb *redis.Client, chatID int64) {
 	bot.Send(tgbotapi.NewMessage(chatID, msg))
 }
 
-func consumeOutbound(bot *tgbotapi.BotAPI, rdb *redis.Client) {
+func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
+	minEditInterval := int64(5) // seconds
+
 	for {
-		res, err := rdb.BRPop(ctx, 0, "telegram_outbound").Result()
+		now := time.Now().Unix()
+		// BZPOPMIN telegram:dirty_incidents 0
+		res, err := rdb.BZPopMin(ctx, 5*time.Second, "telegram:dirty_incidents").Result()
 		if err != nil {
-			time.Sleep(1 * time.Second)
+			// Timeout or error
 			continue
 		}
 
-		var outMsg OutboundMessage
-		json.Unmarshal([]byte(res[1]), &outMsg)
+		// res.Member is the incident key, res.Score is the timestamp
+		incKey := res.Member.(string)
+		score := res.Score
 
-		var text string
-		if outMsg.Action == "new" {
-			text = fmt.Sprintf("🚨 NEW CRITICAL ERROR 🚨\nApp: %s\nMessage: %v", outMsg.AppID, outMsg.Log["Message"])
-		} else if outMsg.Action == "threshold" {
-			text = fmt.Sprintf("⚠️ HIGH ERROR RATE ⚠️\nApp: %s\nThis error occurred %d times in the last minute!\nMessage: %v", outMsg.AppID, outMsg.Count, outMsg.Log["Message"])
-		} else {
-			text = fmt.Sprintf("🚨 ALERT 🚨\nApp: %s\nMessage: %v", outMsg.AppID, outMsg.Log["Message"])
+		// If score is in the future, wait
+		if int64(score) > now {
+			diff := int64(score) - now
+			if diff > 0 {
+				rdb.ZAdd(ctx, "telegram:dirty_incidents", redis.Z{Score: float64(score), Member: incKey})
+				time.Sleep(1 * time.Second)
+				continue
+			}
 		}
 
-		msg := tgbotapi.NewMessage(outMsg.ChatID, text)
-		bot.Send(msg)
+		// Read incident details
+		inc, err := rdb.HGetAll(ctx, incKey).Result()
+		if err != nil || len(inc) == 0 {
+			continue // Expired or deleted
+		}
+
+		countStr := inc["count"]
+		count, _ := strconv.Atoi(countStr)
+		if count == 0 {
+			continue
+		}
+
+		lastEditAtStr := inc["last_edit_at"]
+		lastEditAt, _ := strconv.ParseInt(lastEditAtStr, 10, 64)
+
+		lastNotifiedStr := inc["last_notified_count"]
+		lastNotified, _ := strconv.Atoi(lastNotifiedStr)
+
+		messageStr := inc["message"]
+		firstSeenStr := inc["first_seen"]
+		lastSeenStr := inc["last_seen"]
+		
+		// Parse first seen and last seen
+		firstSeen, _ := strconv.ParseInt(firstSeenStr, 10, 64)
+		lastSeen, _ := strconv.ParseInt(lastSeenStr, 10, 64)
+		firstSeenTime := time.Unix(firstSeen, 0).Format("15:04:05")
+		lastSeenTime := time.Unix(lastSeen, 0).Format("15:04:05")
+
+		// Extract app from incident key: incident:{app}:{hash}
+		parts := strings.Split(incKey, ":")
+		if len(parts) < 3 {
+			continue
+		}
+		appID := parts[1]
+
+		telegramMsgIDsStr := inc["telegram_message_ids"]
+		var telegramMsgIDs map[string]int
+		if telegramMsgIDsStr != "" {
+			json.Unmarshal([]byte(telegramMsgIDsStr), &telegramMsgIDs)
+		} else {
+			telegramMsgIDs = make(map[string]int)
+		}
+
+		// Should we notify?
+		needsUpdate := false
+		if lastNotified == 0 {
+			needsUpdate = true
+		} else if count > lastNotified {
+			if now-lastEditAt >= minEditInterval {
+				needsUpdate = true
+			} else {
+				// Requeue for later
+				rdb.ZAdd(ctx, "telegram:dirty_incidents", redis.Z{Score: float64(lastEditAt + minEditInterval), Member: incKey})
+				continue
+			}
+		}
+
+		if !needsUpdate {
+			continue
+		}
+
+		admins, _ := rdb.SMembers(ctx, "users:admins").Result()
+		engineers, _ := rdb.SMembers(ctx, "app:"+appID+":subscribers").Result()
+		
+		allChats := make(map[string]bool)
+		for _, a := range admins {
+			allChats[a] = true
+		}
+		for _, e := range engineers {
+			allChats[e] = true
+		}
+
+		text := fmt.Sprintf("🚨 CRITICAL ERROR\nApp: %s\nMessage: %s\nCount: %d\nFirst seen: %s\nLast seen: %s\nStatus: Active", appID, messageStr, count, firstSeenTime, lastSeenTime)
+
+		updatedMsgIDs := false
+		for chatIDStr := range allChats {
+			chatID, _ := strconv.ParseInt(chatIDStr, 10, 64)
+			
+			msgID, exists := telegramMsgIDs[chatIDStr]
+			if !exists {
+				// Send new message
+				msg := tgbotapi.NewMessage(chatID, text)
+				sent, err := bot.Send(msg)
+				if err == nil {
+					telegramMsgIDs[chatIDStr] = sent.MessageID
+					updatedMsgIDs = true
+				}
+			} else {
+				// Edit existing message
+				editMsg := tgbotapi.NewEditMessageText(chatID, msgID, text)
+				_, err := bot.Send(editMsg)
+				if err != nil {
+					log.Printf("Failed to edit message: %v", err)
+					// if message not found, we could resend, but let's just ignore for now
+				}
+			}
+		}
+
+		// Save state
+		pipeline := rdb.Pipeline()
+		pipeline.HSet(ctx, incKey, "last_notified_count", count)
+		pipeline.HSet(ctx, incKey, "last_edit_at", now)
+		if updatedMsgIDs {
+			idsJSON, _ := json.Marshal(telegramMsgIDs)
+			pipeline.HSet(ctx, incKey, "telegram_message_ids", string(idsJSON))
+		}
+		pipeline.Exec(ctx)
 	}
 }
