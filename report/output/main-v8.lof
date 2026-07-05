@@ -1,0 +1,15 @@
+\babel@toc {vietnamese}{}\relax 
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {1}{\ignorespaces Kiến trúc runtime của LogRider{} theo luồng kết nối chính}}{8}{figure.caption.7}%
+\contentsline {figure}{\numberline {2}{\ignorespaces Sequence diagram luồng tiếp nhận, phân loại và lưu trữ log}}{15}{figure.caption.8}%
+\contentsline {figure}{\numberline {3}{\ignorespaces Sequence diagram luồng cảnh báo, deduplication và notification}}{16}{figure.caption.9}%
+\contentsline {figure}{\numberline {4}{\ignorespaces Sequence diagram theo phong cách PlantUML cho authentication và truy vấn log có RBAC}}{17}{figure.caption.10}%
+\contentsline {figure}{\numberline {5}{\ignorespaces Sequence diagram theo phong cách PlantUML cho liên kết Telegram và gửi thông báo}}{18}{figure.caption.11}%
+\contentsline {figure}{\numberline {6}{\ignorespaces Mô hình dữ liệu rút gọn của log, alert và RBAC}}{21}{figure.caption.12}%
+\contentsline {figure}{\numberline {7}{\ignorespaces Khung đồ thị độ trễ pipeline theo từng stage}}{26}{figure.caption.13}%
+\contentsline {figure}{\numberline {8}{\ignorespaces Khung đồ thị throughput ingest theo thời gian}}{26}{figure.caption.14}%
+\contentsline {figure}{\numberline {9}{\ignorespaces Khung đồ thị kết quả xử lý end-to-end}}{26}{figure.caption.15}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {10}{\ignorespaces Khung đồ thị đánh giá hành vi deduplication của alert}}{30}{figure.caption.16}%
+\addvspace {10\p@ }

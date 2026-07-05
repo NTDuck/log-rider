@@ -1,0 +1,127 @@
+\babel@toc {vietnamese}{}\relax 
+\contentsline {chapter}{Lời mở đầu}{i}{section*.2}%
+\contentsline {chapter}{Tóm tắt nội dung và đóng góp}{ii}{section*.4}%
+\contentsline {chapter}{Nội dung thực hiện}{iii}{section*.6}%
+\contentsline {chapter}{\numberline {I}Giới thiệu}{1}{chapter.1}%
+\contentsline {section}{\numberline {1}Bối cảnh đề tài}{1}{section.1.1}%
+\contentsline {section}{\numberline {2}Mục tiêu và bài toán đặt ra}{1}{section.1.2}%
+\contentsline {subsection}{\numberline {2.1}Yêu cầu chức năng}{1}{subsection.1.2.1}%
+\contentsline {subsubsection}{\numberline {2.1.1}FR-01 -- Tiếp nhận log qua một boundary thống nhất}{2}{subsubsection.1.2.1.1}%
+\contentsline {subsubsection}{\numberline {2.1.2}FR-02 -- Chuẩn hóa payload và bảo đảm định danh log}{2}{subsubsection.1.2.1.2}%
+\contentsline {subsubsection}{\numberline {2.1.3}FR-03 -- Phát trạng thái xử lý gần thời gian thực}{2}{subsubsection.1.2.1.3}%
+\contentsline {subsubsection}{\numberline {2.1.4}FR-04 -- Phân loại nội dung log bằng worker tách biệt}{2}{subsubsection.1.2.1.4}%
+\contentsline {subsubsection}{\numberline {2.1.5}FR-05 -- Lưu trữ log enriched vào kho phân tích}{2}{subsubsection.1.2.1.5}%
+\contentsline {subsubsection}{\numberline {2.1.6}FR-06 -- Cảnh báo log nghiêm trọng và giảm nhiễu}{2}{subsubsection.1.2.1.6}%
+\contentsline {subsubsection}{\numberline {2.1.7}FR-07 -- Truy vấn lịch sử và chỉ số sức khỏe}{3}{subsubsection.1.2.1.7}%
+\contentsline {subsubsection}{\numberline {2.1.8}FR-08 -- Xác thực và phân quyền theo application}{3}{subsubsection.1.2.1.8}%
+\contentsline {subsubsection}{\numberline {2.1.9}FR-09 -- Dashboard thời gian gần thực}{3}{subsubsection.1.2.1.9}%
+\contentsline {subsubsection}{\numberline {2.1.10}FR-10 -- Thông báo Telegram theo subscription}{3}{subsubsection.1.2.1.10}%
+\contentsline {subsection}{\numberline {2.2}Yêu cầu phi chức năng}{3}{subsection.1.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.1}NFR-01 -- Thông lượng ingest và backpressure}{3}{subsubsection.1.2.2.1}%
+\contentsline {subsubsection}{\numberline {2.2.2}NFR-02 -- Độ tin cậy ghi dữ liệu và DLQ}{4}{subsubsection.1.2.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.3}NFR-03 -- Tính đúng và độ nhiễu của cảnh báo}{4}{subsubsection.1.2.2.3}%
+\contentsline {subsubsection}{\numberline {2.2.4}NFR-04 -- Bảo mật, phân quyền và cô lập dữ liệu}{4}{subsubsection.1.2.2.4}%
+\contentsline {subsubsection}{\numberline {2.2.5}NFR-05 -- Khả năng truy vấn và lifecycle dữ liệu}{4}{subsubsection.1.2.2.5}%
+\contentsline {subsubsection}{\numberline {2.2.6}NFR-06 -- Khả năng triển khai và cấu hình}{4}{subsubsection.1.2.2.6}%
+\contentsline {subsubsection}{\numberline {2.2.7}NFR-07 -- Observability của chính pipeline monitoring}{4}{subsubsection.1.2.2.7}%
+\contentsline {section}{\numberline {3}Phạm vi và giới hạn hệ thống}{5}{section.1.3}%
+\contentsline {section}{\numberline {4}Thông tin mã nguồn và dữ liệu đầu vào}{5}{section.1.4}%
+\contentsline {chapter}{\numberline {II}Nội dung và phương pháp}{6}{chapter.2}%
+\contentsline {section}{\numberline {1}Cơ sở lý thuyết và định hướng thiết kế}{6}{section.2.1}%
+\contentsline {subsection}{\numberline {1.1}Log như một dòng sự kiện}{6}{subsection.2.1.1}%
+\contentsline {subsection}{\numberline {1.2}Message broker, routing và DLQ}{6}{subsection.2.1.2}%
+\contentsline {subsection}{\numberline {1.3}Kho dữ liệu dạng cột cho log analytics}{6}{subsection.2.1.3}%
+\contentsline {subsection}{\numberline {1.4}Alert deduplication và khả năng hành động}{7}{subsection.2.1.4}%
+\contentsline {section}{\numberline {2}Kiến trúc tổng thể hệ thống}{7}{section.2.2}%
+\contentsline {subsection}{\numberline {2.1}Catalog thành phần triển khai}{8}{subsection.2.2.1}%
+\contentsline {subsubsection}{\numberline {2.1.1}Redpanda}{9}{subsubsection.2.2.1.1}%
+\contentsline {subsubsection}{\numberline {2.1.2}Pandaproxy}{9}{subsubsection.2.2.1.2}%
+\contentsline {subsubsection}{\numberline {2.1.3}Benthos unified pipeline}{9}{subsubsection.2.2.1.3}%
+\contentsline {subsubsection}{\numberline {2.1.4}Classifier worker}{9}{subsubsection.2.2.1.4}%
+\contentsline {subsubsection}{\numberline {2.1.5}Benthos persist và tags pipelines}{9}{subsubsection.2.2.1.5}%
+\contentsline {subsubsection}{\numberline {2.1.6}Alert worker}{9}{subsubsection.2.2.1.6}%
+\contentsline {subsubsection}{\numberline {2.1.7}Redis, ClickHouse và PostgreSQL}{9}{subsubsection.2.2.1.7}%
+\contentsline {subsubsection}{\numberline {2.1.8}Bun web server và Go Telegram bot}{10}{subsubsection.2.2.1.8}%
+\contentsline {section}{\numberline {3}Catalog công nghệ và quyết định lựa chọn}{10}{section.2.3}%
+\contentsline {subsection}{\numberline {3.1}Redpanda và Pandaproxy}{10}{subsection.2.3.1}%
+\contentsline {subsubsection}{\numberline {3.1.1}Vai trò trong kiến trúc}{10}{subsubsection.2.3.1.1}%
+\contentsline {paragraph}{\numberline {3.1.1.1}Lý do không dùng queue đơn giản hơn}{10}{paragraph.2.3.1.1.1}%
+\contentsline {paragraph}{\numberline {3.1.1.2}Quyết định sử dụng Pandaproxy}{10}{paragraph.2.3.1.1.2}%
+\contentsline {subsection}{\numberline {3.2}Benthos cho routing, normalization và persistence}{11}{subsection.2.3.2}%
+\contentsline {subsubsection}{\numberline {3.2.1}Lý do lựa chọn Benthos}{11}{subsubsection.2.3.2.1}%
+\contentsline {paragraph}{\numberline {3.2.1.1}Unified pipeline như content-based router}{11}{paragraph.2.3.2.1.1}%
+\contentsline {paragraph}{\numberline {3.2.1.2}Persist và tags pipeline như bulk-writer}{11}{paragraph.2.3.2.1.2}%
+\contentsline {subsection}{\numberline {3.3}ClickHouse cho lưu trữ log analytics}{11}{subsection.2.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}Đặc tính phù hợp với log}{11}{subsubsection.2.3.3.1}%
+\contentsline {paragraph}{\numberline {3.3.1.1}Ordering key và workload thực tế}{11}{paragraph.2.3.3.1.1}%
+\contentsline {paragraph}{\numberline {3.3.1.2}Materialized view cho health metrics}{12}{paragraph.2.3.3.1.2}%
+\contentsline {subsection}{\numberline {3.4}Redis cho runtime state, pub/sub và deduplication}{12}{subsection.2.3.4}%
+\contentsline {subsubsection}{\numberline {3.4.1}Vai trò đa nhiệm}{12}{subsubsection.2.3.4.1}%
+\contentsline {paragraph}{\numberline {3.4.1.1}Trade-off về tính bền vững}{12}{paragraph.2.3.4.1.1}%
+\contentsline {paragraph}{\numberline {3.4.1.2}Lua và atomic update}{12}{paragraph.2.3.4.1.2}%
+\contentsline {subsection}{\numberline {3.5}PostgreSQL cho user và RBAC}{12}{subsection.2.3.5}%
+\contentsline {subsubsection}{\numberline {3.5.1}Lý do tách identity khỏi log store}{12}{subsubsection.2.3.5.1}%
+\contentsline {paragraph}{\numberline {3.5.1.1}Giới hạn của mô hình allowed\_apps dạng text}{13}{paragraph.2.3.5.1.1}%
+\contentsline {subsection}{\numberline {3.6}Bun web server và frontend tĩnh}{13}{subsection.2.3.6}%
+\contentsline {subsubsection}{\numberline {3.6.1}Quyết định gộp HTML, REST API và WebSocket}{13}{subsubsection.2.3.6.1}%
+\contentsline {paragraph}{\numberline {3.6.1.1}Rủi ro khi hệ thống lớn hơn}{13}{paragraph.2.3.6.1.1}%
+\contentsline {paragraph}{\numberline {3.6.1.2}Server-side authorization cho stream}{13}{paragraph.2.3.6.1.2}%
+\contentsline {subsection}{\numberline {3.7}Python classifier worker}{13}{subsection.2.3.7}%
+\contentsline {subsubsection}{\numberline {3.7.1}Lý do dùng Python và ONNX Runtime}{13}{subsubsection.2.3.7.1}%
+\contentsline {paragraph}{\numberline {3.7.1.1}Chất lượng classifier cần được đo độc lập}{13}{paragraph.2.3.7.1.1}%
+\contentsline {subsection}{\numberline {3.8}Node/Bun alert worker và Go Telegram bot}{14}{subsection.2.3.8}%
+\contentsline {subsubsection}{\numberline {3.8.1}Alert worker như policy engine}{14}{subsubsection.2.3.8.1}%
+\contentsline {paragraph}{\numberline {3.8.1.1}Telegram bot như delivery adapter}{14}{paragraph.2.3.8.1.1}%
+\contentsline {subsection}{\numberline {3.9}Docker Compose cho môi trường demo}{14}{subsection.2.3.9}%
+\contentsline {subsubsection}{\numberline {3.9.1}Lý do chọn Docker Compose}{14}{subsubsection.2.3.9.1}%
+\contentsline {paragraph}{\numberline {3.9.1.1}Giới hạn production}{14}{paragraph.2.3.9.1.1}%
+\contentsline {subsection}{\numberline {3.10}Tổng hợp trade-off công nghệ}{14}{subsection.2.3.10}%
+\contentsline {section}{\numberline {4}Thiết kế luồng dữ liệu và sequence diagram}{14}{section.2.4}%
+\contentsline {subsection}{\numberline {4.1}Luồng ingest, classify và persist}{15}{subsection.2.4.1}%
+\contentsline {subsection}{\numberline {4.2}Luồng cảnh báo và deduplication}{15}{subsection.2.4.2}%
+\contentsline {subsection}{\numberline {4.3}Luồng authentication, API và RBAC}{16}{subsection.2.4.3}%
+\contentsline {subsection}{\numberline {4.4}Luồng liên kết Telegram}{17}{subsection.2.4.4}%
+\contentsline {section}{\numberline {5}Thiết kế dữ liệu}{18}{section.2.5}%
+\contentsline {subsection}{\numberline {5.1}Schema log canonical}{18}{subsection.2.5.1}%
+\contentsline {subsection}{\numberline {5.2}Catalog topic và trách nhiệm}{19}{subsection.2.5.2}%
+\contentsline {subsection}{\numberline {5.3}ClickHouse và PostgreSQL}{19}{subsection.2.5.3}%
+\contentsline {subsection}{\numberline {5.4}Redis runtime state}{20}{subsection.2.5.4}%
+\contentsline {subsection}{\numberline {5.5}Sơ đồ dữ liệu rút gọn}{20}{subsection.2.5.5}%
+\contentsline {section}{\numberline {6}Thiết kế API, giao diện và quyền truy cập}{21}{section.2.6}%
+\contentsline {section}{\numberline {7}Phân tích quyết định thiết kế theo góc nhìn kỹ sư}{22}{section.2.7}%
+\contentsline {subsection}{\numberline {7.1}Tại sao không ghi log trực tiếp vào storage}{22}{subsection.2.7.1}%
+\contentsline {subsubsection}{\numberline {7.1.1}Ràng buộc producer}{23}{subsubsection.2.7.1.1}%
+\contentsline {paragraph}{\numberline {7.1.1.1}Độ trễ và độ phụ thuộc}{23}{paragraph.2.7.1.1.1}%
+\contentsline {paragraph}{\numberline {7.1.1.2}Khả năng thêm nhánh xử lý}{23}{paragraph.2.7.1.1.2}%
+\contentsline {subsubsection}{\numberline {7.1.2}Ràng buộc storage}{23}{subsubsection.2.7.1.2}%
+\contentsline {paragraph}{\numberline {7.1.2.1}Batching}{23}{paragraph.2.7.1.2.1}%
+\contentsline {subsection}{\numberline {7.2}Tại sao cần Trace\_ID ngay từ stage đầu}{23}{subsection.2.7.2}%
+\contentsline {subsubsection}{\numberline {7.2.1}Liên kết lifecycle}{23}{subsubsection.2.7.2.1}%
+\contentsline {paragraph}{\numberline {7.2.1.1}Một log, nhiều trạng thái}{23}{paragraph.2.7.2.1.1}%
+\contentsline {paragraph}{\numberline {7.2.1.2}Giới hạn hiện tại}{23}{paragraph.2.7.2.1.2}%
+\contentsline {subsection}{\numberline {7.3}Tại sao tách alert khỏi classifier}{24}{subsection.2.7.3}%
+\contentsline {subsubsection}{\numberline {7.3.1}Độ ưu tiên xử lý}{24}{subsubsection.2.7.3.1}%
+\contentsline {paragraph}{\numberline {7.3.1.1}Alert không nên chờ ML}{24}{paragraph.2.7.3.1.1}%
+\contentsline {paragraph}{\numberline {7.3.1.2}Noise và dedup}{24}{paragraph.2.7.3.1.2}%
+\contentsline {subsection}{\numberline {7.4}Tại sao dashboard cần cả lịch sử và stream}{24}{subsection.2.7.4}%
+\contentsline {subsubsection}{\numberline {7.4.1}Hydration ban đầu}{24}{subsubsection.2.7.4.1}%
+\contentsline {paragraph}{\numberline {7.4.1.1}Historical API}{24}{paragraph.2.7.4.1.1}%
+\contentsline {subsubsection}{\numberline {7.4.2}Delta thời gian thực}{24}{subsubsection.2.7.4.2}%
+\contentsline {paragraph}{\numberline {7.4.2.1}WebSocket fan-out}{24}{paragraph.2.7.4.2.1}%
+\contentsline {section}{\numberline {8}Phương pháp kiểm thử và đo lường}{25}{section.2.8}%
+\contentsline {section}{\numberline {9}Phương pháp đối chiếu với tài liệu mẫu}{27}{section.2.9}%
+\contentsline {chapter}{\numberline {III}Kết quả thực hiện và đánh giá}{28}{chapter.3}%
+\contentsline {section}{\numberline {1}Môi trường triển khai}{28}{section.3.1}%
+\contentsline {section}{\numberline {2}Kết quả hiện thực theo mã nguồn}{28}{section.3.2}%
+\contentsline {section}{\numberline {3}Đánh giá luồng xử lý}{29}{section.3.3}%
+\contentsline {section}{\numberline {4}Đánh giá bảo mật và phân quyền}{30}{section.3.4}%
+\contentsline {section}{\numberline {5}Đánh giá dữ liệu và truy vấn}{31}{section.3.5}%
+\contentsline {section}{\numberline {6}Kịch bản thử nghiệm hiện có trong mã nguồn}{31}{section.3.6}%
+\contentsline {section}{\numberline {7}Bảng kết quả thực nghiệm}{32}{section.3.7}%
+\contentsline {section}{\numberline {8}Đánh giá tổng hợp}{32}{section.3.8}%
+\contentsline {chapter}{\numberline {IV}Kết luận}{33}{chapter.4}%
+\contentsline {section}{\numberline {1}Tổng kết}{33}{section.4.1}%
+\contentsline {section}{\numberline {2}Kết quả đạt được}{33}{section.4.2}%
+\contentsline {section}{\numberline {3}Hạn chế}{33}{section.4.3}%
+\contentsline {section}{\numberline {4}Hướng phát triển}{33}{section.4.4}%
+\contentsline {chapter}{Tài liệu tham khảo}{35}{chapter*.17}%

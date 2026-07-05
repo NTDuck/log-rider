@@ -1,0 +1,19 @@
+\babel@toc {vietnamese}{}\relax 
+\contentsline {table}{\numberline {1}{\ignorespaces Tổng hợp nội dung thực hiện trong báo cáo}}{iii}{table.0.1}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {2}{\ignorespaces Schema log canonical và ý nghĩa vận hành}}{18}{table.2.2}%
+\contentsline {table}{\numberline {3}{\ignorespaces Catalog topic trong pipeline LogRider{}}}{19}{table.2.3}%
+\contentsline {table}{\numberline {4}{\ignorespaces Nhóm dữ liệu bền vững trong ClickHouse/PostgreSQL}}{20}{table.2.4}%
+\contentsline {table}{\numberline {5}{\ignorespaces Nhóm trạng thái Redis trong LogRider{}}}{20}{table.2.5}%
+\contentsline {table}{\numberline {6}{\ignorespaces Nhóm giao diện và API serving}}{21}{table.2.6}%
+\contentsline {table}{\numberline {7}{\ignorespaces Ma trận RBAC dự kiến cho dashboard và stream}}{22}{table.2.7}%
+\contentsline {table}{\numberline {8}{\ignorespaces Ma trận kiểm thử và đánh giá đề xuất}}{25}{table.2.8}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {9}{\ignorespaces Các service chính trong môi trường Docker Compose}}{28}{table.3.9}%
+\contentsline {table}{\numberline {10}{\ignorespaces Mức độ hoàn thiện chức năng theo mã nguồn}}{28}{table.3.10}%
+\contentsline {table}{\numberline {11}{\ignorespaces Ma trận rủi ro kỹ thuật và hướng giảm thiểu}}{30}{table.3.11}%
+\contentsline {table}{\numberline {12}{\ignorespaces Khung workload truy vấn cần đo trên ClickHouse}}{31}{table.3.12}%
+\contentsline {table}{\numberline {13}{\ignorespaces Script kiểm thử và vận hành hiện có}}{31}{table.3.13}%
+\contentsline {table}{\numberline {14}{\ignorespaces Bảng kết quả benchmark đã đo}}{32}{table.3.14}%
+\addvspace {10\p@ }
