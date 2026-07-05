@@ -71,11 +71,6 @@ while True:
             if not tags:
                 tags = ['General']
 
-            # Enrich log with classification results
-            enriched = dict(log)
-            enriched['Tags'] = tags
-            enriched['Status'] = 'Normalized'
-
             # Broadcast "Normalized" to the dashboard
             normalized_ws = {
                 'type': 'TAGS',
@@ -86,8 +81,13 @@ while True:
             }
             redis_client.publish('ws-events', json.dumps(normalized_ws))
 
-            # Forward to persist pipeline
-            producer.produce('logs-persist', json.dumps(enriched).encode('utf-8'))
+            tag_record = {
+                'Trace_ID': log['Trace_ID'],
+                'Application_Name': log.get('Application_Name', 'unknown'),
+                'Tags': tags,
+                'Timestamp': log.get('Timestamp')
+            }
+            producer.produce('logs-classified', json.dumps(tag_record).encode('utf-8'))
 
         producer.flush()
         print(f"[DEBUG] Classified batch of {len(logs)} messages")

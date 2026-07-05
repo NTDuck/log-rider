@@ -7,9 +7,26 @@ docker compose -f ../docker-compose.yml exec -T clickhouse clickhouse-client -u 
 docker compose -f ../docker-compose.yml exec -T clickhouse clickhouse-client -u default --password password -q "TRUNCATE TABLE IF EXISTS logrider.logs"
 docker compose -f ../docker-compose.yml exec -T clickhouse clickhouse-client -u default --password password -q "TRUNCATE TABLE IF EXISTS logrider.log_tags"
 
+REDPANDA_CONTAINER=$(docker compose -f ../docker-compose.yml ps -q redpanda)
+if [ -z "$REDPANDA_CONTAINER" ]; then
+    echo "Redpanda container is not running. Start the stack with docker compose up -d first."
+    exit 1
+fi
+
+COMPOSE_NETWORK=$(docker inspect "$REDPANDA_CONTAINER" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' | head -n 1)
+if [ -z "$COMPOSE_NETWORK" ]; then
+    echo "Could not determine the compose network for Redpanda."
+    exit 1
+fi
+
 # Using k6 run to fire 250 requests/sec for 2 seconds = exactly 500 requests
 # 2 * 250 = 500 logs in 2 seconds.
-docker run --rm --network host -i -e RATE=250 -e DURATION=2s grafana/k6 run - < k6-load.js
+docker run --rm --network "$COMPOSE_NETWORK" -i \
+    -e EXACT_ITERATIONS=500 \
+    -e VUS=50 \
+    -e DURATION=2s \
+    -e INGEST_URL=http://redpanda:8082/topics/logs-ingested \
+    grafana/k6 run - < k6-load.js
 
 echo "Waiting for pipeline flush..."
 MAX_WAIT=60

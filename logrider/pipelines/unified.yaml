@@ -30,12 +30,21 @@ output:
               root = this
               root.Status = "Ingested"
 
-      # Step 2: Route to classifier (which will broadcast Normalized then forward to persist)
+      # Step 2: Route to classifier for asynchronous tag enrichment
       - kafka:
           addresses: [ "redpanda:29092" ]
           topic: logs-normalized
 
-      # Step 3: Route errors/criticals to alert pipeline
+      # Step 3: Route to persistence immediately so dashboard history is not gated by ML startup
+      - kafka:
+          addresses: [ "redpanda:29092" ]
+          topic: logs-persist
+        processors:
+          - mapping: |
+              root = this
+              root.Tags = []
+
+      # Step 4: Route errors/criticals to alert pipeline
       - kafka:
           addresses: [ "redpanda:29092" ]
           topic: alerts-ingested

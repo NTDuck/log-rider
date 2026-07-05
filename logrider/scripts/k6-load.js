@@ -2,9 +2,18 @@ import http from 'k6/http';
 import { check } from 'k6';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
+const exactIterations = Number(__ENV.EXACT_ITERATIONS || 0);
+
 export const options = {
   discardResponseBodies: true,
-  scenarios: {
+  scenarios: exactIterations > 0 ? {
+    exact_test: {
+      executor: 'shared-iterations',
+      vus: Number(__ENV.VUS || 50),
+      iterations: exactIterations,
+      maxDuration: __ENV.DURATION || '2s',
+    },
+  } : {
     load_test: {
       executor: 'constant-arrival-rate',
       rate: __ENV.RATE || 200, // 200 requests per second
@@ -16,6 +25,7 @@ export const options = {
   },
 };
 
+const ingestUrl = __ENV.INGEST_URL || 'http://localhost:8082/topics/logs-ingested';
 const fruits = ['apple', 'banana', 'orange', 'grape', 'mango', 'kiwi', 'papaya', 'watermelon', 'cherry', 'peach'];
 const levels = ['INFO', 'DEBUG', 'WARN', 'ERROR', 'CRITICAL'];
 const words = ['connection', 'timeout', 'user', 'failed', 'success', 'database', 'query', 'rendered', 'buffer', 'overflow', 'cache', 'miss', 'hit', 'latency'];
@@ -55,7 +65,7 @@ export default function () {
     },
   };
 
-  const res = http.post('http://localhost:8082/topics/logs-ingested', payload, params);
+  const res = http.post(ingestUrl, payload, params);
   
   check(res, {
     'is status 200': (r) => r.status === 200,

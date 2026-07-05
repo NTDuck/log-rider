@@ -81,19 +81,16 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                         
                         resolveOffset(offset);
                         
+                        const alertMsg = JSON.stringify({ type: 'ALERT', log, count });
+                        const notifKey = `${log.Application_Name}:${errorHash}`;
+                        const notifData = JSON.stringify({ type: 'ALERT', log, count });
+
+                        // Always publish and persist the latest count so /alerts updates in real time.
+                        await redisClient.publish('alerts-stream', alertMsg);
+                        await redisClient.hSet('notifications:data', notifKey, notifData);
+                        await redisClient.zAdd('notifications:index', [{ score: Date.now(), value: notifKey }]);
+
                         if (action === "new" || action === "threshold") {
-                            // Publish to Web UI via the alerts-stream channel (server subscribes to this)
-                            const alertMsg = JSON.stringify({ type: 'ALERT', log, count });
-                            await redisClient.publish('alerts-stream', alertMsg);
-
-                            // Persist using a stable per-signature key as zset member.
-                            // Redis ZADD with the same member value simply updates the score,
-                            // so this is naturally idempotent / dedup-safe.
-                            const notifKey = `${log.Application_Name}:${errorHash}`;
-                            const notifData = JSON.stringify({ type: 'ALERT', log, count });
-                            await redisClient.hSet('notifications:data', notifKey, notifData);
-                            await redisClient.zAdd('notifications:index', [{ score: Date.now(), value: notifKey }]);
-
                             // Find subscribers
                             // Admins
                             const admins = await redisClient.sMembers('users:admins');
@@ -116,12 +113,6 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                             if (allChats.size > 0) {
                                 console.log(`[TELEGRAM] Queued ${action} alert for ${log.Application_Name} (Error: ${log.Message}) to ${allChats.size} chats`);
                             }
-                        } else if (action === "edit") {
-                            // Silently update the stored count so /alerts dashboard shows the real number.
-                            // No popup, no Telegram — this just keeps the database current between thresholds.
-                            const notifKey = `${log.Application_Name}:${errorHash}`;
-                            const notifData = JSON.stringify({ type: 'ALERT', log, count });
-                            await redisClient.hSet('notifications:data', notifKey, notifData);
                         }
                     }
                     
