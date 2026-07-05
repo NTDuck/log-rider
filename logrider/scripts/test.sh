@@ -28,26 +28,23 @@ messages = [
 records = []
 for _ in range(n):
     records.append({
-        "value": {
-            "Application_Name": app,
-            "Log_Level": random.choice(levels),
-            "Message": random.choice(messages),
-            "Timestamp": datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z",
-            "Trace_ID": str(uuid.uuid4()),
-        }
+        "Application_Name": app,
+        "Log_Level": random.choice(levels),
+        "Message": random.choice(messages),
+        "Timestamp": datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z",
+        "Trace_ID": str(uuid.uuid4()),
     })
 
 print(json.dumps({"records": records}))
 PY
 )
 
-docker compose -f "$COMPOSE_FILE" exec -e PAYLOAD="$PAYLOAD" -T redpanda bash -lc '
-  curl -fsS \
-    -X POST \
-    -H "Content-Type: application/vnd.kafka.json.v2+json" \
-    --data-binary "$PAYLOAD" \
-    http://localhost:8082/topics/logs-ingested
-' >/tmp/logrider-pandaproxy-response.json
+curl -fsS \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "X-LogRider-Ingest-Key: logrider-ingest-key" \
+  --data-binary "$PAYLOAD" \
+  http://localhost:8085/v1/logs >/tmp/logrider-ingest-response.json
 
 echo "Waiting for persistence..."
 for i in $(seq 1 90); do

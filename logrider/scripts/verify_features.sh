@@ -52,11 +52,12 @@ sleep 2
 docker compose -f "$COMPOSE_FILE" exec -T redpanda bash -lc '
   alert_trace=$(cat /proc/sys/kernel/random/uuid)
   info_trace=$(cat /proc/sys/kernel/random/uuid)
-  curl -sS -X POST http://localhost:8082/topics/logs-ingested \
-    -H "Content-Type: application/vnd.kafka.json.v2+json" \
+  curl -sS -X POST http://ingest-worker:8085/v1/logs \
+    -H "Content-Type: application/json" \
+    -H "X-LogRider-Ingest-Key: logrider-ingest-key" \
     -d "{\"records\":[
-      {\"value\":{\"Application_Name\":\"test-app\",\"Log_Level\":\"ERROR\",\"Message\":\"test error\",\"Timestamp\":\"2026-07-05T00:00:00Z\",\"Trace_ID\":\"${alert_trace}\"}},
-      {\"value\":{\"Application_Name\":\"test-app\",\"Log_Level\":\"INFO\",\"Message\":\"test message\",\"Timestamp\":\"2026-07-05T00:00:01Z\",\"Trace_ID\":\"${info_trace}\"}}
+      {\"Application_Name\":\"test-app\",\"Log_Level\":\"ERROR\",\"Message\":\"test error\",\"Timestamp\":\"2026-07-05T00:00:00Z\",\"Trace_ID\":\"${alert_trace}\"},
+      {\"Application_Name\":\"test-app\",\"Log_Level\":\"INFO\",\"Message\":\"test message\",\"Timestamp\":\"2026-07-05T00:00:01Z\",\"Trace_ID\":\"${info_trace}\"}
     ]}"
 ' >/dev/null
 

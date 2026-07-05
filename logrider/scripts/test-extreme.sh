@@ -14,7 +14,7 @@ echo "Running high-rate load test with k6 (RATE=$RATE req/s, DURATION=$DURATION)
 docker run --rm --network "$COMPOSE_NETWORK" -i \
     -e RATE="$RATE" \
     -e DURATION="$DURATION" \
-    -e INGEST_URL=http://redpanda:8082/topics/logs-ingested \
+    -e INGEST_URL=http://ingest-worker:8085/v1/logs \
     grafana/k6 run - < k6-load.js
 
 echo "Waiting 5 seconds for pipeline flush..."

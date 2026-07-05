@@ -4,7 +4,7 @@ import grpc from 'k6/net/grpc';
 import { check, sleep } from 'k6';
 
 const client = new grpc.Client();
-client.load(['../../workers/grpc-ingest/proto'], 'log.proto');
+client.load(['../../workers/ingest/proto'], 'log.proto');
 
 export let options = {
   scenarios: {
@@ -21,7 +21,7 @@ export let options = {
 
 const BATCH_SIZE = parseInt(__ENV.BATCH_SIZE || '10', 10);
 const PROTOCOL = __ENV.PROTOCOL || 'http';
-const HTTP_URL = __ENV.TARGET_URL || 'http://localhost:8082/topics/logs-ingested';
+const HTTP_URL = __ENV.TARGET_URL || 'http://localhost:8085/v1/logs';
 const GRPC_URL = __ENV.GRPC_URL || '127.0.0.1:50051';
 
 export default function () {
@@ -46,12 +46,15 @@ export default function () {
     client.close();
   } else {
     const payload = JSON.stringify({
-      records: records.map(r => ({ value: r }))
+      records: records
     });
     
     let res = http.post(HTTP_URL, payload, {
-      headers: { 'Content-Type': 'application/vnd.kafka.json.v2+json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-LogRider-Ingest-Key': __ENV.INGEST_API_KEY || 'logrider-ingest-key',
+      },
     });
-    check(res, { 'status was 200': (r) => r.status == 200 });
+    check(res, { 'status was 202': (r) => r.status == 202 });
   }
 }
