@@ -184,6 +184,27 @@
     <script>
         const STATUS_RANK = { Ingested: 1, Normalized: 2, Persisted: 3, Classified: 4 };
         const logsByTraceId = new Map();
+
+        let renderQueued = false;
+        function scheduleRender() {
+            if (renderQueued) return;
+            renderQueued = true;
+            requestAnimationFrame(() => {
+                renderQueued = false;
+                renderLogs();
+            });
+        }
+
+        const MAX_LOGS = 500;
+        function pruneLogs() {
+            while (logsByTraceId.size > MAX_LOGS) {
+                const oldest = [...logsByTraceId.entries()]
+                    .sort(([, a], [, b]) => new Date(a.Timestamp) - new Date(b.Timestamp))[0]?.[0];
+                if (!oldest) break;
+                logsByTraceId.delete(oldest);
+            }
+        }
+
         let ws;
 
         const loginScreen = document.getElementById('login-screen');
@@ -307,6 +328,7 @@
             }
 
             logsByTraceId.set(next.Trace_ID, next);
+            pruneLogs();
             ensureApplicationOption(next.Application_Name);
             return next;
         }
@@ -329,7 +351,7 @@
                         const refreshed = logsByTraceId.get(traceId);
                         if (!refreshed) return;
                         refreshed.Status = 'Classified';
-                        renderLogs();
+                        scheduleRender();
                     }, 140);
                 }
             } else if (incomingStatus === 'Classified') {
@@ -390,7 +412,7 @@
         }
 
         function renderLogs() {
-            const visibleLogs = getVisibleLogs();
+            const visibleLogs = getVisibleLogs().slice(0, 500);
             updateSummaryCards();
 
             if (visibleLogs.length === 0) {
@@ -446,7 +468,7 @@
             logsByTraceId.clear();
             applicationFilter.innerHTML = '<option value="">All Applications</option>';
             (logs || []).forEach((log) => upsertLog(normalizeHistoricalLog(log)));
-            renderLogs();
+            scheduleRender();
         }
 
         function connectWs() {
@@ -481,7 +503,7 @@
                     });
                     if (!record) return;
                     applyStatusTransition(record.Trace_ID, 'Classified', data.Tags || []);
-                    renderLogs();
+                    scheduleRender();
                     return;
                 }
 
@@ -492,7 +514,7 @@
                     });
                     if (!record) return;
                     applyStatusTransition(record.Trace_ID, 'Normalized');
-                    renderLogs();
+                    scheduleRender();
                     return;
                 }
 
@@ -506,7 +528,7 @@
                     });
                     if (!record) return;
                     applyStatusTransition(record.Trace_ID, 'Persisted');
-                    renderLogs();
+                    scheduleRender();
                     return;
                 }
 
@@ -520,13 +542,13 @@
                         Status: 'Ingested'
                     });
                     if (!record) return;
-                    renderLogs();
+                    scheduleRender();
                 }
             };
         }
 
         function applyFilters() {
-            renderLogs();
+            scheduleRender();
         }
 
         async function handleRefresh() {

@@ -8,9 +8,9 @@ input:
 
 buffer:
   memory:
-    limit: 524288000
+    limit: 67108864
     batch_policy:
-      count: 5000
+      count: 500
       period: "1s"
 
 output:

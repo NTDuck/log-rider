@@ -114,6 +114,7 @@ services:
         condition: service_healthy
 
   benthos-tags:
+    profiles: ["full"]
     image: jeffail/benthos:latest
     volumes:
       - ./pipelines/tags.yaml:/benthos.yaml
@@ -127,6 +128,7 @@ services:
     command: -c /benthos.yaml
 
   alert-worker:
+    profiles: ["full"]
     build: ./workers/alert
     depends_on:
       redis:
@@ -140,6 +142,7 @@ services:
       replicas: 10
 
   classifier-worker:
+    profiles: ["full"]
     build:
       context: ./workers/classifier
       dockerfile: Dockerfile
@@ -153,6 +156,7 @@ services:
         condition: service_healthy
 
   telegram-bot:
+    profiles: ["full"]
     build: ./integrations/telegram
     depends_on:
       redis:
@@ -162,6 +166,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
 
   web-server:
+    profiles: ["full"]
     build: ./server
     ports:
       - "${SERVER_PORT:-3000}:${SERVER_PORT:-3000}"
@@ -184,6 +189,7 @@ services:
       POSTGRES_URI: postgres://${POSTGRES_USER:-logrider}:${POSTGRES_PASSWORD:-password}@postgres:5432/logrider
 
   benthos-alerts-forwarder:
+    profiles: ["full"]
     image: jeffail/benthos:latest
     volumes:
       - ./pipelines/forwarder.yaml:/benthos.yaml

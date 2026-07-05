@@ -9,6 +9,14 @@ COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
 CH_USER="${CLICKHOUSE_USER:-default}"
 CH_PASS="${CLICKHOUSE_PASSWORD:-password}"
 
+echo "Purging Redpanda topics..."
+docker compose -f "$COMPOSE_FILE" exec -T redpanda rpk topic delete \
+  logs-ingested logs-normalized logs-persist logs-classified \
+  alerts-ingested dlq-logs dlq-clickhouse || true
+
+sleep 2
+"$SCRIPT_DIR/setup-topics.sh"
+
 # Helper to print row count and sample rows before truncating a table
 print_and_truncate() {
   local table=$1
@@ -64,3 +72,6 @@ if docker compose -f "$COMPOSE_FILE" exec -T redis redis-cli FLUSHALL > /dev/nul
 else
   echo "Could not flush Redis via docker compose exec. Is the stack running?"
 fi
+
+echo "Restarting Benthos to drop bad buffered messages..."
+docker compose -f "$COMPOSE_FILE" restart benthos-pipeline benthos-persist
