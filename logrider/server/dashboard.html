@@ -472,7 +472,12 @@
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`);
 
-            ws.onopen = () => setWsIndicator(true);
+            ws.onopen = () => {
+                setWsIndicator(true);
+                fetchHistoricalLogs().catch((error) => {
+                    console.error('Failed to backfill logs after WebSocket open:', error);
+                });
+            };
             ws.onclose = () => {
                 setWsIndicator(false);
                 setTimeout(connectWs, 3000);
@@ -580,9 +585,16 @@
             loginScreen.classList.add('hidden');
             dashboardScreen.classList.remove('hidden');
             dashboardScreen.classList.add('flex');
+
             if (typeof syncTopbarUser === 'function') syncTopbarUser();
-            await fetchHistoricalLogs();
+
             connectWs();
+
+            try {
+                await fetchHistoricalLogs();
+            } catch (error) {
+                console.error('Failed to fetch historical logs:', error);
+            }
         }
 
         document.getElementById('login-form').addEventListener('submit', async (event) => {

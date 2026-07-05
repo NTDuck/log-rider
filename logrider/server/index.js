@@ -110,10 +110,14 @@ let bunServer;
           // Application_Name is nested inside the log object for ALERT messages
           const appName =
             parsed.log?.Application_Name || parsed.Application_Name;
-          if (appName) {
-            bunServer.publish(`alerts-stream:${appName}`, message);
-          }
-          bunServer.publish(`alerts-stream:global`, message);
+          const appDelivered = appName ? bunServer.publish(`alerts-stream:${appName}`, message) : 0;
+          const globalDelivered = bunServer.publish(`alerts-stream:global`, message);
+
+          console.log('[WS alerts]', {
+              appName,
+              appDelivered,
+              globalDelivered,
+          });
         } catch (e) {
           console.error("Error handling alerts-stream message:", e);
         }
@@ -126,10 +130,14 @@ let bunServer;
           const parsed = JSON.parse(message);
           const appName =
             parsed.Application_Name || parsed.log?.Application_Name;
-          if (appName) {
-            bunServer.publish(`ws-frontend:${appName}`, message);
-          }
-          bunServer.publish(`ws-frontend:global`, message);
+          const appDelivered = appName ? bunServer.publish(`ws-frontend:${appName}`, message) : 0;
+          const globalDelivered = bunServer.publish(`ws-frontend:global`, message);
+
+          console.log('[WS logs]', {
+              appName,
+              appDelivered,
+              globalDelivered,
+          });
         } catch (e) {
           console.error("Error handling ws-events message:", e);
         }

@@ -316,7 +316,12 @@
             if (ws) ws.close();
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`);
-            ws.onopen = () => setWsIndicator(true);
+            ws.onopen = () => {
+                setWsIndicator(true);
+                fetchHistoricalAlerts().catch((error) => {
+                    console.error('Failed to backfill alerts after WebSocket open:', error);
+                });
+            };
             ws.onclose = () => {
                 setWsIndicator(false);
                 setTimeout(connectWs, 3000);
@@ -365,9 +370,16 @@
             loginScreen.classList.add('hidden');
             alertsScreen.classList.remove('hidden');
             alertsScreen.classList.add('flex');
+
             if (typeof syncTopbarUser === 'function') syncTopbarUser();
-            await fetchHistoricalAlerts();
+
             connectWs();
+
+            try {
+                await fetchHistoricalAlerts();
+            } catch (error) {
+                console.error('Failed to fetch historical alerts:', error);
+            }
         }
 
         document.getElementById('login-form').addEventListener('submit', async (event) => {
