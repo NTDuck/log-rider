@@ -4,6 +4,7 @@ Comprehensive benchmark suite for the LogRider project.
 
 ## Scenarios
 - `smoke`: Basic correctness check.
+- `burst-500`: 500-log demo burst target.
 - `baseline`: Normal throughput.
 - `ramp`: Saturation curve.
 - `stress`: Extreme capacity limits.
@@ -15,6 +16,7 @@ Comprehensive benchmark suite for the LogRider project.
 ## How to run
 ```bash
 ./benchmarks/run.sh smoke
+./benchmarks/run.sh burst-500
 ./benchmarks/run.sh all
 ```
 

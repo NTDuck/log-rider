@@ -1,4 +1,4 @@
-{pkgs ? import <nixpkgs> {}}:
+{pkgs ? import <nixpkgs> { config.allowUnfree = true; }}:
 pkgs.mkShell {
   buildInputs = [
     pkgs.openssl
@@ -6,9 +6,10 @@ pkgs.mkShell {
     pkgs.unzip
     pkgs.gnutar
 
-    pkgs.curl # Add this
-    pkgs.cmake # Also add cmake
-    pkgs.gcc # Already present but explicit is fine
+    pkgs.curl
+    pkgs.jq
+    pkgs.cmake
+    pkgs.gcc
 
     pkgs.clickhouse
     pkgs.clickhouse-cli
@@ -17,7 +18,6 @@ pkgs.mkShell {
 
     pkgs.websocat
     pkgs.k6
-    pkgs.redis
   ];
 
   shellHook = ''

@@ -21,16 +21,18 @@ export let options = {
 
 const BATCH_SIZE = parseInt(__ENV.BATCH_SIZE || '10', 10);
 const PROTOCOL = __ENV.PROTOCOL || 'http';
+const SCENARIO_NAME = __ENV.SCENARIO_NAME || 'manual';
 const HTTP_URL = __ENV.TARGET_URL || 'http://localhost:8085/v1/logs';
 const GRPC_URL = __ENV.GRPC_URL || '127.0.0.1:50051';
 
 export default function () {
   let records = [];
   for (let i = 0; i < BATCH_SIZE; i++) {
+    const isAlertDedup = SCENARIO_NAME === 'alert-dedup';
     records.push({
-      Application_Name: "benchmark-app",
-      Log_Level: "INFO",
-      Message: "benchmark message",
+      Application_Name: isAlertDedup ? "benchmark-alert-app" : "benchmark-app",
+      Log_Level: isAlertDedup ? "ERROR" : "INFO",
+      Message: isAlertDedup ? "repeated benchmark database timeout" : "benchmark message",
       Timestamp: new Date().toISOString(),
       Trace_ID: "trace-" + Math.random()
     });

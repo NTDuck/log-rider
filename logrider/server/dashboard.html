@@ -272,12 +272,17 @@
         }
 
         function normalizeHistoricalLog(log) {
+            let ts = log.Timestamp;
+            if (ts && typeof ts === 'string' && ts.includes(' ') && !ts.includes('T')) {
+                ts = ts.replace(' ', 'T');
+                if (!ts.endsWith('Z')) ts += 'Z';
+            }
             return {
                 Trace_ID: log.Trace_ID,
                 Application_Name: log.Application_Name || '-',
                 Log_Level: (log.Log_Level || 'INFO').toUpperCase(),
                 Message: log.Message || '',
-                Timestamp: log.Timestamp,
+                Timestamp: ts,
                 Tags: Array.isArray(log.Tags) ? log.Tags : [],
                 Status: Array.isArray(log.Tags) && log.Tags.length > 0 ? 'Classified' : 'Persisted',
                 pendingClassified: false,
@@ -544,17 +549,30 @@
 
         async function handleRefresh() {
             const icon = document.getElementById('refresh-icon');
-            if (icon) icon.classList.add('animate-spin');
+            const tableContainer = document.getElementById('logs-body');
+            
+            if (icon) {
+                icon.style.animation = 'spin 1s linear infinite';
+            }
+            
+            if (tableContainer) {
+                tableContainer.classList.add('opacity-50', 'pointer-events-none', 'transition-opacity', 'duration-300');
+            }
             
             try {
                 const startTime = Date.now();
                 await fetchHistoricalLogs();
                 const elapsed = Date.now() - startTime;
-                if (elapsed < 500) {
-                    await new Promise(resolve => setTimeout(resolve, 500 - elapsed));
+                if (elapsed < 1000) {
+                    await new Promise(resolve => setTimeout(resolve, 1000 - elapsed));
                 }
             } finally {
-                if (icon) icon.classList.remove('animate-spin');
+                if (icon) {
+                    icon.style.animation = '';
+                }
+                if (tableContainer) {
+                    tableContainer.classList.remove('opacity-50', 'pointer-events-none');
+                }
             }
         }
 

@@ -29,6 +29,14 @@ source benchmarks/lib/clickhouse.sh
 source benchmarks/lib/redpanda.sh
 source benchmarks/lib/redis.sh
 source benchmarks/lib/report.sh
+
+if [ -f ".env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env"
+  set +a
+fi
+
 source "benchmarks/scenarios/$SCENARIO.env"
 
 TS=$(date +%Y%m%d%H%M%S)
@@ -55,11 +63,13 @@ COLLECTOR_PID=$!
 
 echo "Starting k6..."
 if [ "$SCENARIO" = "api-query" ]; then
-  k6 run -e SCENARIO_NAME="$SCENARIO" -e RATE="${RATE:-10}" -e DURATION="${DURATION:-10s}" --out json="$RES_DIR/k6-summary.json" benchmarks/k6/api-query.js > "$RES_DIR/raw.log"
+  BENCH_TOKEN=$(curl -fsS -X POST "${TARGET_URL:-http://localhost:${SERVER_PORT:-3000}}/login" -H "Content-Type: application/json" -d "{\"username\":\"${LOGIN_USER:-Ayin}\",\"password\":\"${LOGIN_PASSWORD:-admin123}\"}" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+  k6 run -e SCENARIO_NAME="$SCENARIO" -e RATE="${RATE:-10}" -e DURATION="${DURATION:-10s}" -e TARGET_URL="${TARGET_URL:-http://localhost:${SERVER_PORT:-3000}}" -e SESSION_TOKEN="$BENCH_TOKEN" --summary-export "$RES_DIR/k6-summary.json" benchmarks/k6/api-query.js > "$RES_DIR/raw.log"
 elif [ "$SCENARIO" = "websocket" ]; then
-  k6 run -e SCENARIO_NAME="$SCENARIO" -e RATE="${RATE:-10}" -e DURATION="${DURATION:-10s}" --out json="$RES_DIR/k6-summary.json" benchmarks/k6/websocket.js > "$RES_DIR/raw.log"
+  BENCH_TOKEN=$(curl -fsS -X POST "${TARGET_URL:-http://localhost:${SERVER_PORT:-3000}}/login" -H "Content-Type: application/json" -d "{\"username\":\"${LOGIN_USER:-Ayin}\",\"password\":\"${LOGIN_PASSWORD:-admin123}\"}" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+  k6 run -e SCENARIO_NAME="$SCENARIO" -e RATE="${RATE:-10}" -e DURATION="${DURATION:-10s}" -e TARGET_URL="${TARGET_URL:-http://localhost:${SERVER_PORT:-3000}}" -e SESSION_TOKEN="$BENCH_TOKEN" --summary-export "$RES_DIR/k6-summary.json" benchmarks/k6/websocket.js > "$RES_DIR/raw.log"
 else
-  k6 run -e PROTOCOL="${PROTOCOL:-http}" -e SCENARIO_NAME="$SCENARIO" -e RATE="${RATE:-10}" -e DURATION="${DURATION:-10s}" -e BATCH_SIZE="${BATCH_SIZE:-10}" --out json="$RES_DIR/k6-summary.json" benchmarks/k6/ingest.js > "$RES_DIR/raw.log"
+  k6 run -e PROTOCOL="${PROTOCOL:-http}" -e SCENARIO_NAME="$SCENARIO" -e RATE="${RATE:-10}" -e DURATION="${DURATION:-10s}" -e BATCH_SIZE="${BATCH_SIZE:-10}" -e TARGET_URL="${TARGET_URL:-http://localhost:8085/v1/logs}" -e INGEST_API_KEY="${INGEST_API_KEY:-logrider-ingest-key}" --summary-export "$RES_DIR/k6-summary.json" benchmarks/k6/ingest.js > "$RES_DIR/raw.log"
   
   echo "Polling ClickHouse for expected rows: ${EXPECTED_LOGS:-100}"
   ch_wait_for_count "logrider.logs_enriched" "${EXPECTED_LOGS:-100}" "${MAX_DRAIN_SECONDS:-120}" > "$RES_DIR/clickhouse-counts.txt"

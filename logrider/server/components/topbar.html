@@ -191,10 +191,10 @@
                 const data = await res.json().catch(() => ({}));
 
                 if (!res.ok) {
-                    throw new Error(data.error || \`Telegram link request failed with HTTP \${res.status}\`);
+                    throw new Error(data.error || `Telegram link request failed with HTTP ${res.status}`);
                 }
 
-                const command = data.command || (data.token ? \`/link \${data.token}\` : '');
+                const command = data.command || (data.token ? `/link ${data.token}` : '');
 
                 if (!command) {
                     throw new Error('Server did not return a Telegram link command.');

@@ -1,23 +1,40 @@
 
 import ws from 'k6/ws';
+import http from 'k6/http';
 import { check } from 'k6';
-export let options = { vus: 1, duration: '10s' };
+
+const TARGET_URL = __ENV.TARGET_URL || 'http://localhost:3001';
+const WS_URL = TARGET_URL.replace(/^http/, 'ws') + '/api/ws';
+
+export let options = {
+  scenarios: {
+    constant_request_rate: {
+      executor: 'constant-arrival-rate',
+      rate: parseInt(__ENV.RATE || '10', 10),
+      timeUnit: '1s',
+      duration: __ENV.DURATION || '10s',
+      preAllocatedVUs: 10,
+      maxVUs: 100,
+    },
+  },
+};
+
 export default function () {
-  const url = 'ws://localhost:3000/api/ws';
-  const params = { tags: { my_tag: 'hello' } };
-  const response = ws.connect(url, params, function (socket) {
+  const token = __ENV.SESSION_TOKEN;
+
+  const params = {
+    headers: { Cookie: `logrider_token=${token}` },
+    tags: { my_tag: 'hello' },
+  };
+  const response = ws.connect(WS_URL, params, function (socket) {
     socket.on('open', function () {
-      console.log('connected');
+      socket.setTimeout(function () {
+        socket.close();
+      }, 1000);
     });
     socket.on('message', function (msg) {
-      console.log('Message received: ', msg);
+      check(msg, { 'received websocket message': (m) => m.length > 0 });
     });
-    socket.on('close', function () {
-      console.log('disconnected');
-    });
-    socket.setTimeout(function () {
-      socket.close();
-    }, 10000);
   });
   check(response, { 'status is 101': (r) => r && r.status === 101 });
 }

@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1010" viewBox="0 0 1700 1010" role="img" aria-label="Log ingestion, classification, persistence and live update">
+<defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8 z" fill="#334155"/></marker><marker id="arrowopen" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8" fill="none" stroke="#334155" stroke-width="1.2"/></marker></defs>
+<rect x="0" y="0" width="100%" height="100%" fill="white"/>
+<text x="850.0" y="32" text-anchor="middle" font-family="Times New Roman, serif" font-size="22" font-weight="600" fill="#0f172a">Log ingestion, classification, persistence and live update</text>
+<rect x="14.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="70.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Log Producer</text>
+<line x1="70.0" y1="112" x2="70.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="170.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="226.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Pandaproxy</text>
+<line x1="226.0" y1="112" x2="226.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="326.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="382.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Redpanda</text>
+<text x="382.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Topics</text>
+<line x1="382.0" y1="112" x2="382.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="482.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="538.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Benthos</text>
+<text x="538.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Unified</text>
+<line x1="538.0" y1="112" x2="538.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="638.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="694.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Redis</text>
+<text x="694.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Pub/Sub</text>
+<line x1="694.0" y1="112" x2="694.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="794.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="850.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Bun Web</text>
+<text x="850.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Server</text>
+<line x1="850.0" y1="112" x2="850.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="950.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="1006.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Browser</text>
+<text x="1006.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Dashboard</text>
+<line x1="1006.0" y1="112" x2="1006.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="1106.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="1162.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Python</text>
+<text x="1162.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Classifier</text>
+<line x1="1162.0" y1="112" x2="1162.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="1262.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="1318.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Benthos</text>
+<text x="1318.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Persist</text>
+<line x1="1318.0" y1="112" x2="1318.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="1418.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="1474.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Benthos</text>
+<text x="1474.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Tags</text>
+<line x1="1474.0" y1="112" x2="1474.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="1574.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="1630.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">ClickHouse</text>
+<line x1="1630.0" y1="112" x2="1630.0" y2="965" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<line x1="80.0" y1="136" x2="216.0" y2="136" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="73.89999999999999" y="114" width="148.20000000000002" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="148.0" y="128" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">POST /topics/logs-ingested</text>
+<text x="76.0" y="130" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">1</text>
+<line x1="236.0" y1="178" x2="372.0" y2="178" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="247.0" y="156" width="114.0" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="304.0" y="170" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">append logs-ingested</text>
+<text x="232.0" y="172" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">2</text>
+<line x1="392.0" y1="220" x2="528.0" y2="220" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="403.0" y="198" width="114.0" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="460.0" y="212" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">consume raw envelope</text>
+<text x="388.0" y="214" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">3</text>
+<line x1="528.0" y1="262" x2="548.0" y2="262" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="446.8" y="240" width="182.4" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="538.0" y="254" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">unwrap value and ensure Trace_ID</text>
+<text x="532.0" y="256" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">4</text>
+<line x1="548.0" y1="304" x2="684.0" y2="304" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="550.45" y="282" width="131.1" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="616.0" y="296" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">publish Status=Ingested</text>
+<text x="544.0" y="298" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">5</text>
+<line x1="704.0" y1="346" x2="840.0" y2="346" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="727.0" y="324" width="90" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="772.0" y="338" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">ws-events</text>
+<text x="700.0" y="340" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">6</text>
+<line x1="860.0" y1="388" x2="996.0" y2="388" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="871.0" y="366" width="114.0" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="928.0" y="380" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">WebSocket row update</text>
+<text x="856.0" y="382" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">7</text>
+<line x1="528.0" y1="430" x2="392.0" y2="430" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="394.45" y="408" width="131.1" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="460.0" y="422" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">produce logs-normalized</text>
+<text x="532.0" y="424" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">8</text>
+<line x1="392.0" y1="472" x2="1152.0" y2="472" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="706.45" y="450" width="131.1" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="772.0" y="464" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">consume logs-normalized</text>
+<text x="388.0" y="466" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">9</text>
+<line x1="1152.0" y1="514" x2="1172.0" y2="514" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="1079.35" y="492" width="165.3" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="1162.0" y="506" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">batch infer tags from Message</text>
+<text x="1156.0" y="508" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">10</text>
+<line x1="1152.0" y1="556" x2="704.0" y2="556" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="842.5" y="534" width="171.0" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="928.0" y="548" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">publish Classified/TAGS events</text>
+<text x="1156.0" y="550" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">11</text>
+<line x1="704.0" y1="598" x2="840.0" y2="598" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="727.0" y="576" width="90" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="772.0" y="590" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">lifecycle event</text>
+<text x="700.0" y="592" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">12</text>
+<line x1="860.0" y1="640" x2="996.0" y2="640" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="865.3" y="618" width="125.4" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="928.0" y="632" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">update status and tags</text>
+<text x="856.0" y="634" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">13</text>
+<line x1="1152.0" y1="682" x2="392.0" y2="682" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="658.0" y="660" width="228.0" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="772.0" y="674" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">produce logs-persist and logs-classified</text>
+<text x="1156.0" y="676" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">14</text>
+<line x1="392.0" y1="724" x2="1308.0" y2="724" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="793.0" y="702" width="114.0" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="850.0" y="716" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">consume logs-persist</text>
+<text x="388.0" y="718" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">15</text>
+<line x1="1328.0" y1="766" x2="1620.0" y2="766" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="1382.8" y="744" width="182.4" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="1474.0" y="758" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">INSERT logs_enriched JSONEachRow</text>
+<text x="1324.0" y="760" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">16</text>
+<line x1="1308.0" y1="808" x2="704.0" y2="808" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="937.6" y="786" width="136.8" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="1006.0" y="800" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">publish Status=Persisted</text>
+<text x="1312.0" y="802" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">17</text>
+<line x1="392.0" y1="850" x2="1464.0" y2="850" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="862.45" y="828" width="131.1" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="928.0" y="842" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">consume logs-classified</text>
+<text x="388.0" y="844" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">18</text>
+<line x1="1484.0" y1="892" x2="1620.0" y2="892" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="1475.05" y="870" width="153.9" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="1552.0" y="884" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">INSERT log_tags JSONEachRow</text>
+<text x="1480.0" y="886" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">19</text>
+</svg>
