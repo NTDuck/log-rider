@@ -54,12 +54,12 @@
         .dark .logs-scroll::-webkit-scrollbar-thumb { background: #545b64; }
     </style>
 </head>
-<body class="bg-aws-bg font-sans text-aws-text antialiased transition-colors duration-200 dark:bg-aws-bgDark dark:text-aws-textDark">
+<body class="bg-aws-bg font-sans text-aws-text antialiased transition-colors duration-200 dark:bg-aws-bgDark dark:text-aws-textDark h-screen flex flex-col overflow-hidden">
     <!-- TOPBAR -->
 
     <div id="global-alert-container" class="pointer-events-none fixed bottom-4 right-4 z-[9999] flex max-w-sm flex-col-reverse gap-2"></div>
 
-    <main class="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+    <main class="mx-auto max-w-[1400px] w-full px-4 py-8 sm:px-6 lg:px-8 flex-1 flex flex-col overflow-hidden">
         <div id="login-screen" class="mx-auto mt-12 max-w-md">
             <div class="overflow-hidden rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
                 <div class="border-b border-aws-border px-6 py-5 dark:border-aws-borderDark">
@@ -81,12 +81,12 @@
                     </form>
                 </div>
                 <div class="border-t border-aws-border bg-gray-50 px-6 py-4 text-xs text-aws-textMuted dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
-                    <span class="font-semibold">Demo accounts:</span> admin/admin123 or eng1/eng123
+                    <span class="font-semibold">Demo accounts:</span> Ayin/admin123 or Benjamin/eng123
                 </div>
             </div>
         </div>
 
-        <div id="dashboard-screen" class="hidden space-y-6">
+        <div id="dashboard-screen" class="hidden flex-col space-y-6 flex-1 overflow-hidden">
             <section class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h1 class="text-2xl font-bold">Log Stream</h1>
@@ -119,20 +119,24 @@
                 </div>
             </section>
 
-            <section class="rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+            <section class="rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark flex-1 flex flex-col overflow-hidden">
                 <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
-                        <div class="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[180px_minmax(0,1fr)_180px_180px_180px]">
-                            <select id="search-col" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
-                                <option value="message">Message</option>
-                                <option value="trace_id">Trace ID</option>
-                                <option value="application">Application</option>
-                            </select>
-                            <input id="search-query" oninput="applyFilters()" type="text" placeholder="Search logs..." class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
-                            <select id="application-filter" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                        <div class="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(300px,1fr)_180px_180px_180px]">
+                            <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm">
+                                <svg class="w-4 h-4 text-gray-400 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                <select id="search-col" onchange="applyFilters()" class="bg-transparent text-sm font-bold text-aws-text dark:text-aws-textDark focus:outline-none cursor-pointer">
+                                    <option value="message">Message</option>
+                                    <option value="trace_id">Trace ID</option>
+                                    <option value="application">Application</option>
+                                </select>
+                                <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 shrink-0"></div>
+                                <input id="search-query" oninput="applyFilters()" type="text" placeholder="Search logs..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
+                            </div>
+                            <select id="application-filter" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
                                 <option value="">All Applications</option>
                             </select>
-                            <select id="level-filter" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                            <select id="level-filter" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
                                 <option value="">All Levels</option>
                                 <option value="DEBUG">DEBUG</option>
                                 <option value="INFO">INFO</option>
@@ -140,7 +144,7 @@
                                 <option value="ERROR">ERROR</option>
                                 <option value="CRITICAL">CRITICAL</option>
                             </select>
-                            <select id="status-filter" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                            <select id="status-filter" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
                                 <option value="">All Statuses</option>
                                 <option value="Ingested">Ingested</option>
                                 <option value="Normalized">Normalized</option>
@@ -157,7 +161,7 @@
                     </div>
                 </div>
 
-                <div class="overflow-auto logs-scroll">
+                <div class="flex-1 overflow-auto logs-scroll">
                     <table class="min-w-full table-fixed text-left text-sm">
                         <thead class="sticky top-0 z-10 border-b border-aws-border bg-gray-50 text-xs font-bold uppercase text-aws-textMuted shadow-sm dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
                             <tr>
@@ -222,7 +226,12 @@
         }
 
         function formatTimestamp(value) {
-            const date = new Date(value);
+            let str = String(value);
+            if (!str.endsWith('Z') && str.length > 10) {
+                str = str.replace(' ', 'T');
+                if (!str.endsWith('Z')) str += 'Z';
+            }
+            const date = new Date(str);
             if (Number.isNaN(date.getTime())) return escapeHtml(String(value || '-'));
             return escapeHtml(date.toLocaleString('en-CA', {
                 hour12: false,
@@ -468,8 +477,7 @@
                     const record = upsertLog({
                         Trace_ID: data.Trace_ID,
                         Application_Name: data.Application_Name,
-                        Tags: data.Tags || [],
-                        Status: 'Classified'
+                        Tags: data.Tags || []
                     });
                     if (!record) return;
                     applyStatusTransition(record.Trace_ID, 'Classified', data.Tags || []);
@@ -477,11 +485,10 @@
                     return;
                 }
 
-                if (data.Trace_ID && data.status === 'Normalized') {
+                if (data.Trace_ID && data.Status === 'Normalized') {
                     const record = upsertLog({
                         Trace_ID: data.Trace_ID,
-                        Application_Name: data.Application_Name,
-                        Status: 'Normalized'
+                        Application_Name: data.Application_Name
                     });
                     if (!record) return;
                     applyStatusTransition(record.Trace_ID, 'Normalized');
@@ -495,8 +502,7 @@
                         Application_Name: data.Application_Name,
                         Log_Level: data.Log_Level,
                         Message: data.Message,
-                        Timestamp: data.Timestamp,
-                        Status: 'Persisted'
+                        Timestamp: data.Timestamp
                     });
                     if (!record) return;
                     applyStatusTransition(record.Trace_ID, 'Persisted');
@@ -525,22 +531,24 @@
 
         async function handleRefresh() {
             const icon = document.getElementById('refresh-icon');
-            const searchValue = document.getElementById('search-query').value;
-            icon.classList.add('animate-spin');
-            document.getElementById('search-col').value = 'message';
-            applicationFilter.value = '';
-            document.getElementById('level-filter').value = '';
-            document.getElementById('status-filter').value = '';
-
-            await new Promise((resolve) => setTimeout(resolve, 350));
-            document.getElementById('search-query').value = searchValue;
-            await fetchHistoricalLogs();
-            icon.classList.remove('animate-spin');
+            if (icon) icon.classList.add('animate-spin');
+            
+            try {
+                const startTime = Date.now();
+                await fetchHistoricalLogs();
+                const elapsed = Date.now() - startTime;
+                if (elapsed < 500) {
+                    await new Promise(resolve => setTimeout(resolve, 500 - elapsed));
+                }
+            } finally {
+                if (icon) icon.classList.remove('animate-spin');
+            }
         }
 
         async function showDashboard() {
             loginScreen.classList.add('hidden');
             dashboardScreen.classList.remove('hidden');
+            dashboardScreen.classList.add('flex');
             if (typeof syncTopbarUser === 'function') syncTopbarUser();
             await fetchHistoricalLogs();
             connectWs();

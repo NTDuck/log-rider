@@ -103,6 +103,16 @@ services:
         condition: service_healthy
     command: -c /benthos.yaml
 
+  grpc-ingest:
+    build: ./workers/grpc-ingest
+    ports:
+      - "50051:50051"
+    environment:
+      REDPANDA_BROKERS: redpanda:29092
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
   benthos-tags:
     image: jeffail/benthos:latest
     volumes:

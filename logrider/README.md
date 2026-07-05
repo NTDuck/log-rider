@@ -98,9 +98,9 @@ These accounts are created automatically if the `users` table is empty:
 
 | User | Password | Role | Applications |
 | --- | --- | --- | --- |
-| `admin` | `admin123` | Admin | All |
-| `eng1` | `eng123` | Engineer | `apple-service`, `banana-service`, `orange-service` |
-| `eng2` | `eng123` | Engineer | `kiwi-service`, `papaya-service` |
+| `Ayin` | `admin123` | Admin | All |
+| `Benjamin` | `eng123` | Engineer | `su(pam_unix),logrotate,syslogd 1.4.1` |
+| `Carmen` | `eng123` | Engineer | `ftpd,snmpd,cups,sshd(pam_unix)` |
 
 Do not use these defaults outside a local demo.
 
@@ -151,3 +151,25 @@ Recommended local demo sequence:
 - ClickHouse schema and queries need tuning for application/level filters.
 - `docker-compose.yml` uses some `latest` images and does not define persistent named volumes for Redpanda, Redis, Postgres, or ClickHouse data.
 - There are still stale or redundant files and schema artifacts, including `schema.json`, `test-ws.js`, the unused `logrider.logs` / `logs_raw_null` / `logs_enriched_mv` ClickHouse objects, and media files that are not part of the running stack.
+
+## Benchmarks
+Updated: 046d47b7fbf81b75816ba2edabccae9764ad5176
+
+A comprehensive benchmark suite exists in `benchmarks/`. It measures throughput, persistence latency, alert deduplication logic, and websocket read performance across both HTTP and gRPC protocols.
+
+### How to run benchmarks
+You can run a benchmark scenario from anywhere:
+```bash
+# Run a single basic correctness check:
+./benchmarks/run.sh smoke
+
+# Run a specific benchmark (e.g., alert dedup validation)
+./benchmarks/run.sh alert-dedup
+
+# Run all benchmarks sequentially
+./benchmarks/run.sh all
+```
+
+Results (including summaries, metrics, and raw logs) are generated in `benchmarks/results/<timestamp>-<scenario>/`.
+
+*Note: Benchmarks test both gRPC ingestion (via port 50051) as well as standard HTTP (via port 8082).*

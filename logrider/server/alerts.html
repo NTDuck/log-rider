@@ -43,10 +43,10 @@
         .dark .logs-scroll::-webkit-scrollbar-thumb { background: #545b64; }
     </style>
 </head>
-<body class="bg-aws-bg font-sans text-aws-text antialiased transition-colors duration-200 dark:bg-aws-bgDark dark:text-aws-textDark">
+<body class="bg-aws-bg font-sans text-aws-text antialiased transition-colors duration-200 dark:bg-aws-bgDark dark:text-aws-textDark h-screen flex flex-col overflow-hidden">
     <!-- TOPBAR -->
 
-    <main class="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+    <main class="mx-auto max-w-[1400px] w-full px-4 py-8 sm:px-6 lg:px-8 flex-1 flex flex-col overflow-hidden">
         <div id="login-screen" class="mx-auto mt-12 max-w-md">
             <div class="overflow-hidden rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
                 <div class="border-b border-aws-border px-6 py-5 dark:border-aws-borderDark">
@@ -68,12 +68,12 @@
                     </form>
                 </div>
                 <div class="border-t border-aws-border bg-gray-50 px-6 py-4 text-xs text-aws-textMuted dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
-                    <span class="font-semibold">Demo accounts:</span> admin/admin123 or eng1/eng123
+                    <span class="font-semibold">Demo accounts:</span> Ayin/admin123 or Benjamin/eng123
                 </div>
             </div>
         </div>
 
-        <div id="alerts-screen" class="hidden space-y-6">
+        <div id="alerts-screen" class="hidden flex-col space-y-6 flex-1 overflow-hidden">
             <section class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h1 class="text-2xl font-bold">Alert Stream</h1>
@@ -102,15 +102,18 @@
                 </div>
             </section>
 
-            <section class="rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+            <section class="rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark flex-1 flex flex-col overflow-hidden">
                 <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
-                        <div class="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_180px_180px]">
-                            <input id="search-query" type="text" oninput="renderAlerts()" placeholder="Search by application or message..." class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
-                            <select id="application-filter" onchange="renderAlerts()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                        <div class="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(300px,1fr)_180px_180px]">
+                            <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm">
+                                <svg class="w-4 h-4 text-gray-400 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                <input id="search-query" type="text" oninput="renderAlerts()" placeholder="Search by application or message..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
+                            </div>
+                            <select id="application-filter" onchange="renderAlerts()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
                                 <option value="">All Applications</option>
                             </select>
-                            <select id="level-filter" onchange="renderAlerts()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                            <select id="level-filter" onchange="renderAlerts()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
                                 <option value="">All Levels</option>
                                 <option value="ERROR">ERROR</option>
                                 <option value="CRITICAL">CRITICAL</option>
@@ -125,7 +128,7 @@
                     </div>
                 </div>
 
-                <div class="overflow-auto logs-scroll">
+                <div class="flex-1 overflow-auto logs-scroll">
                     <table class="min-w-full table-fixed text-left text-sm">
                         <thead class="sticky top-0 z-10 border-b border-aws-border bg-gray-50 text-xs font-bold uppercase text-aws-textMuted shadow-sm dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
                             <tr>
@@ -185,7 +188,12 @@
         }
 
         function formatTimestamp(value) {
-            const date = new Date(value);
+            let str = String(value);
+            if (!str.endsWith('Z') && str.length > 10) {
+                str = str.replace(' ', 'T');
+                if (!str.endsWith('Z')) str += 'Z';
+            }
+            const date = new Date(str);
             if (Number.isNaN(date.getTime())) return escapeHtml(String(value || '-'));
             return escapeHtml(date.toLocaleString('en-CA', {
                 hour12: false,
@@ -326,19 +334,24 @@
 
         async function handleRefresh() {
             const icon = document.getElementById('refresh-icon');
-            const searchValue = document.getElementById('search-query').value;
-            icon.classList.add('animate-spin');
-            applicationFilter.value = '';
-            document.getElementById('level-filter').value = '';
-            await new Promise((resolve) => setTimeout(resolve, 350));
-            document.getElementById('search-query').value = searchValue;
-            await fetchHistoricalAlerts();
-            icon.classList.remove('animate-spin');
+            if (icon) icon.classList.add('animate-spin');
+            
+            try {
+                const startTime = Date.now();
+                await fetchHistoricalAlerts();
+                const elapsed = Date.now() - startTime;
+                if (elapsed < 500) {
+                    await new Promise(resolve => setTimeout(resolve, 500 - elapsed));
+                }
+            } finally {
+                if (icon) icon.classList.remove('animate-spin');
+            }
         }
 
         async function showAlerts() {
             loginScreen.classList.add('hidden');
             alertsScreen.classList.remove('hidden');
+            alertsScreen.classList.add('flex');
             if (typeof syncTopbarUser === 'function') syncTopbarUser();
             await fetchHistoricalAlerts();
             connectWs();

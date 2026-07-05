@@ -72,9 +72,9 @@ function getIntervalStr(period) {
 
       await pgClient.query(
         `INSERT INTO users (username, password_hash, role, allowed_apps) VALUES
-                ('admin', $1, 'admin', ''),
-                ('eng1', $2, 'engineer', 'apple-service,banana-service,orange-service'),
-                ('eng2', $3, 'engineer', 'kiwi-service,papaya-service')
+                ('Ayin', $1, 'admin', '*'),
+                ('Benjamin', $2, 'engineer', 'su(pam_unix),logrotate,syslogd 1.4.1'),
+                ('Carmen', $3, 'engineer', 'ftpd,snmpd,cups,sshd(pam_unix)')
             `,
         [adminHash, eng1Hash, eng2Hash],
       );
@@ -902,7 +902,10 @@ bunServer = Bun.serve({
         // (e.g., system-wide notifications) as well as their
         // app-specific streams.
         ws.subscribe("alerts-stream:global");
-        for (const app of ws.data.allowed_apps) {
+        const apps = typeof ws.data.allowed_apps === 'string'
+            ? ws.data.allowed_apps.split(',').map(a => a.trim())
+            : ws.data.allowed_apps;
+        for (const app of apps) {
           ws.subscribe(`alerts-stream:${app}`);
           ws.subscribe(`ws-frontend:${app}`);
         }

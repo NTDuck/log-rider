@@ -60,6 +60,17 @@ func main() {
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
+	commands := []tgbotapi.BotCommand{
+		{Command: "help", Description: "Show available commands"},
+		{Command: "link", Description: "Link your account: /link <token>"},
+		{Command: "subscribe", Description: "Enable notifications"},
+		{Command: "unsubscribe", Description: "Disable notifications"},
+		{Command: "status", Description: "Check your link status and settings"},
+	}
+	if _, err := bot.Request(tgbotapi.NewSetMyCommands(commands...)); err != nil {
+		log.Printf("Failed to set commands: %v", err)
+	}
+
 	go consumeOutbound(bot, rdb)
 
 	u := tgbotapi.NewUpdate(0)
@@ -85,8 +96,11 @@ func main() {
 			handleSubscribe(bot, rdb, chatID, false)
 		case "status":
 			handleStatus(bot, rdb, chatID)
+		case "help":
+			msg := tgbotapi.NewMessage(chatID, "Available commands:\n/help - Show available commands\n/link <token> - Link your account\n/subscribe - Enable notifications\n/unsubscribe - Disable notifications\n/status - Check your link status and settings")
+			bot.Send(msg)
 		default:
-			msg := tgbotapi.NewMessage(chatID, "Unknown command. Available commands: /link <token>, /subscribe, /unsubscribe, /status")
+			msg := tgbotapi.NewMessage(chatID, "Unknown command. Available commands: /help, /link <token>, /subscribe, /unsubscribe, /status")
 			bot.Send(msg)
 		}
 	}

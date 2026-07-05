@@ -49,37 +49,17 @@ function uuidv4() {
   return `${part1}-${part2}-${part3}-${part4}-${part5}`;
 }
 
+const logs = [{"value": {"Application_Name": "sshd(pam_unix)", "Log_Level": "INFO", "Message": "authentication failure; logname= uid=0 euid=0 tty=NODEVssh ruser= rhost=218.188.2.4", "Trace_ID": "19939"}}, {"value": {"Application_Name": "sshd(pam_unix)", "Log_Level": "INFO", "Message": "check pass; user unknown", "Trace_ID": "19937"}}, {"value": {"Application_Name": "sshd(pam_unix)", "Log_Level": "INFO", "Message": "authentication failure; logname= uid=0 euid=0 tty=NODEVssh ruser= rhost=218.188.2.4", "Trace_ID": "19937"}}, {"value": {"Application_Name": "sshd(pam_unix)", "Log_Level": "INFO", "Message": "authentication failure; logname= uid=0 euid=0 tty=NODEVssh ruser= rhost=220-135-151-1.hinet-ip.hinet.net  user=root", "Trace_ID": "20882"}}];
+
 export default function () {
-  const levels = ['INFO', 'WARN', 'ERROR', 'CRITICAL'];
-  const records = [];
-
-  for (let i = 0; i < levels.length; i++) {
-    const fruit = fruits[getRandomInt(fruits.length)];
-    const level = levels[i];
-    
-    records.push({
-      value: {
-        Application_Name: `${fruit}-service`,
-        Log_Level: level,
-        Message: getRandomMessage(),
-        Timestamp: new Date().toISOString(),
-        Trace_ID: uuidv4()
-      }
-    });
-  }
-
-  const payload = JSON.stringify({ records: records });
-
+  const records = logs.map(log => {
+    return { ...log, value: { ...log.value, Timestamp: new Date().toISOString() } };
+  });
+  const payload = JSON.stringify({ records });
   const params = {
-    headers: {
-      'Content-Type': 'application/vnd.kafka.json.v2+json',
-    },
+    headers: { 'Content-Type': 'application/vnd.kafka.json.v2+json' },
   };
-
   const ingestUrl = __ENV.INGEST_URL || 'http://localhost:8082/topics/logs-ingested';
   const res = http.post(ingestUrl, payload, params);
-  
-  check(res, {
-    'is status 200': (r) => r.status === 200,
-  });
+  check(res, { 'is status 200': (r) => r.status === 200 });
 }

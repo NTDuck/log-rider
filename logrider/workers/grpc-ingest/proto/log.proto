@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package logrider;
+
+service IngestService {
+  rpc IngestLogs (IngestRequest) returns (IngestResponse) {}
+}
+
+message LogRecord {
+  string Application_Name = 1;
+  string Log_Level = 2;
+  string Message = 3;
+  string Timestamp = 4;
+  string Trace_ID = 5;
+}
+
+message IngestRequest {
+  repeated LogRecord records = 1;
+}
+
+message IngestResponse {
+  bool success = 1;
+  string message = 2;
+  int32 processed = 3;
+}
