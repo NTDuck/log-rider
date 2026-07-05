@@ -1,75 +1,143 @@
 # LogRider
 
-LogRider is a high-performance, real-time distributed log ingestion, processing, and visualization pipeline capable of handling 1M+ logs/sec.
+LogRider is a Docker Compose demo of a log ingestion, classification, alerting, and real-time dashboard pipeline.
 
-## 🏗 Architecture
+It currently uses Redpanda/Pandaproxy for message buffering, Benthos for routing and ClickHouse inserts, Redis for sessions/pubsub/deduplication/notification queues, PostgreSQL for users, a Bun web server, a Bun alert worker, a Go Telegram bot, and a Python classifier worker.
 
-The system utilizes a heavily optimized, multi-tier architecture to handle extreme throughput and real-time observability:
+This README describes the implementation in this directory. Some older specs in `../specs` describe a different Rust-based architecture and should not be treated as current implementation documentation.
 
-- **Redpanda & Pandaproxy**: High-performance Kafka-compatible broker handling all inter-service messaging via native topics (`logs-ingested`, `logs-persist`, `alerts-ingested`, `logs-normalized`, `logs-classified`, `ws-events`). Ingestion directly hits Pandaproxy (`http://localhost:8082/topics/logs-ingested`) using HTTP POSTs, bypassing Node/Bun event loops.
-- **Benthos Pipelines (`unified`, `persist`, `tags`)**: 
-  - `unified`: Consumes `logs-ingested`, normalizes payloads, generates UUIDs, and routes to specific Kafka topics.
-  - `persist`: Consumes `logs-persist` and performs high-throughput HTTP batch inserts (`JSONEachRow`) into ClickHouse.
-  - `tags`: Consumes `logs-classified` and batch inserts AI classifications directly into ClickHouse.
-- **Redis**: Functions purely as a high-speed state store for **Alert Deduplication**. Utilizes Redis `pipeline.exec()` coupled with Kafka consumer batching to atomically process thousands of alerts simultaneously via Lua scripts.
-- **PostgreSQL**: Stateful, durable storage for user accounts, credentials, and RBAC configurations.
-- **Alert Worker (Bun)**: Consumes from the `alerts-ingested` Kafka topic using `kafkajs` batching (`eachBatch`). Deduplicates burst errors via Redis pipelining and natively produces verified alerts to `ws-events`. Replicated 10x via `docker-compose` for massive horizontal scale.
-- **Classifier Worker (Python)**: An ultra-fast Python worker built with `confluent-kafka` and `fasttext`. Consumes from `logs-normalized`, performs AI text classifications natively, and produces categorized tags to `logs-classified` and `ws-events`.
-- **ClickHouse**: Columnar database acting as permanent storage. Handles extreme ingest rates via decoupled HTTP batch pipelines, and implements a built-in Time-To-Live (TTL) retention policy that can be dynamically updated via the Admin dashboard.
-- **Web Server (Bun)**: A pure, dumb rendering layer. Subscribes to the `alerts-state` and `ws-events` Redis channels to stream real-time lifecycle updates seamlessly to connected clients over WebSockets. Handles RBAC and UI serving.
+## Architecture
 
-## 🚀 Quick Start
+```text
+Log producer
+  -> Redpanda Pandaproxy topic logs-ingested
+  -> Benthos unified pipeline
+      -> Redis ws-events for live "Ingested" events
+      -> Kafka logs-normalized
+      -> Kafka alerts-ingested for ERROR / CRITICAL logs
+  -> Python classifier
+      -> Redis ws-events for classification events
+      -> Kafka logs-persist
+  -> Benthos persist pipeline
+      -> Redis ws-events for "Persisted" events
+      -> ClickHouse logrider.logs_enriched
 
-Ensure you have Docker and `docker-compose` installed.
+alerts-ingested
+  -> Bun alert worker
+      -> Redis deduplication keys
+      -> Redis alerts-stream for WebSocket alerts
+      -> Redis telegram_outbound
+  -> Go Telegram bot
+```
 
-### 1. Boot the Infrastructure
-Start the entire stack (Data Tier, Benthos Pipeline, Workers, and Web Server) using Docker:
+The web server serves:
+
+- `GET /dashboard` - live log dashboard.
+- `GET /alerts` - recent and live alert view.
+- `GET /metrics` - application health analytics.
+- `GET /config` - admin configuration and user management.
+- `POST /login` - demo login endpoint.
+- `GET /api/ws` - WebSocket endpoint.
+- `GET /api/logs/recent` - recent logs with backend session checks.
+- `GET /api/alerts/recent` - recent Redis-backed alerts with backend session checks.
+- `GET /api/analytics/health` - ClickHouse-backed hourly health data.
+- `GET|POST /api/config/ttl` - alert deduplication TTL.
+- `GET|POST /api/config/noti-ttl` - alert notification retention TTL.
+- `GET|POST /api/config/clickhouse-ttl` - ClickHouse TTL setting.
+- `GET|POST|DELETE /api/users` - admin-only user management.
+
+## Requirements
+
+- Docker with Docker Compose.
+- Enough memory to build and run the Python classifier image. It downloads model dependencies during image build/runtime.
+- A Telegram bot token only if Telegram delivery is required.
+
+## Configuration
+
+Copy `.env.example` to `.env` and adjust values:
+
+```bash
+cp .env.example .env
+```
+
+Important values:
+
+- `SERVER_PORT` - host port for the web server. The example uses `3001`; Compose falls back to `3000` if unset.
+- `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- `TELEGRAM_BOT_TOKEN`
+
+Configuration is not fully centralized yet. Internal service addresses, topic names, some default credentials, and several script values are still hardcoded in Compose, pipeline YAML, and worker code.
+
+## Start
+
 ```bash
 docker compose up -d
 ```
-*(Note: ClickHouse and Postgres will auto-initialize their schemas on the first boot).*
 
-The Web Server will automatically boot and bind to port `3000`.
+Then open:
 
-## 📊 Dashboard & Analytics
+```text
+http://localhost:${SERVER_PORT}/dashboard
+```
 
-Navigate to [http://localhost:3001/dashboard](http://localhost:3001/dashboard). The UI is heavily inspired by the AWS Management Console for a premium, familiar developer experience.
+With the provided `.env.example`, that is:
 
-The system comes with **Role-Based Access Control (RBAC)** initialized securely in Postgres on startup.
+```text
+http://localhost:3001/dashboard
+```
 
-**Mock Accounts:**
-- **Admin**: `admin` / `admin123` (Full visibility into all logs across the cluster, can modify the Deduplication TTL in real-time).
-- **Engineer 1**: `eng1` / `eng123` (Restricted visibility to `apple-service`, `banana-service`, and `orange-service`).
-- **Engineer 2**: `eng2` / `eng123` (Restricted visibility to `kiwi-service` and `papaya-service`).
+## Demo Accounts
 
-**Features:**
-- **Real-Time Logs & Lifecycle Tracking**: WebSockets stream incoming logs and track their exact stage through the pipeline (`Ingested` -> `Normalized` -> `Persisted` -> `Classified`) natively in the UI. Advanced global search and interactive chip-based filtering allow for instantaneous log exploration.
-- **Active Alerts Dashboard**: A dedicated `/alerts` page for real-time monitoring of critical and error-level logs, featuring active incident tracking and grouped suppression rules to mitigate alert fatigue.
-- **Telegram Bot Integration**: Engineers and Admins can receive instant, rate-limited, deduplicated critical error alerts directly in Telegram. The bot strictly enforces the web app's Role-Based Access Control (RBAC).
-  - **Setup**: Login to the dashboard, click the **Telegram** button in the top navigation, and copy the provided one-time token.
-  - **User Commands**:
-    - `/link <token>`: Securely link your account and immediately start receiving alerts for your authorized apps.
-    - `/subscribe` & `/unsubscribe`: Toggle your notification stream on or off without unlinking your account.
-    - `/status`: View your current RBAC role, linked apps, and notification status.
-- **Health & Metrics Dashboard**: The dedicated `/metrics` page features a dynamic Chart.js visualization of the Error Rate (%) across all applications by the hour, and an Error Leaderboard.
-- **Live TTL Configuration**: Admins can change the Alert Deduplication TTL (Redis) and the Log Retention TTL policies (ClickHouse) globally on the fly without restarting any services from the `/config` page.
+These accounts are created automatically if the `users` table is empty:
 
-## 🧪 Testing
+| User | Password | Role | Applications |
+| --- | --- | --- | --- |
+| `admin` | `admin123` | Admin | All |
+| `eng1` | `eng123` | Engineer | `apple-service`, `banana-service`, `orange-service` |
+| `eng2` | `eng123` | Engineer | `kiwi-service`, `papaya-service` |
 
-We provide load-testing scripts to simulate intense production traffic. Tests can be run inside the project's nix-shell.
+Do not use these defaults outside a local demo.
 
-1. **Standard Ingestion Test**: Fires 500 standard logs using `k6`. The script generates logs for random fruit-named microservices (`apple-service`, `banana-service`, etc.) with precise millisecond timestamps and unique UUIDs. It directly hits Redpanda's HTTP proxy.
-   ```bash
-   nix-shell ../shell.nix --run ./scripts/test.sh
-   ```
-   **To verify RBAC Rules:** Login to the dashboard as `eng1` or `eng2` and observe that the real-time stream and historical logs *only* display logs for the specific fruit microservices that the engineer is authorized to view.
+## Topics
 
-2. **Extreme Load Test**: Fires 1 Million logs in massive bursts to test the architecture limits. The distributed Benthos pipelines will batch-insert these securely into ClickHouse, while the Web Server safely consumes streams directly via the native Kafka topics.
-   ```bash
-   nix-shell ../shell.nix --run ./scripts/test-extreme.sh
-   ```
+The code expects these Redpanda topics:
 
-3. **Single Alert Test**: Fires a single test log directly to the Redpanda HTTP Proxy.
-   ```bash
-   nix-shell ../shell.nix --run ./scripts/test-alert.sh
-   ```
+- `logs-ingested`
+- `logs-normalized`
+- `logs-persist`
+- `logs-classified`
+- `alerts-ingested`
+- `dlq-logs`
+- `dlq-clickhouse`
+
+Create them with:
+
+```bash
+./scripts/setup-topics.sh
+```
+
+That script currently contains redundant topic creation and should be cleaned up, but it is idempotent.
+
+## Demo And Test Scripts
+
+The scripts in `scripts/` are useful but currently need cleanup:
+
+- `test.sh` is intended to send exactly 500 logs in 2 seconds and wait for ClickHouse rows.
+- `test-extreme.sh` is intended for a larger k6 load.
+- `test-alert.sh` sends repeated critical logs.
+- `test-simple.sh` sends five example logs.
+- `verify_features.sh` checks a subset of UI/API/worker behavior.
+- `cleanup.sh` truncates ClickHouse demo tables and flushes Redis.
+
+Current caveat: several scripts post to `http://localhost:8082/topics/logs-ingested`, but `docker-compose.yml` does not publish Pandaproxy port `8082` to the host. Run those requests from inside the Redpanda container, publish Pandaproxy intentionally for a local demo, or add a real authenticated ingestion endpoint.
+
+## Known Limitations
+
+- No dedicated authenticated ingestion API is implemented. Direct Pandaproxy ingestion is not suitable as a public API.
+- Processing statuses are transient UI events, not persisted `Raw -> Normalized -> Stored` state transitions.
+- WebSocket RBAC needs tightening. Non-admin users currently subscribe to the global log topic as well as app-specific topics.
+- Alert deduplication does not match the original exact requirement. It notifies on first occurrence and threshold counts rather than producing exactly one notification for 100 identical errors within one minute.
+- ClickHouse schema and queries need tuning for application/level filters.
+- `docker-compose.yml` uses some `latest` images and does not define persistent named volumes for Redpanda, Redis, Postgres, or ClickHouse data.
+- There are stale or redundant files and scripts, including unused `.gitkeep` files in non-empty directories, a likely unused `schema.json`, and stale verification checks.

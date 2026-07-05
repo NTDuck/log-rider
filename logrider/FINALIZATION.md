@@ -27,7 +27,9 @@
 (general theme: mimic https://aws-console.dev/)
 
 - Change labels:
-- Light/Dark transition (when clicking Light/Dark mode toggle button) is not consistent
+- Light/Dark transition (when clicking Light/Dark mode toggle button) is not consistent across all components
+- Add icon log-rider.png to the left of "log-rider" label, make it transparent & properly sized
+- 
 - /dashboard:
   - next to title "log-rider" (top left) is green "Preview", change it to blue "Console" like /config and /metrics
   - remove "Streaming via WebSocket" label (make it icon only), move it next to 
