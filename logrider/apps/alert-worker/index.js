@@ -2,8 +2,16 @@ import { createClient } from 'redis';
 import { Kafka } from 'kafkajs';
 import crypto from 'crypto';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
-const REDPANDA_BROKERS = process.env.REDPANDA_BROKERS || 'redpanda:29092';
+function requiredEnv(name) {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === "") {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+const REDIS_URL = requiredEnv("REDIS_URL");
+const REDPANDA_BROKERS = requiredEnv("REDPANDA_BROKERS");
 
 const redisClient = createClient({ url: REDIS_URL });
 

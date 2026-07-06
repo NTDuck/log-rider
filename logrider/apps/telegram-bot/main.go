@@ -29,19 +29,21 @@ type UserSession struct {
 	Subscribed bool     `json:"subscribed"`
 }
 
-func main() {
-	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if botToken == "" {
-		log.Fatal("TELEGRAM_BOT_TOKEN is required")
-	}
+func RequiredEnv(name string) string {
+    value := strings.TrimSpace(os.Getenv(name))
+    if value == "" {
+        log.Fatalf("missing required environment variable: %s", name)
+    }
+    return value
+}
 
-	redisURL := os.Getenv("REDIS_URL")
-	if redisURL == "" {
-		redisURL = "redis://redis:6379"
-	}
+func main() {
+	botToken := RequiredEnv("TELEGRAM_BOT_TOKEN")
+
+	redisURL := RequiredEnv("REDIS_URL")
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
-		opts = &redis.Options{Addr: "localhost:6379"}
+		log.Fatalf("invalid REDIS_URL: %v", err)
 	}
 	rdb := redis.NewClient(opts)
 

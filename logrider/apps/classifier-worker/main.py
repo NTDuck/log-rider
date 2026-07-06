@@ -92,15 +92,21 @@ def classify_messages(messages):
         all_tags.append(tags)
     return all_tags
 
-ENABLE_ML_CLASSIFIER = os.environ.get("ENABLE_ML_CLASSIFIER", "false").lower() == "true"
+def required_env(name: str) -> str:
+    value = os.environ.get(name)
+    if value is None or value.strip() == "":
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+ENABLE_ML_CLASSIFIER = required_env("LOGRIDER_ENABLE_ML_CLASSIFIER").lower() == "true"
 
 if ENABLE_ML_CLASSIFIER:
     threading.Thread(target=load_model_in_background, daemon=True).start()
 else:
     print("ML classifier disabled. Using heuristic classifier only.")
 
-brokers = os.environ.get('REDPANDA_BROKERS', 'redpanda:29092')
-redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379')
+brokers = required_env('REDPANDA_BROKERS')
+redis_url = required_env('REDIS_URL')
 
 consumer = Consumer({
     'bootstrap.servers': brokers,
@@ -121,7 +127,7 @@ redis_client = redis.Redis.from_url(redis_url)
 
 print("Starting Python Classifier worker listening to logs.normalized...")
 
-BATCH_SIZE = int(os.environ.get("CLASSIFIER_BATCH_SIZE", 256))
+BATCH_SIZE = int(required_env("CLASSIFIER_BATCH_SIZE"))
 
 def get_consumer_lag():
     try:

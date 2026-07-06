@@ -12,18 +12,23 @@ type LogRecord = {
   Trace_ID?: string;
 };
 
-const TOPIC = process.env.INGEST_TOPIC || "logrider.logs.received.v1";
-const BROKERS = (process.env.REDPANDA_BROKERS || "redpanda:29092")
-  .split(",")
-  .map((broker) => broker.trim())
-  .filter(Boolean);
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === "") {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
 
-const HTTP_PORT = Number(process.env.HTTP_PORT || 8080);
-const GRPC_PORT = Number(process.env.GRPC_PORT || 50051);
-const INGEST_API_KEY = process.env.INGEST_API_KEY || "";
+const TOPIC = requiredEnv("INGEST_TOPIC");
+const BROKERS = requiredEnv("REDPANDA_BROKERS").split(",");
 
-const MAX_RECORDS_PER_REQUEST = Number(process.env.MAX_RECORDS_PER_REQUEST || 5000);
-const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES || 5 * 1024 * 1024);
+const HTTP_PORT = Number(requiredEnv("HTTP_PORT"));
+const GRPC_PORT = Number(requiredEnv("GRPC_PORT"));
+const INGEST_API_KEY = requiredEnv("INGEST_API_KEY");
+
+const MAX_RECORDS_PER_REQUEST = Number(requiredEnv("INGEST_MAX_RECORDS_PER_REQUEST"));
+const MAX_BODY_BYTES = Number(requiredEnv("INGEST_MAX_BODY_BYTES"));
 
 const kafka = new Kafka({
   clientId: "logrider-ingest",

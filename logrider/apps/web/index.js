@@ -11,14 +11,20 @@ const kafka = new Kafka({
   brokers: ["redpanda:29092"],
 });
 
-const PORT = process.env.SERVER_PORT || 3000;
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
-const POSTGRES_URI =
-  process.env.POSTGRES_URI ||
-  "postgres://logrider:password@postgres:5432/logrider";
-const CLICKHOUSE_HOST = process.env.CLICKHOUSE_HOST || "clickhouse";
-const CLICKHOUSE_USER = process.env.CLICKHOUSE_USER || "default";
-const CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_PASSWORD || "password";
+function requiredEnv(name) {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === "") {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+const PORT = requiredEnv("SERVER_PORT");
+const REDIS_URL = requiredEnv("REDIS_URL");
+const POSTGRES_URI = requiredEnv("POSTGRES_URI");
+const CLICKHOUSE_HOST = requiredEnv("CLICKHOUSE_HOST");
+const CLICKHOUSE_USER = requiredEnv("CLICKHOUSE_USER");
+const CLICKHOUSE_PASSWORD = requiredEnv("CLICKHOUSE_PASSWORD");
 const chBaseUrl = `http://${CLICKHOUSE_HOST}:8123/?user=${CLICKHOUSE_USER}&password=${CLICKHOUSE_PASSWORD}`;
 const pgClient = new Pool({ connectionString: POSTGRES_URI });
 pgClient.on("error", (err) =>

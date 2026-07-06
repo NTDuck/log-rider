@@ -1,18 +1,26 @@
 import { Kafka } from "kafkajs";
 import { createClient } from "@clickhouse/client";
 
-const KAFKA_BROKERS = (process.env.REDPANDA_BROKERS || "localhost:29092").split(",");
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === "") {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+const KAFKA_BROKERS = requiredEnv("REDPANDA_BROKERS").split(",");
 const TOPIC_IN = "logrider.logs.persistence-requested.v1";
 const DLQ_TOPIC = "logrider.dlq.log-persistence-failed.v1";
 
-const CLICKHOUSE_HOST = process.env.CLICKHOUSE_HOST || "localhost";
-const CLICKHOUSE_USER = process.env.CLICKHOUSE_USER || "default";
-const CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_PASSWORD || "password";
+const CLICKHOUSE_HOST = requiredEnv("CLICKHOUSE_HOST");
+const CLICKHOUSE_USER = requiredEnv("CLICKHOUSE_USER");
+const CLICKHOUSE_PASSWORD = requiredEnv("CLICKHOUSE_PASSWORD");
 const CLICKHOUSE_DB = "logrider_analytics";
 
-const MIN_BATCH_ROWS = parseInt(process.env.MIN_BATCH_ROWS || "10000", 10);
-const MAX_BATCH_ROWS = parseInt(process.env.MAX_BATCH_ROWS || "50000", 10);
-const MAX_BATCH_INTERVAL = parseInt(process.env.MAX_BATCH_INTERVAL || "1000", 10);
+const MIN_BATCH_ROWS = parseInt(requiredEnv("MIN_BATCH_ROWS"), 10);
+const MAX_BATCH_ROWS = parseInt(requiredEnv("MAX_BATCH_ROWS"), 10);
+const MAX_BATCH_INTERVAL = parseInt(requiredEnv("MAX_BATCH_INTERVAL"), 10);
 
 const kafka = new Kafka({ clientId: "log-event-writer", brokers: KAFKA_BROKERS });
 const consumer = kafka.consumer({ groupId: "logrider.persistence.log-events-writer.v1" });
