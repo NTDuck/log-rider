@@ -6,6 +6,7 @@
     <title>LogRider Dashboard</title>
     <link href="https://fonts.cdnfonts.com/css/amazon-ember" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/public/css/cloudscape-logrider.css" rel="stylesheet">
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -445,7 +446,7 @@
             if (localStorage.getItem('alerts_enabled') === 'false') return;
             const container = document.getElementById('global-alert-container');
             const toast = document.createElement('div');
-            toast.className = 'animate-fadeIn rounded-lg border border-red-300 bg-white px-4 py-3 text-sm shadow-lg dark:border-red-800 dark:bg-[#1c2539]';
+            toast.className = 'cloudscape-flash animate-fadeIn px-4 py-3 text-sm';
             toast.innerHTML = `
                 <p class="font-bold text-red-500">${escapeHtml(log.Application_Name || 'Unknown')} · ${escapeHtml(log.Log_Level || 'ALERT')}</p>
                 <p class="mt-1 text-aws-text dark:text-aws-textDark">${escapeHtml(log.Message || 'Alert')}</p>
