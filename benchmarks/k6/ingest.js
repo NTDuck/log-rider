@@ -3,8 +3,16 @@ import http from 'k6/http';
 import grpc from 'k6/net/grpc';
 import { check, sleep } from 'k6';
 
+function requiredEnv(name) {
+  const value = __ENV[name];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
 const client = new grpc.Client();
-client.load(['../../apps/ingest-api/proto'], 'log.proto');
+client.load(['/app/apps/ingest-api/proto'], 'log.proto');
 
 export let options = {
   scenarios: {
@@ -24,11 +32,11 @@ import { SharedArray } from 'k6/data';
 const BATCH_SIZE = parseInt(__ENV.BATCH_SIZE || '10', 10);
 const PROTOCOL = __ENV.PROTOCOL || 'http';
 const SCENARIO_NAME = __ENV.SCENARIO_NAME || 'manual';
-const HTTP_URL = __ENV.TARGET_URL || 'http://localhost:8085/v1/logs';
-const GRPC_URL = __ENV.GRPC_URL || '127.0.0.1:50051';
+const HTTP_URL = requiredEnv('TARGET_URL');
+const GRPC_URL = requiredEnv('GRPC_URL');
 
 const logsData = new SharedArray('logs', function() {
-  return JSON.parse(open('../../data/k6_logs.json'));
+  return JSON.parse(open('/app/example/data/k6_logs.json'));
 });
 
 export default function () {
@@ -73,7 +81,7 @@ export default function () {
     let res = http.post(HTTP_URL, payload, {
       headers: {
         'Content-Type': 'application/json',
-        'X-LogRider-Ingest-Key': __ENV.INGEST_API_KEY || 'logrider-ingest-key',
+        'X-LogRider-Ingest-Key': requiredEnv('INGEST_API_KEY'),
       },
     });
     check(res, { 'status was 202': (r) => r.status == 202 });

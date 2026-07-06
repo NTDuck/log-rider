@@ -27,14 +27,14 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-const TOPIC = requiredEnv("INGEST_TOPIC");
+const TOPIC = requiredEnv("KAFKA_TOPIC_LOGS_RECEIVED");
 const BROKERS = requiredEnv("REDPANDA_BROKERS").split(",");
-
-const HTTP_PORT = Number(requiredEnv("HTTP_PORT"));
-const GRPC_PORT = Number(requiredEnv("GRPC_PORT"));
+const HTTP_PORT = Number(requiredEnv("INGEST_HTTP_PORT"));
+const GRPC_PORT = Number(requiredEnv("INGEST_GRPC_PORT"));
 const INGEST_API_KEY = requiredEnv("INGEST_API_KEY");
-
-const MAX_RECORDS_PER_REQUEST = Number(requiredEnv("INGEST_MAX_RECORDS_PER_REQUEST"));
+const MAX_RECORDS_PER_REQUEST = Number(
+  requiredEnv("INGEST_MAX_RECORDS_PER_REQUEST"),
+);
 const MAX_BODY_BYTES = Number(requiredEnv("INGEST_MAX_BODY_BYTES"));
 const MAX_MESSAGE_BYTES = Number(requiredEnv("INGEST_MAX_MESSAGE_BYTES") || "8192");
 const MAX_APP_NAME_BYTES = Number(requiredEnv("INGEST_MAX_APPLICATION_NAME_BYTES") || "128");

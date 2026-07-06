@@ -31,10 +31,18 @@ fi
 
 # Check Ingest health
 echo -n "Checking Ingest health endpoint... "
-if curl -s "http://localhost:${INGEST_HTTP_PORT}/health" | grep -q "ok"; then
+ingest_health_url="http://localhost:${INGEST_HTTP_PORT}/livez"
+ingest_health_body="$(curl -fsS "$ingest_health_url" 2>&1 || true)"
+if echo "$ingest_health_body" | grep -q "alive"; then
   echo "OK"
 else
   echo "FAIL"
+  echo "URL: $ingest_health_url"
+  echo "Response/error:"
+  echo "$ingest_health_body"
+  echo
+  echo "Recent ingest-api logs:"
+  compose logs --tail=80 ingest-api || true
   exit 1
 fi
 

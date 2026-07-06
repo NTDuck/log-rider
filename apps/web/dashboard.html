@@ -477,7 +477,10 @@
             const res = await fetch('/api/logs/recent', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('logrider_token')}` }
             });
-            if (!res.ok) throw new Error('Failed to fetch logs');
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || `Failed to fetch logs: HTTP ${res.status}`);
+            }
             const { logs } = await res.json();
             logsByTraceId.clear();
             applicationFilter.innerHTML = '<option value="">All Applications</option>';
@@ -602,6 +605,9 @@
                 if (elapsed < 1000) {
                     await new Promise(resolve => setTimeout(resolve, 1000 - elapsed));
                 }
+            } catch (error) {
+                console.error("Refresh failed:", error);
+                alert(error.message || "Refresh failed");
             } finally {
                 if (icon) {
                     icon.style.animation = '';

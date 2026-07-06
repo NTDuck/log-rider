@@ -1,2 +1,0 @@
-timestamp,elapsed_ms,logs_enriched_count
-1783264044820,0,100

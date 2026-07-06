@@ -94,6 +94,10 @@ services:
     mem_limit: 256m
     volumes:
       - ./pipelines/benthos/router/unified.yaml:/benthos.yaml
+    environment:
+      REDPANDA_BROKERS: ${REDPANDA_INTERNAL_BROKERS:?REDPANDA_INTERNAL_BROKERS is required}
+    env_file:
+      - .env
     depends_on:
       redpanda:
         condition: service_healthy
@@ -125,20 +129,23 @@ services:
     build: ./apps/ingest-api
     mem_limit: 256m
     ports:
-      - "${INGEST_HTTP_PORT:-8085}:8080"
-      - "${INGEST_GRPC_PORT:-50051}:50051"
+      - "${INGEST_HTTP_PORT:?INGEST_HTTP_PORT is required}:${INGEST_HTTP_PORT:?INGEST_HTTP_PORT is required}"
+      - "${INGEST_GRPC_PORT:?INGEST_GRPC_PORT is required}:${INGEST_GRPC_PORT:?INGEST_GRPC_PORT is required}"
     environment:
-      REDPANDA_BROKERS: redpanda:29092
-      INGEST_TOPIC: ${KAFKA_TOPIC_LOGS_RECEIVED:?KAFKA_TOPIC_LOGS_RECEIVED is required}
-      HTTP_PORT: "8080"
-      GRPC_PORT: "50051"
+      REDPANDA_BROKERS: ${REDPANDA_INTERNAL_BROKERS:?REDPANDA_INTERNAL_BROKERS is required}
+      INGEST_API_KEY: ${INGEST_API_KEY:?INGEST_API_KEY is required}
+      KAFKA_TOPIC_LOGS_RECEIVED: ${KAFKA_TOPIC_LOGS_RECEIVED:?KAFKA_TOPIC_LOGS_RECEIVED is required}
+      INGEST_HTTP_PORT: ${INGEST_HTTP_PORT:?INGEST_HTTP_PORT is required}
+      INGEST_GRPC_PORT: ${INGEST_GRPC_PORT:?INGEST_GRPC_PORT is required}
+      INGEST_MAX_RECORDS_PER_REQUEST: ${INGEST_MAX_RECORDS_PER_REQUEST:?INGEST_MAX_RECORDS_PER_REQUEST is required}
+      INGEST_MAX_BODY_BYTES: ${INGEST_MAX_BODY_BYTES:?INGEST_MAX_BODY_BYTES is required}
     env_file:
       - .env
     depends_on:
       redpanda:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${INGEST_HTTP_PORT:-8085}/livez"]
+      test: ["CMD", "curl", "-f", "http://localhost:${INGEST_HTTP_PORT:?INGEST_HTTP_PORT is required}/livez"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -148,6 +155,10 @@ services:
     mem_limit: 256m
     volumes:
       - ./pipelines/benthos/persistence/tags-to-clickhouse.yaml:/benthos.yaml
+    environment:
+      REDPANDA_BROKERS: ${REDPANDA_INTERNAL_BROKERS:?REDPANDA_INTERNAL_BROKERS is required}
+    env_file:
+      - .env
     depends_on:
       redpanda:
         condition: service_healthy

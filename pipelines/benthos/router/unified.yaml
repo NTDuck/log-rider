@@ -59,5 +59,9 @@ output:
           topic: ${KAFKA_TOPIC_ALERT_CANDIDATES}
         processors:
           - mapping: |
-              root = if this.severity == "ERROR" || this.severity == "CRITICAL" { this } else { deleted() }
-              root.alert_candidate_at = now()
+              let severity = this.severity | this.Log_Level | ""
+              root = if $severity == "ERROR" || $severity == "CRITICAL" {
+                this.merge({ "alert_candidate_at": now() })
+              } else {
+                deleted()
+              }

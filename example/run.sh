@@ -20,10 +20,10 @@ EXPECTED_COUNT=$(( LOGS_PER_SECOND * ${DURATION%s} ))
 echo "Starting benchmark: $PROTOCOL, $LOGS_PER_SECOND logs/s, $DURATION, scenario=$SCENARIO"
 
 # Ensure k6 data exists
-if [ ! -f "data/k6_logs.json" ]; then
+if [ ! -f "example/data/k6_logs.json" ]; then
     echo "Creating dummy data for k6..."
-    mkdir -p data
-    cat <<EOF > data/k6_logs.json
+    mkdir -p example/data
+    cat <<EOF > example/data/k6_logs.json
 [
   {"application_name": "checkout-service", "severity": "INFO", "message": "Payment processed successfully"},
   {"application_name": "auth-service", "severity": "ERROR", "message": "Failed to validate token"},
@@ -55,7 +55,7 @@ ANALYTICS_PID=$!
 echo "Running k6..."
 docker run --rm -i \
   -v "$PWD/benchmarks:/app/benchmarks" \
-  -v "$PWD/data:/app/data" \
+  -v "$PWD/example/data:/app/example/data" \
   -v "$PWD/apps:/app/apps" \
   -e TARGET_URL="http://host.docker.internal:${INGEST_HTTP_PORT}/v1/logs" \
   -e GRPC_URL="host.docker.internal:${INGEST_GRPC_PORT}" \
@@ -74,5 +74,19 @@ sleep 5
 echo "Stopping analytics..."
 kill -SIGINT $ANALYTICS_PID || true
 wait $ANALYTICS_PID || true
+
+echo "Debug counts:"
+echo "- ingest HTTP accepted: ${ACCEPTED_COUNT:-unknown}"
+
+echo "- Kafka topics:"
+docker compose exec -T redpanda rpk topic list | grep -E 'logs-ingested|logrider.logs.received|logrider.logs.normalized|logrider.logs.persistence' || true
+
+echo "- Router logs:"
+docker compose logs --tail=50 stream-router || true
+
+echo "- Ingest logs:"
+docker compose logs --tail=50 ingest-api || true
+
+docker compose exec -T redpanda rpk group describe logrider.router.unified.v1 || true
 
 echo "Done."

@@ -873,24 +873,7 @@ bunServer = Bun.serve({
 
     if (req.method === "GET" && url.pathname === "/api/config/clickhouse-ttl") {
       try {
-        const chRes = await fetch(chBaseUrl, {
-          method: "POST",
-          body: "SHOW CREATE TABLE logrider.logs FORMAT TSV",
-        });
-        const createTableStr = await chRes.text();
-
-        let hours = await getConfigValue("retention.clickhouse_ttl_hours");
-        const matchHour = createTableStr.match(
-          /TTL event_timestamp \+ toIntervalHour\((\d+)\)/,
-        );
-        if (matchHour) {
-          hours = parseInt(matchHour[1], 10);
-        } else {
-          const matchDay = createTableStr.match(
-            /TTL event_timestamp \+ toIntervalDay\((\d+)\)/,
-          );
-          if (matchDay) hours = parseInt(matchDay[1], 10) * 24;
-        }
+        const hours = await getConfigValue("retention.clickhouse_ttl_hours");
         return Response.json({ ttl_hours: hours });
       } catch (err) {
         console.error("Error fetching CH TTL:", err);
@@ -926,10 +909,13 @@ bunServer = Bun.serve({
         const result = validateConfigValue("retention.clickhouse_ttl_hours", ttl_hours);
         if (!result.ok) return Response.json({ error: result.message }, { status: 400 });
 
+        const db = requiredEnv("CLICKHOUSE_DATABASE");
+        const logEventsTable = requiredEnv("CLICKHOUSE_TABLE_LOG_EVENTS");
+        const logTagsTable = requiredEnv("CLICKHOUSE_TABLE_LOG_EVENT_TAGS");
+
         const queries = [
-          `ALTER TABLE logrider.logs MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
-          `ALTER TABLE logrider.log_tags MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
-          `ALTER TABLE logrider.logs_enriched MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
+          `ALTER TABLE ${db}.${logEventsTable} MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
+          `ALTER TABLE ${db}.${logTagsTable} MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
         ];
 
         for (let q of queries) {
@@ -947,7 +933,10 @@ bunServer = Bun.serve({
         });
       } catch (err) {
         console.error(err);
-        return Response.json({ error: "Internal error" }, { status: 500 });
+        return Response.json(
+          { error: err?.message || "Internal error" },
+          { status: 500 },
+        );
       }
     }
 
@@ -1145,19 +1134,19 @@ bunServer = Bun.serve({
         const rows = chData.data || [];
 
         const logs = rows.map((row) => ({
-          trace_id: row.trace_id,
-          application_name: row.application_name,
-          severity: row.severity,
-          message: row.message,
-          event_timestamp: row.event_timestamp,
-          tags: row.tags || [],
+          Trace_ID: row.trace_id,
+          Application_Name: row.application_name,
+          Log_Level: row.severity,
+          Message: row.message,
+          Timestamp: row.event_timestamp,
+          Tags: row.tags || [],
         }));
 
         return Response.json({ logs });
       } catch (err) {
         console.error(err);
         return Response.json(
-          { error: "Internal error fetching recent logs" },
+          { error: err?.message || "Internal error fetching recent logs" },
           { status: 500 },
         );
       }
