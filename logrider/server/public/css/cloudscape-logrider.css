@@ -130,6 +130,11 @@ button {
   min-height: 32px;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
 button.bg-aws-primary,
 button[class*="bg-aws-primary"] {
   background: var(--cs-color-background-button-primary-default) !important;
@@ -150,6 +155,276 @@ textarea {
   border-color: var(--cs-color-border-input-default) !important;
   color: var(--cs-color-text-body-default) !important;
   min-height: 32px;
+}
+
+input[type="checkbox"] {
+  appearance: none;
+  align-items: center;
+  background: var(--cs-color-background-container-content) !important;
+  border: 1px solid var(--cs-color-border-input-default) !important;
+  border-radius: 4px !important;
+  color: var(--cs-color-background-button-primary-default);
+  cursor: pointer;
+  display: inline-grid;
+  flex: 0 0 auto;
+  height: 18px;
+  margin: 0;
+  min-height: 18px;
+  place-content: center;
+  width: 18px;
+}
+
+input[type="checkbox"]::before {
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  content: "";
+  height: 10px;
+  opacity: 0;
+  transform: rotate(45deg) scale(0.7);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  width: 5px;
+}
+
+input[type="checkbox"]:checked {
+  background: rgba(9, 114, 211, 0.12) !important;
+  border-color: var(--cs-color-background-button-primary-default) !important;
+}
+
+input[type="checkbox"]:checked::before {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+
+select.lr-native-select {
+  height: 1px !important;
+  margin: 0 !important;
+  min-height: 1px !important;
+  opacity: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 1px !important;
+}
+
+.lr-select {
+  display: inline-block;
+  min-width: 120px;
+  position: relative;
+  vertical-align: middle;
+}
+
+.lr-select.lr-select-full {
+  display: block;
+  width: 100%;
+}
+
+.lr-select-trigger {
+  align-items: center;
+  background: var(--cs-color-background-container-content);
+  border: 1px solid var(--cs-color-border-input-default);
+  border-radius: var(--cs-radius-control) !important;
+  color: var(--cs-color-text-body-default);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  gap: 10px;
+  justify-content: space-between;
+  line-height: 20px;
+  min-height: 34px;
+  min-width: 100%;
+  padding: 6px 10px 6px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.lr-select-trigger:hover {
+  border-color: var(--cs-color-focus-ring);
+}
+
+.lr-select-trigger:focus-visible {
+  outline: 2px solid var(--cs-color-focus-ring) !important;
+  outline-offset: 2px;
+}
+
+.lr-select-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lr-select-icon {
+  color: var(--cs-color-text-body-secondary);
+  flex: 0 0 auto;
+  height: 14px;
+  transition: transform 0.16s ease;
+  width: 14px;
+}
+
+.lr-select-icon .filled {
+  fill: currentColor;
+}
+
+.lr-select.open .lr-select-icon {
+  transform: rotate(180deg);
+}
+
+.lr-select-menu {
+  background: var(--cs-color-background-container-content);
+  border: 1px solid var(--cs-color-border-divider-default);
+  border-radius: var(--cs-radius-container);
+  box-shadow: 0 12px 24px rgba(0, 28, 36, 0.18);
+  left: 0;
+  margin-top: 4px;
+  max-height: 0;
+  min-width: 100%;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  top: 100%;
+  transform: translateY(-6px);
+  transform-origin: top;
+  transition: max-height 0.18s ease, opacity 0.18s ease, transform 0.18s ease;
+  z-index: 120;
+}
+
+.lr-select.open .lr-select-menu {
+  animation: lrDropdownSlideDown 0.18s ease-out;
+  max-height: 280px;
+  opacity: 1;
+  overflow-y: auto;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.lr-select.closing .lr-select-menu {
+  animation: lrDropdownSlideUp 0.14s ease-in;
+}
+
+.lr-select-option {
+  background: transparent;
+  border: 0;
+  border-radius: 0 !important;
+  color: var(--cs-color-text-body-default);
+  cursor: pointer;
+  display: block;
+  font-size: 14px;
+  line-height: 20px;
+  min-height: 0;
+  padding: 8px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.lr-select-option:hover,
+.lr-select-option.active {
+  background: rgba(9, 114, 211, 0.10);
+}
+
+.lr-select-option:disabled {
+  color: var(--cs-color-text-body-secondary);
+  cursor: not-allowed;
+}
+
+@keyframes lrDropdownSlideDown {
+  from { opacity: 0; transform: translateY(-6px); max-height: 0; }
+  to { opacity: 1; transform: translateY(0); max-height: 280px; }
+}
+
+@keyframes lrDropdownSlideUp {
+  from { opacity: 1; transform: translateY(0); max-height: 280px; }
+  to { opacity: 0; transform: translateY(-6px); max-height: 0; }
+}
+
+.lr-sticky-page-header {
+  background: var(--cs-color-background-layout-main);
+  border-bottom: 1px solid var(--cs-color-border-divider-default);
+  margin-left: -1rem;
+  margin-right: -1rem;
+  padding: 1rem;
+  position: sticky;
+  top: 53px;
+  z-index: 80;
+}
+
+@media (min-width: 640px) {
+  .lr-sticky-page-header {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .lr-sticky-page-header {
+    margin-left: -2rem;
+    margin-right: -2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+.lr-screen-dim {
+  background: rgba(15, 20, 26, 0.46);
+  backdrop-filter: blur(1px);
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  transition: opacity 0.16s ease;
+  z-index: 70;
+}
+
+.lr-screen-dim.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.lr-save-visual {
+  align-items: center;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  width: 28px;
+}
+
+.lr-save-visual.active {
+  opacity: 1;
+}
+
+.lr-save-spinner,
+.lr-save-tick {
+  display: none;
+}
+
+.lr-save-visual.spinning .lr-save-spinner {
+  animation: lrCounterClockwiseSpin 1s linear infinite;
+  border: 3px solid rgba(9, 114, 211, 0.18);
+  border-right-color: var(--cs-color-background-button-primary-default);
+  border-radius: 999px;
+  display: block;
+  height: 24px;
+  width: 24px;
+}
+
+.lr-save-visual.done .lr-save-tick {
+  align-items: center;
+  background: #16a34a;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+@keyframes lrCounterClockwiseSpin {
+  to { transform: rotate(-360deg); }
 }
 
 input:focus,
