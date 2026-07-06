@@ -160,13 +160,33 @@ services:
     build:
       context: ./workers/classifier
       dockerfile: Dockerfile
-    mem_limit: 1536m
+    profiles: ["ml"]
+    mem_limit: 2g
+    memswap_limit: 2g
     environment:
+      ENABLE_ML_CLASSIFIER: "true"
       REDPANDA_BROKERS: redpanda:29092
       REDIS_URL: redis://redis:6379
-      OMP_NUM_THREADS: "1"
-      MKL_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
       TOKENIZERS_PARALLELISM: "false"
+      MALLOC_ARENA_MAX: "2"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  classifier-worker-lite:
+    build:
+      context: ./workers/classifier
+      dockerfile: Dockerfile
+    mem_limit: 384m
+    memswap_limit: 384m
+    environment:
+      ENABLE_ML_CLASSIFIER: "false"
+      REDPANDA_BROKERS: redpanda:29092
+      REDIS_URL: redis://redis:6379
     depends_on:
       redpanda:
         condition: service_healthy

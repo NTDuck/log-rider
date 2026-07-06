@@ -73,7 +73,12 @@ def classify_messages(messages):
     return all_tags
 
 
-threading.Thread(target=load_model_in_background, daemon=True).start()
+ENABLE_ML_CLASSIFIER = os.environ.get("ENABLE_ML_CLASSIFIER", "false").lower() == "true"
+
+if ENABLE_ML_CLASSIFIER:
+    threading.Thread(target=load_model_in_background, daemon=True).start()
+else:
+    print("ML classifier disabled. Using heuristic classifier only.")
 
 brokers = os.environ.get('REDPANDA_BROKERS', 'redpanda:29092')
 redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379')
