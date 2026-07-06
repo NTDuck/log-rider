@@ -1,10 +1,14 @@
 import os
 import json
 import threading
+import hashlib
+from collections import OrderedDict
 import redis
-from confluent_kafka import Consumer, Producer
+from confluent_kafka import Consumer, Producer, TopicPartition
 from transformers import AutoTokenizer, pipeline as hf_pipeline
 from optimum.onnxruntime import ORTModelForSequenceClassification
+import time
+from datetime import datetime
 
 model_id = "kxshrx/infrnce-bert-classifier"
 classifier = None
@@ -21,6 +25,24 @@ KEYWORD_TAGS = {
     "UI": ["render", "frontend", "ui", "button", "dashboard", "browser"],
 }
 
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+
+    def get(self, key):
+        if key not in self.cache:
+            return None
+        self.cache.move_to_end(key)
+        return self.cache[key]
+
+    def put(self, key, value):
+        self.cache[key] = value
+        self.cache.move_to_end(key)
+        if len(self.cache) > self.capacity:
+            self.cache.popitem(last=False)
+
+local_cache = LRUCache(5000)
 
 def load_model_in_background():
     global classifier
@@ -40,7 +62,6 @@ def load_model_in_background():
     except Exception as exc:
         print(f"Model load failed, continuing with heuristic classifier: {exc}")
 
-
 def heuristic_tags(message):
     text = (message or "").lower()
     tags = [tag for tag, keywords in KEYWORD_TAGS.items() if any(word in text for word in keywords)]
@@ -50,7 +71,6 @@ def heuristic_tags(message):
         else:
             tags.append("General")
     return tags
-
 
 def classify_messages(messages):
     with classifier_lock:
@@ -72,7 +92,6 @@ def classify_messages(messages):
         all_tags.append(tags)
     return all_tags
 
-
 ENABLE_ML_CLASSIFIER = os.environ.get("ENABLE_ML_CLASSIFIER", "false").lower() == "true"
 
 if ENABLE_ML_CLASSIFIER:
@@ -85,24 +104,57 @@ redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379')
 
 consumer = Consumer({
     'bootstrap.servers': brokers,
-    'group.id': 'classifier-python-group',
+    'group.id': 'logrider.classification.tagger.v1',
     'auto.offset.reset': 'earliest',
-    'fetch.wait.max.ms': 500,
+    'fetch.wait.max.ms': 1000,
     'enable.auto.commit': False,
 })
-consumer.subscribe(['logs-normalized'])
+topic_in = 'logrider.logs.normalized.v1'
+consumer.subscribe([topic_in])
 
-producer = Producer({'bootstrap.servers': brokers})
+producer = Producer({
+    'bootstrap.servers': brokers,
+    'compression.codec': 'lz4',
+    'linger.ms': 10
+})
 redis_client = redis.Redis.from_url(redis_url)
 
-print("Starting Python Classifier worker listening to logs-normalized...")
+print("Starting Python Classifier worker listening to logs.normalized...")
 
-BATCH_SIZE = 32
+BATCH_SIZE = int(os.environ.get("CLASSIFIER_BATCH_SIZE", 256))
+
+def get_consumer_lag():
+    try:
+        # Approximate lag check
+        partitions = consumer.assignment()
+        if not partitions:
+            return 0
+        total_lag = 0
+        for p in partitions:
+            low, high = consumer.get_watermark_offsets(p, cached=False)
+            committed = consumer.committed([p], timeout=1.0)
+            if committed and committed[0].offset >= 0:
+                lag = high - committed[0].offset
+                total_lag += max(0, lag)
+        return total_lag
+    except Exception as e:
+        print(f"Error computing lag: {e}")
+        return 0
+
+force_heuristic = False
 
 while True:
     msgs = consumer.consume(num_messages=BATCH_SIZE, timeout=1.0)
     if not msgs:
         continue
+        
+    lag = get_consumer_lag()
+    if lag > 100000 and not force_heuristic:
+        print("Lag exceeded 100k, forcing heuristic mode")
+        force_heuristic = True
+    elif lag < 20000 and force_heuristic:
+        print("Lag recovered below 20k, re-enabling ML mode")
+        force_heuristic = False
 
     logs = []
     raw_msgs = []
@@ -113,7 +165,9 @@ while True:
         try:
             payload = msg.value().decode('utf-8')
             log = json.loads(payload)
-            if 'Trace_ID' in log:
+            trace_id = log.get('trace_id') or log.get('Trace_ID')
+            if trace_id:
+                log['trace_id'] = trace_id
                 logs.append(log)
                 raw_msgs.append(msg)
             else:
@@ -121,10 +175,10 @@ while True:
                     "topic": msg.topic(),
                     "partition": msg.partition(),
                     "offset": msg.offset(),
-                    "reason": "Missing Trace_ID",
+                    "reason": "Missing trace_id",
                     "raw_value": payload
                 }
-                producer.produce('dlq-logs', json.dumps(dlq_record).encode('utf-8'))
+                producer.produce('logrider.dlq.log-tags-write-failed.v1', json.dumps(dlq_record).encode('utf-8'))
         except Exception as e:
             print(f"Parse error: {e}")
             dlq_record = {
@@ -134,67 +188,107 @@ while True:
                 "reason": f"Parse error: {str(e)}",
                 "raw_value": msg.value().decode('utf-8', errors='replace') if msg.value() else ""
             }
-            producer.produce('dlq-logs', json.dumps(dlq_record).encode('utf-8'))
+            producer.produce('logrider.dlq.log-tags-write-failed.v1', json.dumps(dlq_record).encode('utf-8'))
 
     if not logs:
         producer.flush()
         consumer.commit(asynchronous=False)
         continue
 
-    messages = [log.get('Message', '') or '' for log in logs]
+    messages = [log.get('message', log.get('Message', '')) or '' for log in logs]
+    
+    predicted_tags = []
+    msgs_to_classify = []
+    indices_to_classify = []
 
-    max_retries = 3
-    retries = 0
-    success = False
-
-    while retries < max_retries and not success:
+    # Check cache
+    for idx, msg_text in enumerate(messages):
+        msg_hash = hashlib.sha256(msg_text.encode('utf-8')).hexdigest()
+        redis_key = f"logrider:tags:cache:{msg_hash}"
+        
+        cached = local_cache.get(msg_hash)
+        if cached:
+            predicted_tags.append(cached)
+            continue
+            
         try:
-            predicted_tags = classify_messages(messages)
+            redis_cached = redis_client.get(redis_key)
+            if redis_cached:
+                tags = json.loads(redis_cached)
+                local_cache.put(msg_hash, tags)
+                predicted_tags.append(tags)
+                continue
+        except Exception:
+            pass
 
-            for idx, log in enumerate(logs):
-                tags = predicted_tags[idx]
+        # Needs classification
+        predicted_tags.append(None)
+        msgs_to_classify.append(msg_text)
+        indices_to_classify.append(idx)
 
-                classified_ws = {
-                    'type': 'TAGS',
-                    'Trace_ID': log['Trace_ID'],
-                    'Application_Name': log.get('Application_Name', 'unknown'),
-                    'Tags': tags,
-                    'status': 'Classified'
-                }
-                redis_client.publish('ws-events', json.dumps(classified_ws))
+    # Classify
+    if msgs_to_classify:
+        max_retries = 3
+        retries = 0
+        success = False
 
-                tag_record = {
-                    'Trace_ID': log['Trace_ID'],
-                    'Application_Name': log.get('Application_Name', 'unknown'),
-                    'Tags': tags,
-                    'Timestamp': log.get('Timestamp')
-                }
-                producer.produce('logs-classified', json.dumps(tag_record).encode('utf-8'))
-
-            producer.flush()
-            consumer.commit(asynchronous=False)
-            print(f"[DEBUG] Classified batch of {len(logs)} messages")
-            success = True
-
-            # Emit health metric
-            redis_client.hset('metrics:classifier', 'health', 'OK')
-            redis_client.hincrby('metrics:classifier', 'processed', len(logs))
-
-        except Exception as e:
-            retries += 1
-            print(f"Inference error (attempt {retries}/{max_retries}): {e}")
-            if retries >= max_retries:
-                print("Max retries reached, sending batch to DLQ")
-                for msg in raw_msgs:
-                    dlq_record = {
-                        "topic": msg.topic(),
-                        "partition": msg.partition(),
-                        "offset": msg.offset(),
-                        "reason": f"Inference error: {str(e)}",
-                        "raw_value": msg.value().decode('utf-8', errors='replace') if msg.value() else ""
-                    }
-                    producer.produce('dlq-logs', json.dumps(dlq_record).encode('utf-8'))
+        while retries < max_retries and not success:
+            try:
+                if force_heuristic:
+                    new_tags = [heuristic_tags(m) for m in msgs_to_classify]
+                else:
+                    new_tags = classify_messages(msgs_to_classify)
                 
-                producer.flush()
-                consumer.commit(asynchronous=False)
-                redis_client.hset('metrics:classifier', 'health', 'ERROR')
+                for i, tag_list in enumerate(new_tags):
+                    orig_idx = indices_to_classify[i]
+                    predicted_tags[orig_idx] = tag_list
+                    msg_text = msgs_to_classify[i]
+                    msg_hash = hashlib.sha256(msg_text.encode('utf-8')).hexdigest()
+                    local_cache.put(msg_hash, tag_list)
+                    try:
+                        redis_client.setex(f"logrider:tags:cache:{msg_hash}", 21600, json.dumps(tag_list))
+                    except Exception:
+                        pass
+                success = True
+            except Exception as e:
+                retries += 1
+                print(f"Inference error (attempt {retries}/{max_retries}): {e}")
+                if retries >= max_retries:
+                    for orig_idx in indices_to_classify:
+                        predicted_tags[orig_idx] = heuristic_tags(msgs_to_classify[indices_to_classify.index(orig_idx)])
+
+    # Emit
+    try:
+        now_str = datetime.utcnow().isoformat() + "Z"
+        for idx, log in enumerate(logs):
+            tags = predicted_tags[idx]
+            app_name = log.get('application_name', log.get('Application_Name', 'unknown'))
+            trace_id = log['trace_id']
+            
+            classified_ws = {
+                'type': 'TAGS',
+                'trace_id': trace_id,
+                'application_name': app_name,
+                'tags': tags,
+                'status': 'tags_assigned',
+                'tags_assigned_at': now_str
+            }
+            # Throttling real-time updates could be done here or in web
+            redis_client.publish('logrider:realtime:log-events', json.dumps(classified_ws))
+
+            tag_record = {
+                'trace_id': trace_id,
+                'application_name': app_name,
+                'tags': tags,
+                'event_timestamp': log.get('event_timestamp', log.get('Timestamp')),
+                'tags_assigned_at': now_str
+            }
+            producer.produce('logrider.logs.tags-assigned.v1', json.dumps(tag_record).encode('utf-8'))
+
+        producer.flush()
+        consumer.commit(asynchronous=False)
+        redis_client.hset('metrics:classifier', 'health', 'OK')
+        redis_client.hincrby('metrics:classifier', 'processed', len(logs))
+
+    except Exception as e:
+        print(f"Error during emit: {e}")

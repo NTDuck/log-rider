@@ -389,13 +389,11 @@ let bunServer;
 
     await redisSubscriber.connect();
 
-    await redisSubscriber.subscribe("alerts-stream", (message) => {
+    await redisSubscriber.subscribe("logrider:realtime:alert-events", (message) => {
       if (bunServer) {
         try {
           const parsed = JSON.parse(message);
-          // Application_Name is nested inside the log object for ALERT messages
-          const appName =
-            parsed.log?.Application_Name || parsed.Application_Name;
+          const appName = parsed.log?.application_name || parsed.application_name || parsed.log?.Application_Name || parsed.Application_Name;
           const appDelivered = appName ? bunServer.publish(`alerts-stream:${appName}`, message) : 0;
           const globalDelivered = bunServer.publish(`alerts-stream:global`, message);
 
@@ -410,27 +408,42 @@ let bunServer;
       }
     });
 
-    await redisSubscriber.subscribe("ws-events", (message) => {
+    let wsEventsPerSec = 0;
+    let wsEventStats = { received: 0, normalized: 0, persisted: 0, classified: 0 };
+    setInterval(() => {
+      if (wsEventsPerSec > 1000 && bunServer) {
+        bunServer.publish(`ws-frontend:global`, JSON.stringify({
+          type: "log_batch_summary",
+          ...wsEventStats
+        }));
+      }
+      wsEventsPerSec = 0;
+      wsEventStats = { received: 0, normalized: 0, persisted: 0, classified: 0 };
+    }, 1000);
+
+    await redisSubscriber.subscribe("logrider:realtime:log-events", (message) => {
       if (bunServer) {
         try {
           const parsed = JSON.parse(message);
-          const appName =
-            parsed.Application_Name || parsed.log?.Application_Name;
+          
+          if (parsed.status === 'received' || parsed.Status === 'Ingested') wsEventStats.received++;
+          if (parsed.status === 'normalized' || parsed.Status === 'Normalized') wsEventStats.normalized++;
+          if (parsed.status === 'persisted' || parsed.Status === 'Persisted') wsEventStats.persisted++;
+          if (parsed.status === 'tags_assigned' || parsed.Status === 'Classified') wsEventStats.classified++;
+          
+          wsEventsPerSec++;
+          if (wsEventsPerSec > 1000) return; // Throttle individual messages
+
+          const appName = parsed.application_name || parsed.Application_Name || parsed.log?.Application_Name;
           const appDelivered = appName ? bunServer.publish(`ws-frontend:${appName}`, message) : 0;
           const globalDelivered = bunServer.publish(`ws-frontend:global`, message);
-
-          console.log('[WS logs]', {
-              appName,
-              appDelivered,
-              globalDelivered,
-          });
         } catch (e) {
-          console.error("Error handling ws-events message:", e);
+          console.error("Error handling logrider:realtime:log-events message:", e);
         }
       }
     });
 
-    console.log("Subscribed to Redis channels alerts-stream and ws-events");
+    console.log("Subscribed to Redis channels logrider:realtime:alert-events and logrider:realtime:log-events");
   } catch (e) {
     console.error("Initialization error:", e);
   }

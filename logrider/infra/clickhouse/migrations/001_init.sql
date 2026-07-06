@@ -1,22 +1,26 @@
 CREATE DATABASE IF NOT EXISTS logrider_analytics;
 
 CREATE TABLE IF NOT EXISTS logrider_analytics.log_ingest_null (
-    application_name String,
-    severity Enum8('DEBUG'=1, 'INFO'=2, 'WARN'=3, 'ERROR'=4, 'CRITICAL'=5),
+    application_name LowCardinality(String),
+    severity LowCardinality(String),
     message String,
-    event_timestamp DateTime64(3),
+    event_timestamp DateTime64(3, 'UTC'),
+    received_at DateTime64(3, 'UTC'),
     trace_id UUID
 ) ENGINE = Null;
 
 CREATE TABLE IF NOT EXISTS logrider_analytics.log_events (
-    application_name String,
-    severity Enum8('DEBUG'=1, 'INFO'=2, 'WARN'=3, 'ERROR'=4, 'CRITICAL'=5),
-    message String,
-    event_timestamp DateTime64(3),
+    event_date Date MATERIALIZED toDate(event_timestamp),
+    event_timestamp DateTime64(3, 'UTC') CODEC(Delta, ZSTD(3)),
+    received_at DateTime64(3, 'UTC') CODEC(Delta, ZSTD(3)),
     trace_id UUID,
-    tags Array(String)
+    application_name LowCardinality(String),
+    severity LowCardinality(String),
+    message String CODEC(ZSTD(6)),
+    tags Array(LowCardinality(String)) CODEC(ZSTD(3))
 ) ENGINE = MergeTree()
-ORDER BY (event_timestamp, trace_id)
+PARTITION BY toYYYYMM(event_timestamp)
+ORDER BY (application_name, event_timestamp, trace_id)
 TTL toDateTime(event_timestamp) + INTERVAL 7 DAY;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS logrider_analytics.mv_log_ingest_to_events
@@ -26,8 +30,9 @@ AS SELECT
     severity,
     message,
     event_timestamp,
+    received_at,
     trace_id,
-    CAST([] AS Array(String)) AS tags
+    CAST([] AS Array(LowCardinality(String))) AS tags
 FROM logrider_analytics.log_ingest_null;
 
 CREATE TABLE IF NOT EXISTS logrider_analytics.log_events_legacy (

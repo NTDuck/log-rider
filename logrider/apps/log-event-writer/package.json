@@ -1,0 +1,11 @@
+{
+  "name": "log-event-writer",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "bun run src/main.ts"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "@clickhouse/client": "^0.2.10"
+  }
+}

@@ -5,7 +5,14 @@
   "properties": {
     "trace_id": { "type": "string" },
     "application_name": { "type": "string" },
-    "message": { "type": "string" }
+    "message": { "type": "string" },
+    "event_timestamp": { "type": "string" },
+    "received_at": { "type": "string" },
+    "normalized_at": { "type": "string" },
+    "persistence_requested_at": { "type": "string" },
+    "persisted_at": { "type": "string" },
+    "tags_assigned_at": { "type": "string" },
+    "alert_processed_at": { "type": "string" }
   },
   "required": ["application_name", "message"]
 }

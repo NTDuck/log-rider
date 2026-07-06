@@ -12,7 +12,7 @@ type LogRecord = {
   Trace_ID?: string;
 };
 
-const TOPIC = process.env.INGEST_TOPIC || "logs-ingested";
+const TOPIC = process.env.INGEST_TOPIC || "logrider.logs.received.v1";
 const BROKERS = (process.env.REDPANDA_BROKERS || "redpanda:29092")
   .split(",")
   .map((broker) => broker.trim())
@@ -51,18 +51,19 @@ function normalizeLevel(value: unknown): string {
   return "INFO";
 }
 
-function normalizeRecord(record: LogRecord): Required<LogRecord> {
-  const traceId =
+function normalizeRecord(record: LogRecord): Record<string, any> {
+  const trace_id =
     record.Trace_ID && isUuid(record.Trace_ID)
       ? record.Trace_ID
       : crypto.randomUUID();
 
   return {
-    Application_Name: String(record.Application_Name || "unknown").slice(0, 255),
-    Log_Level: normalizeLevel(record.Log_Level),
-    Message: String(record.Message || "").slice(0, 8192),
-    Timestamp: record.Timestamp || new Date().toISOString(),
-    Trace_ID: traceId,
+    application_name: String(record.Application_Name || "unknown").slice(0, 255),
+    severity: normalizeLevel(record.Log_Level),
+    message: String(record.Message || "").slice(0, 8192),
+    event_timestamp: record.Timestamp || new Date().toISOString(),
+    received_at: new Date().toISOString(),
+    trace_id,
   };
 }
 
@@ -89,7 +90,7 @@ async function ingestRecords(rawRecords: unknown): Promise<number> {
     const normalized = normalizeRecord(record);
 
     return {
-      key: normalized.Trace_ID,
+      key: normalized.trace_id,
       value: JSON.stringify(normalized),
     };
   });
@@ -97,7 +98,7 @@ async function ingestRecords(rawRecords: unknown): Promise<number> {
   await producer.send({
     topic: TOPIC,
     acks: -1,
-    compression: CompressionTypes.GZIP,
+    compression: CompressionTypes.ZSTD,
     messages,
   });
 

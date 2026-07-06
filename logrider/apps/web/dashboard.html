@@ -343,9 +343,8 @@
             ensureApplicationOption(next.Application_Name);
             
             if (logsByTraceId.size > MAX_LOGS) {
-                const sorted = [...logsByTraceId.values()].sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
-                const toDelete = sorted.slice(MAX_LOGS);
-                toDelete.forEach(log => logsByTraceId.delete(log.Trace_ID));
+                const firstKey = logsByTraceId.keys().next().value;
+                logsByTraceId.delete(firstKey);
             }
             
             return next;
@@ -404,18 +403,14 @@
                 });
         }
 
+        let globalSummary = { total: 0, normalized: 0, persisted: 0, classified: 0 };
         function updateSummaryCards() {
-            const logs = [...logsByTraceId.values()];
-            const countByStatus = logs.reduce((acc, log) => {
-                acc[log.Status] = (acc[log.Status] || 0) + 1;
-                return acc;
-            }, {});
-
+            // Summary is now updated incrementally by WebSocket events to save CPU
             const ids = [
-                ['summary-total', logs.length],
-                ['summary-normalized', countByStatus.Normalized || 0],
-                ['summary-persisted', countByStatus.Persisted || 0],
-                ['summary-classified', countByStatus.Classified || 0],
+                ['summary-total', globalSummary.total],
+                ['summary-normalized', globalSummary.normalized],
+                ['summary-persisted', globalSummary.persisted],
+                ['summary-classified', globalSummary.classified],
             ];
 
             ids.forEach(([id, value]) => {
@@ -445,7 +440,7 @@
                 return;
             }
 
-            logsBody.innerHTML = visibleLogs.map((log) => `
+            logsBody.innerHTML = visibleLogs.slice(0, 100).map((log) => `
                 <tr class="animate-slideDown align-top transition-colors hover:bg-blue-50/60 dark:hover:bg-white/5">
                     <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${formatTimestamp(log.Timestamp)}</td>
                     <td class="px-5 py-3">
@@ -514,27 +509,38 @@
                     return;
                 }
 
+                if (data.type === 'log_batch_summary') {
+                    globalSummary.total += data.received || 0;
+                    globalSummary.normalized += data.normalized || 0;
+                    globalSummary.persisted += data.persisted || 0;
+                    globalSummary.classified += data.classified || 0;
+                    scheduleRender();
+                    return;
+                }
+
                 if (data.type === 'ALERT') {
                     showGlobalAlert(data.log || data, data.count || 1);
                     return;
                 }
 
                 if (data.type === 'TAGS') {
+                    globalSummary.classified++;
                     const record = upsertLog({
-                        Trace_ID: data.Trace_ID,
-                        Application_Name: data.Application_Name,
-                        Tags: data.Tags || []
+                        Trace_ID: data.trace_id || data.Trace_ID,
+                        Application_Name: data.application_name || data.Application_Name,
+                        Tags: data.tags || data.Tags || []
                     });
                     if (!record) return;
-                    applyStatusTransition(record.Trace_ID, 'Classified', data.Tags || []);
+                    applyStatusTransition(record.Trace_ID, 'Classified', data.tags || data.Tags || []);
                     scheduleRender();
                     return;
                 }
 
-                if (data.Trace_ID && data.Status === 'Normalized') {
+                if ((data.Trace_ID || data.trace_id) && (data.Status === 'Normalized' || data.status === 'normalized')) {
+                    globalSummary.normalized++;
                     const record = upsertLog({
-                        Trace_ID: data.Trace_ID,
-                        Application_Name: data.Application_Name
+                        Trace_ID: data.trace_id || data.Trace_ID,
+                        Application_Name: data.application_name || data.Application_Name
                     });
                     if (!record) return;
                     applyStatusTransition(record.Trace_ID, 'Normalized');
@@ -542,13 +548,14 @@
                     return;
                 }
 
-                if (data.Trace_ID && data.Status === 'Persisted') {
+                if ((data.Trace_ID || data.trace_id) && (data.Status === 'Persisted' || data.status === 'persisted')) {
+                    globalSummary.persisted++;
                     const record = upsertLog({
-                        Trace_ID: data.Trace_ID,
-                        Application_Name: data.Application_Name,
-                        Log_Level: data.Log_Level,
-                        Message: data.Message,
-                        Timestamp: data.Timestamp
+                        Trace_ID: data.trace_id || data.Trace_ID,
+                        Application_Name: data.application_name || data.Application_Name,
+                        Log_Level: data.severity || data.Log_Level,
+                        Message: data.message || data.Message,
+                        Timestamp: data.event_timestamp || data.Timestamp
                     });
                     if (!record) return;
                     applyStatusTransition(record.Trace_ID, 'Persisted');
@@ -556,13 +563,14 @@
                     return;
                 }
 
-                if (data.Application_Name && data.Log_Level) {
+                if ((data.Application_Name || data.application_name) && (data.Log_Level || data.severity)) {
+                    globalSummary.total++;
                     const record = upsertLog({
-                        Trace_ID: data.Trace_ID,
-                        Application_Name: data.Application_Name,
-                        Log_Level: data.Log_Level,
-                        Message: data.Message,
-                        Timestamp: data.Timestamp,
+                        Trace_ID: data.trace_id || data.Trace_ID,
+                        Application_Name: data.application_name || data.Application_Name,
+                        Log_Level: data.severity || data.Log_Level,
+                        Message: data.message || data.Message,
+                        Timestamp: data.event_timestamp || data.Timestamp,
                         Status: 'Ingested'
                     });
                     if (!record) return;

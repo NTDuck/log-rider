@@ -102,10 +102,18 @@ services:
     command: -c /benthos.yaml
 
   log-event-writer:
-    image: jeffail/benthos:4
+    build: ../../apps/log-event-writer
+    deploy:
+      replicas: 8
     mem_limit: 256m
-    volumes:
-      - ../../pipelines/benthos/persistence/logs-to-clickhouse.yaml:/benthos.yaml
+    environment:
+      REDPANDA_BROKERS: redpanda:29092
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password}
+      MIN_BATCH_ROWS: 10000
+      MAX_BATCH_ROWS: 50000
+      MAX_BATCH_INTERVAL: 1000
     depends_on:
       redpanda:
         condition: service_healthy
@@ -113,7 +121,6 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
-    command: -c /benthos.yaml
 
   ingest-api:
     build: ../../apps/ingest-api
