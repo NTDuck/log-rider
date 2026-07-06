@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogRider Metrics</title>
+    <link href="https://fonts.cdnfonts.com/css/amazon-ember" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/public/css/cloudscape-logrider.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        aws: {
+                            nav: '#0f1b2d',
+                            bg: '#f2f3f3',
+                            bgDark: '#0f1b2d',
+                            panel: '#ffffff',
+                            panelDark: '#1c2539',
+                            border: '#eaeded',
+                            borderDark: '#414d5c',
+                            text: '#16191f',
+                            textDark: '#ffffff',
+                            textMuted: '#545b64',
+                            textMutedDark: '#9ba7b6',
+                            primary: '#0972d3',
+                            primaryHover: '#035b96'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Amazon Ember"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-aws-bg font-sans text-aws-text antialiased transition-colors duration-200 dark:bg-aws-bgDark dark:text-aws-textDark">
+    <!-- TOPBAR -->
+
+    <main class="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+        <div id="login-screen" class="mx-auto mt-12 max-w-md">
+            <div class="overflow-hidden rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                <div class="border-b border-aws-border px-6 py-5 dark:border-aws-borderDark">
+                    <h2 class="text-xl font-bold">Sign in</h2>
+                    <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Enter your credentials to access metrics.</p>
+                </div>
+                <div class="px-6 py-6">
+                    <form id="login-form" class="space-y-4">
+                        <div>
+                            <label class="mb-1 block text-sm font-bold">Username</label>
+                            <input id="username" type="text" required class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-bold">Password</label>
+                            <input id="password" type="password" required class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                        </div>
+                        <button type="submit" class="w-full rounded-full bg-aws-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-aws-primaryHover">Sign in</button>
+                        <p id="login-error" class="hidden text-sm font-medium text-red-500"></p>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="metrics-screen" class="hidden space-y-6">
+            <section class="lr-sticky-page-header flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold">Operational Metrics</h1>
+                    <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Application stability, throughput, and severity breakdown across the selected window.</p>
+                </div>
+                <select id="period-selector" onchange="loadMetrics()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                    <option value="1h">Last 1 hour</option>
+                    <option value="24h">Last 24 hours</option>
+                    <option value="7d" selected>Last 7 days</option>
+                    <option value="14d">Last 14 days</option>
+                    <option value="28d">Last 28 days</option>
+                </select>
+            </section>
+
+            <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark"><p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Error Rate</p><p id="kpi-error-rate" class="mt-2 text-3xl font-bold">0%</p></div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark"><p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Request Rate</p><p id="kpi-request-rate" class="mt-2 text-3xl font-bold">0/s</p></div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark"><p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Error Count</p><p id="kpi-error-count" class="mt-2 text-3xl font-bold text-red-500">0</p></div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark"><p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Apps Affected</p><p id="kpi-apps-affected" class="mt-2 text-3xl font-bold">0</p></div>
+            </section>
+
+            <section class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+                <div class="space-y-6">
+                    <div class="rounded-lg border border-aws-border bg-aws-panel p-5 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                        <div class="mb-4">
+                            <h2 class="text-lg font-bold">Error Rate Over Time</h2>
+                            <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark">Per-application error rate trend across the selected window.</p>
+                        </div>
+                        <div class="h-[340px]"><canvas id="line-chart"></canvas></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                        <div class="rounded-lg border border-aws-border bg-aws-panel p-5 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark lg:col-span-2">
+                            <div class="mb-4">
+                                <h2 class="text-lg font-bold">Least Stable Applications</h2>
+                                <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark">Sorted by total error count descending. Click a bar for drill-down.</p>
+                            </div>
+                            <div class="h-[320px]"><canvas id="bar-chart"></canvas></div>
+                        </div>
+
+                        <div class="rounded-lg border border-aws-border bg-aws-panel p-5 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                            <div class="mb-4">
+                                <h2 class="text-lg font-bold">Error Breakdown</h2>
+                                <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark">Severity mix across the selected window.</p>
+                            </div>
+                            <div class="h-[320px]"><canvas id="pie-chart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <aside class="rounded-lg border border-aws-border bg-aws-panel p-5 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <div class="mb-4">
+                        <h2 class="text-lg font-bold">Click to Drill-Down</h2>
+                        <p class="text-sm text-aws-textMuted dark:text-aws-textMutedDark">Select an application from the charts to inspect its detailed metrics.</p>
+                    </div>
+                    <div id="drilldown-panel" class="space-y-4 text-sm text-aws-textMuted dark:text-aws-textMutedDark">
+                        <p>No application selected.</p>
+                    </div>
+                </aside>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        let lineChart;
+        let barChart;
+        let pieChart;
+        let healthRows = [];
+        let overviewApps = [];
+        let overviewLevels = [];
+
+        function initTheme() {
+            const darkIcon = document.getElementById('theme-toggle-dark-icon');
+            const lightIcon = document.getElementById('theme-toggle-light-icon');
+            const prefersDark = localStorage.getItem('color-theme') === 'dark'
+                || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.classList.toggle('dark', prefersDark);
+            darkIcon?.classList.toggle('hidden', !document.documentElement.classList.contains('dark'));
+            lightIcon?.classList.toggle('hidden', document.documentElement.classList.contains('dark'));
+
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const nextDark = !document.documentElement.classList.contains('dark');
+                document.documentElement.classList.toggle('dark', nextDark);
+                localStorage.setItem('color-theme', nextDark ? 'dark' : 'light');
+                darkIcon?.classList.toggle('hidden', !nextDark);
+                lightIcon?.classList.toggle('hidden', nextDark);
+                renderCharts();
+            });
+        }
+
+        function chartColors() {
+            const dark = document.documentElement.classList.contains('dark');
+            return {
+                tick: dark ? '#9ba7b6' : '#545b64',
+                grid: dark ? '#414d5c' : '#eaeded',
+                legend: dark ? '#ffffff' : '#16191f',
+            };
+        }
+
+        function setTopbar() {
+            if (typeof syncTopbarUser === 'function') syncTopbarUser();
+        }
+
+        function parseUtcDate(value) {
+            let str = String(value);
+            if (!str.endsWith('Z') && str.length > 10) {
+                str = str.replace(' ', 'T');
+                if (!str.endsWith('Z')) str += 'Z';
+            }
+            return new Date(str);
+        }
+
+        function getWindowHours(period) {
+            return { '1h': 1, '24h': 24, '7d': 168, '14d': 336, '28d': 672 }[period] || 24;
+        }
+
+        function updateKpis(period) {
+            const totalLogs = overviewApps.reduce((sum, row) => sum + Number(row.total_count || 0), 0);
+            const errorCount = overviewApps.reduce((sum, row) => sum + Number(row.error_count || 0) + Number(row.critical_count || 0), 0);
+            const appsAffected = overviewApps.filter((row) => Number(row.error_count || 0) + Number(row.critical_count || 0) > 0).length;
+            const errorRate = totalLogs > 0 ? ((errorCount / totalLogs) * 100).toFixed(2) : '0.00';
+            const requestRate = (totalLogs / (getWindowHours(period) * 3600)).toFixed(2);
+
+            document.getElementById('kpi-error-rate').textContent = `${errorRate}%`;
+            document.getElementById('kpi-request-rate').textContent = `${requestRate}/s`;
+            document.getElementById('kpi-error-count').textContent = errorCount;
+            document.getElementById('kpi-apps-affected').textContent = appsAffected;
+        }
+
+        function renderCharts() {
+            const colors = chartColors();
+            const hourLabels = [...new Set(healthRows.map((row) => parseUtcDate(row.hour).toLocaleString('en-CA', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })))];
+            const apps = [...new Set(healthRows.map((row) => row.Application_Name))];
+            const palette = ['#0972d3', '#e11d48', '#7c3aed', '#059669', '#ea580c', '#0f766e', '#1d4ed8'];
+
+            const lineData = {
+                labels: hourLabels,
+                datasets: apps.map((app, index) => ({
+                    label: app,
+                    data: hourLabels.map((label) => {
+                        const match = healthRows.find((row) =>
+                            row.Application_Name === app &&
+                            parseUtcDate(row.hour).toLocaleString('en-CA', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) === label
+                        );
+                        return match ? Number(match.error_rate || 0) : 0;
+                    }),
+                    borderColor: palette[index % palette.length],
+                    backgroundColor: palette[index % palette.length],
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false
+                }))
+            };
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: colors.legend } } },
+                scales: {
+                    x: { ticks: { color: colors.tick }, grid: { color: colors.grid } },
+                    y: { ticks: { color: colors.tick }, grid: { color: colors.grid }, beginAtZero: true }
+                }
+            };
+
+            lineChart?.destroy();
+            lineChart = new Chart(document.getElementById('line-chart'), {
+                type: 'line',
+                data: lineData,
+                options: commonOptions
+            });
+
+            const sortedApps = [...overviewApps].sort((a, b) =>
+                (Number(b.error_count || 0) + Number(b.critical_count || 0))
+                - (Number(a.error_count || 0) + Number(a.critical_count || 0))
+            );
+
+            barChart?.destroy();
+            barChart = new Chart(document.getElementById('bar-chart'), {
+                type: 'bar',
+                data: {
+                    labels: sortedApps.map((row) => row.Application_Name),
+                    datasets: [{
+                        label: 'Errors',
+                        data: sortedApps.map((row) => Number(row.error_count || 0) + Number(row.critical_count || 0)),
+                        backgroundColor: '#0972d3',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    onClick: (_, elements) => {
+                        if (!elements.length) return;
+                        const app = sortedApps[elements[0].index].Application_Name;
+                        renderDrilldown(app);
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            pieChart?.destroy();
+            pieChart = new Chart(document.getElementById('pie-chart'), {
+                type: 'pie',
+                data: {
+                    labels: overviewLevels.map((row) => row.Log_Level),
+                    datasets: [{
+                        data: overviewLevels.map((row) => Number(row.count || 0)),
+                        backgroundColor: ['#f97316', '#dc2626']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: colors.legend } } }
+                }
+            });
+
+            if (sortedApps.length) renderDrilldown(sortedApps[0].Application_Name);
+            else document.getElementById('drilldown-panel').innerHTML = '<p>No application selected.</p>';
+        }
+
+        function renderDrilldown(appName) {
+            const summary = overviewApps.find((row) => row.Application_Name === appName);
+            const series = healthRows.filter((row) => row.Application_Name === appName);
+            const latest = series[series.length - 1];
+            const panel = document.getElementById('drilldown-panel');
+
+            panel.innerHTML = `
+                <div class="rounded-lg border border-aws-border bg-gray-50 p-4 dark:border-aws-borderDark dark:bg-black/20">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Application</p>
+                    <p class="mt-2 text-lg font-bold text-aws-text dark:text-aws-textDark">${appName}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="rounded-lg border border-aws-border p-4 dark:border-aws-borderDark">
+                        <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Total Logs</p>
+                        <p class="mt-2 text-2xl font-bold text-aws-text dark:text-aws-textDark">${Number(summary?.total_count || 0)}</p>
+                    </div>
+                    <div class="rounded-lg border border-aws-border p-4 dark:border-aws-borderDark">
+                        <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Errors</p>
+                        <p class="mt-2 text-2xl font-bold text-red-500">${Number(summary?.error_count || 0) + Number(summary?.critical_count || 0)}</p>
+                    </div>
+                    <div class="rounded-lg border border-aws-border p-4 dark:border-aws-borderDark">
+                        <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Critical</p>
+                        <p class="mt-2 text-2xl font-bold text-orange-500">${Number(summary?.critical_count || 0)}</p>
+                    </div>
+                    <div class="rounded-lg border border-aws-border p-4 dark:border-aws-borderDark">
+                        <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Latest Error Rate</p>
+                        <p class="mt-2 text-2xl font-bold text-aws-text dark:text-aws-textDark">${latest ? Number(latest.error_rate || 0).toFixed(2) : '0.00'}%</p>
+                    </div>
+                </div>
+                <div class="rounded-lg border border-aws-border p-4 dark:border-aws-borderDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Recent Points</p>
+                    <div class="mt-3 space-y-2">
+                        ${series.slice(-6).map((row) => `
+                            <div class="flex items-center justify-between rounded bg-gray-50 px-3 py-2 dark:bg-black/20">
+                                <span>${parseUtcDate(row.hour).toLocaleString('en-CA', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                                <span class="font-bold text-aws-text dark:text-aws-textDark">${Number(row.error_rate || 0).toFixed(2)}%</span>
+                            </div>
+                        `).join('') || '<p>No recent points.</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadMetrics() {
+            const period = document.getElementById('period-selector').value;
+            const token = localStorage.getItem('logrider_token');
+            const [healthRes, overviewRes] = await Promise.all([
+                fetch(`/api/analytics/health?period=${period}`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`/api/analytics/overview?period=${period}`, { headers: { Authorization: `Bearer ${token}` } }),
+            ]);
+
+            const healthJson = await healthRes.json();
+            const overviewJson = await overviewRes.json();
+            healthRows = healthJson.data || [];
+            overviewApps = overviewJson.apps || [];
+            overviewLevels = overviewJson.levels || [];
+            updateKpis(period);
+            renderCharts();
+        }
+
+        async function showMetrics() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('metrics-screen').classList.remove('hidden');
+            setTopbar();
+            await loadMetrics();
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+            errorEl.classList.add('hidden');
+
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                errorEl.textContent = data.error || 'Login failed';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            localStorage.setItem('logrider_token', data.token);
+            localStorage.setItem('logrider_role', data.role);
+            localStorage.setItem('logrider_username', username);
+            await showMetrics();
+        });
+
+        window.logout = function() {
+            localStorage.removeItem('logrider_token');
+            localStorage.removeItem('logrider_role');
+            localStorage.removeItem('logrider_username');
+            window.location.reload();
+        };
+
+        initTheme();
+        if (localStorage.getItem('logrider_token')) {
+            showMetrics().catch(console.error);
+        }
+    </script>
+</body>
+</html>

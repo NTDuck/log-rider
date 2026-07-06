@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "LogEntry",
+  "fields": [
+    { "name": "Application_Name", "type": "string" },
+    {
+      "name": "Log_Level",
+      "type": {
+        "type": "enum",
+        "name": "LogLevel",
+        "symbols": ["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"]
+      }
+    },
+    { "name": "Message", "type": "string" },
+    { "name": "Timestamp", "type": "string" },
+    { "name": "Trace_ID", "type": "string" }
+  ]
+}

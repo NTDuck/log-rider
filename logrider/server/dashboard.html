@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogRider Dashboard</title>
+    <link href="https://fonts.cdnfonts.com/css/amazon-ember" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/public/css/cloudscape-logrider.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        aws: {
+                            nav: '#0f1b2d',
+                            bg: '#f2f3f3',
+                            bgDark: '#0f1b2d',
+                            panel: '#ffffff',
+                            panelDark: '#1c2539',
+                            border: '#eaeded',
+                            borderDark: '#414d5c',
+                            text: '#16191f',
+                            textDark: '#ffffff',
+                            textMuted: '#545b64',
+                            textMutedDark: '#9ba7b6',
+                            primary: '#0972d3',
+                            primaryHover: '#035b96',
+                            linkDark: '#44b9ff'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Amazon Ember"', 'sans-serif'],
+                        mono: ['Menlo', 'Monaco', 'Consolas', '"Courier New"', 'monospace']
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        slideDown: { '0%': { opacity: '0', transform: 'translateY(-8px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        pulseCard: { '0%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.015)' }, '100%': { transform: 'scale(1)' } }
+                    },
+                    animation: {
+                        fadeIn: 'fadeIn 0.2s ease-out',
+                        slideDown: 'slideDown 0.2s ease-out',
+                        pulseCard: 'pulseCard 0.25s ease-out'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .logs-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .logs-scroll::-webkit-scrollbar-track { background: transparent; }
+        .logs-scroll::-webkit-scrollbar-thumb { background: #aab7b8; border-radius: 999px; }
+        .dark .logs-scroll::-webkit-scrollbar-thumb { background: #545b64; }
+    </style>
+</head>
+<body class="bg-aws-bg font-sans text-aws-text antialiased transition-colors duration-200 dark:bg-aws-bgDark dark:text-aws-textDark h-screen flex flex-col overflow-hidden">
+    <!-- TOPBAR -->
+
+    <div id="global-alert-container" class="pointer-events-none fixed bottom-4 right-4 z-[9999] flex max-w-sm flex-col-reverse gap-2"></div>
+
+    <main class="mx-auto max-w-[1400px] w-full px-4 py-8 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div id="login-screen" class="mx-auto mt-12 max-w-md">
+            <div class="overflow-hidden rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                <div class="border-b border-aws-border px-6 py-5 dark:border-aws-borderDark">
+                    <h2 class="text-xl font-bold">Sign in</h2>
+                    <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Enter your credentials to access the dashboard.</p>
+                </div>
+                <div class="px-6 py-6">
+                    <form id="login-form" class="space-y-4">
+                        <div>
+                            <label class="mb-1 block text-sm font-bold">Username</label>
+                            <input id="username" type="text" required class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-bold">Password</label>
+                            <input id="password" type="password" required class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                        </div>
+                        <button type="submit" class="w-full rounded-full bg-aws-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-aws-primaryHover">Sign in</button>
+                        <p id="login-error" class="hidden text-sm font-medium text-red-500"></p>
+                    </form>
+                </div>
+                <div class="border-t border-aws-border bg-gray-50 px-6 py-4 text-xs text-aws-textMuted dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
+                    <span class="font-semibold">Demo accounts:</span> Ayin/admin123 or Benjamin/eng123
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboard-screen" class="hidden flex-col space-y-6 flex-1 overflow-hidden">
+            <section class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold">Log Stream</h1>
+                    <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Live ingestion, normalization, persistence, and classification status for recent logs.</p>
+                </div>
+                <button id="refresh-btn" onclick="handleRefresh()" class="inline-flex items-center gap-2 rounded-full bg-aws-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-aws-primaryHover">
+                    <svg id="refresh-icon" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span>Refresh</span>
+                </button>
+            </section>
+
+            <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" id="summary-cards">
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Logs</p>
+                    <p id="summary-total" class="mt-2 text-3xl font-bold">0</p>
+                </div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Normalized</p>
+                    <p id="summary-normalized" class="mt-2 text-3xl font-bold text-amber-500">0</p>
+                </div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Persisted</p>
+                    <p id="summary-persisted" class="mt-2 text-3xl font-bold text-sky-500">0</p>
+                </div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Classified</p>
+                    <p id="summary-classified" class="mt-2 text-3xl font-bold text-emerald-500">0</p>
+                </div>
+            </section>
+
+            <section class="rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark flex-1 flex flex-col overflow-hidden">
+                <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                    <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+                        <div class="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(300px,1fr)_180px_180px_180px]">
+                            <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm">
+                                <svg class="w-4 h-4 text-gray-400 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                <select id="search-col" onchange="applyFilters()" class="bg-transparent text-sm font-bold text-aws-text dark:text-aws-textDark focus:outline-none cursor-pointer">
+                                    <option value="message">Message</option>
+                                    <option value="trace_id">Trace ID</option>
+                                    <option value="application">Application</option>
+                                    <option value="tags">Tags</option>
+                                </select>
+                                <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 shrink-0"></div>
+                                <input id="search-query" oninput="applyFilters()" type="text" placeholder="Search logs..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
+                            </div>
+                            <select id="application-filter" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
+                                <option value="">All Applications</option>
+                            </select>
+                            <select id="level-filter" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
+                                <option value="">All Levels</option>
+                                <option value="DEBUG">DEBUG</option>
+                                <option value="INFO">INFO</option>
+                                <option value="WARN">WARN</option>
+                                <option value="ERROR">ERROR</option>
+                                <option value="CRITICAL">CRITICAL</option>
+                            </select>
+                            <select id="status-filter" onchange="applyFilters()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
+                                <option value="">All Statuses</option>
+                                <option value="Ingested">Ingested</option>
+                                <option value="Normalized">Normalized</option>
+                                <option value="Persisted">Persisted</option>
+                                <option value="Classified">Classified</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-end">
+                            <span class="relative flex h-3 w-3">
+                                <span id="ws-ping" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                                <span id="ws-dot" class="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-auto logs-scroll">
+                    <table class="min-w-full table-fixed text-left text-sm">
+                        <thead class="sticky top-0 z-10 border-b border-aws-border bg-gray-50 text-xs font-bold uppercase text-aws-textMuted shadow-sm dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
+                            <tr>
+                                <th class="w-[170px] px-5 py-3">Timestamp</th>
+                                <th class="w-[110px] px-5 py-3">Level</th>
+                                <th class="w-[180px] px-5 py-3">Application</th>
+                                <th class="w-[220px] px-5 py-3">Trace ID</th>
+                                <th class="w-[42%] px-5 py-3">Message</th>
+                                <th class="w-[220px] px-5 py-3">Tags</th>
+                                <th class="w-[130px] px-5 py-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-body" class="divide-y divide-aws-border dark:divide-aws-borderDark"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const STATUS_RANK = { Ingested: 1, Normalized: 2, Persisted: 3, Classified: 4 };
+        const logsByTraceId = new Map();
+
+        let renderQueued = false;
+        function scheduleRender() {
+            if (renderQueued) return;
+            renderQueued = true;
+            requestAnimationFrame(() => {
+                renderQueued = false;
+                renderLogs();
+            });
+        }
+
+        const MAX_LOGS = 500;
+
+        let ws;
+
+        const loginScreen = document.getElementById('login-screen');
+        const dashboardScreen = document.getElementById('dashboard-screen');
+        const logsBody = document.getElementById('logs-body');
+        const applicationFilter = document.getElementById('application-filter');
+
+        function initTheme() {
+            const darkIcon = document.getElementById('theme-toggle-dark-icon');
+            const lightIcon = document.getElementById('theme-toggle-light-icon');
+            const prefersDark = localStorage.getItem('color-theme') === 'dark'
+                || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+            document.documentElement.classList.toggle('dark', prefersDark);
+            if (darkIcon && lightIcon) {
+                darkIcon.classList.toggle('hidden', !document.documentElement.classList.contains('dark'));
+                lightIcon.classList.toggle('hidden', document.documentElement.classList.contains('dark'));
+            }
+
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const nextDark = !document.documentElement.classList.contains('dark');
+                document.documentElement.classList.toggle('dark', nextDark);
+                localStorage.setItem('color-theme', nextDark ? 'dark' : 'light');
+                darkIcon?.classList.toggle('hidden', !nextDark);
+                lightIcon?.classList.toggle('hidden', nextDark);
+            });
+        }
+
+        function setWsIndicator(isConnected) {
+            document.getElementById('ws-dot').className = `relative inline-flex h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`;
+            document.getElementById('ws-ping').className = isConnected
+                ? 'absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75'
+                : 'hidden';
+        }
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value ?? '';
+            return div.innerHTML;
+        }
+
+        function formatTimestamp(value) {
+            let str = String(value);
+            if (!str.endsWith('Z') && str.length > 10) {
+                str = str.replace(' ', 'T');
+                if (!str.endsWith('Z')) str += 'Z';
+            }
+            const date = new Date(str);
+            if (Number.isNaN(date.getTime())) return escapeHtml(String(value || '-'));
+            return escapeHtml(date.toLocaleString('en-CA', {
+                hour12: false,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).replace(',', ''));
+        }
+
+        function levelClass(level) {
+            if (level === 'CRITICAL' || level === 'ERROR') return 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300';
+            if (level === 'WARN') return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300';
+            if (level === 'DEBUG') return 'bg-slate-200 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300';
+            return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300';
+        }
+
+        function statusClass(status) {
+            if (status === 'Classified') return 'text-emerald-500';
+            if (status === 'Persisted') return 'text-sky-500';
+            if (status === 'Normalized') return 'text-amber-500';
+            return 'text-violet-500';
+        }
+
+        function normalizeHistoricalLog(log) {
+            let ts = log.Timestamp;
+            if (ts && typeof ts === 'string' && ts.includes(' ') && !ts.includes('T')) {
+                ts = ts.replace(' ', 'T');
+                if (!ts.endsWith('Z')) ts += 'Z';
+            }
+            return {
+                Trace_ID: log.Trace_ID,
+                Application_Name: log.Application_Name || '-',
+                Log_Level: (log.Log_Level || 'INFO').toUpperCase(),
+                Message: log.Message || '',
+                Timestamp: ts,
+                Tags: Array.isArray(log.Tags) ? log.Tags : [],
+                Status: Array.isArray(log.Tags) && log.Tags.length > 0 ? 'Classified' : 'Persisted',
+                pendingClassified: false,
+                pendingTags: [],
+            };
+        }
+
+        function ensureApplicationOption(appName) {
+            if (!appName || [...applicationFilter.options].some((option) => option.value === appName)) return;
+            const option = document.createElement('option');
+            option.value = appName;
+            option.textContent = appName;
+            applicationFilter.appendChild(option);
+        }
+
+        function upsertLog(log) {
+            if (!log?.Trace_ID) return null;
+            const existing = logsByTraceId.get(log.Trace_ID);
+            const next = existing ? { ...existing } : {
+                Trace_ID: log.Trace_ID,
+                Application_Name: log.Application_Name || '-',
+                Log_Level: (log.Log_Level || 'INFO').toUpperCase(),
+                Message: log.Message || '',
+                Timestamp: log.Timestamp,
+                Tags: [],
+                Status: 'Ingested',
+                pendingClassified: false,
+                pendingTags: [],
+            };
+
+            if (log.Application_Name) next.Application_Name = log.Application_Name;
+            if (log.Log_Level) next.Log_Level = log.Log_Level.toUpperCase();
+            if (log.Message) next.Message = log.Message;
+            if (log.Timestamp) next.Timestamp = log.Timestamp;
+            if (Array.isArray(log.Tags) && log.Tags.length > 0) next.Tags = log.Tags;
+            if (log.Status) {
+                const nextRank = STATUS_RANK[log.Status] || 0;
+                const currentRank = STATUS_RANK[next.Status] || 0;
+                if (nextRank >= currentRank) next.Status = log.Status;
+            }
+
+            logsByTraceId.set(next.Trace_ID, next);
+            ensureApplicationOption(next.Application_Name);
+            return next;
+        }
+
+        function applyStatusTransition(traceId, incomingStatus, tags = []) {
+            const record = logsByTraceId.get(traceId);
+            if (!record) return;
+
+            if (incomingStatus === 'Normalized') {
+                if ((STATUS_RANK[record.Status] || 0) < STATUS_RANK.Normalized) {
+                    record.Status = 'Normalized';
+                }
+            } else if (incomingStatus === 'Persisted') {
+                if ((STATUS_RANK[record.Status] || 0) < STATUS_RANK.Persisted) {
+                    record.Status = 'Persisted';
+                }
+                if (record.pendingClassified) {
+                    record.Tags = record.pendingTags.length ? record.pendingTags : record.Tags;
+                    setTimeout(() => {
+                        const refreshed = logsByTraceId.get(traceId);
+                        if (!refreshed) return;
+                        refreshed.Status = 'Classified';
+                        scheduleRender();
+                    }, 140);
+                }
+            } else if (incomingStatus === 'Classified') {
+                if (tags.length) record.Tags = tags;
+                if ((STATUS_RANK[record.Status] || 0) >= STATUS_RANK.Persisted) {
+                    record.Status = 'Classified';
+                } else {
+                    record.pendingClassified = true;
+                    record.pendingTags = tags;
+                }
+            }
+        }
+
+        function getVisibleLogs() {
+            const query = document.getElementById('search-query').value.trim().toLowerCase();
+            const searchCol = document.getElementById('search-col').value;
+            const app = applicationFilter.value;
+            const level = document.getElementById('level-filter').value;
+            const status = document.getElementById('status-filter').value;
+
+            return [...logsByTraceId.values()]
+                .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp))
+                .filter((log) => {
+                    if (app && log.Application_Name !== app) return false;
+                    if (level && log.Log_Level !== level) return false;
+                    if (status && log.Status !== status) return false;
+                    if (!query) return true;
+                    if (searchCol === 'application') return log.Application_Name.toLowerCase().includes(query);
+                    if (searchCol === 'trace_id') return log.Trace_ID.toLowerCase().includes(query);
+                    if (searchCol === 'tags') return (log.Tags || []).some((tag) => String(tag).toLowerCase().includes(query));
+                    return log.Message.toLowerCase().includes(query);
+                });
+        }
+
+        function updateSummaryCards() {
+            const logs = [...logsByTraceId.values()];
+            const countByStatus = logs.reduce((acc, log) => {
+                acc[log.Status] = (acc[log.Status] || 0) + 1;
+                return acc;
+            }, {});
+
+            const ids = [
+                ['summary-total', logs.length],
+                ['summary-normalized', countByStatus.Normalized || 0],
+                ['summary-persisted', countByStatus.Persisted || 0],
+                ['summary-classified', countByStatus.Classified || 0],
+            ];
+
+            ids.forEach(([id, value]) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (el.textContent !== String(value)) {
+                    el.textContent = value;
+                    el.classList.remove('animate-pulseCard');
+                    void el.offsetWidth;
+                    el.classList.add('animate-pulseCard');
+                }
+            });
+        }
+
+        function renderLogs() {
+            const visibleLogs = getVisibleLogs();
+            updateSummaryCards();
+
+            if (visibleLogs.length === 0) {
+                logsBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-5 py-12 text-center text-sm text-aws-textMuted dark:text-aws-textMutedDark">
+                            No logs found.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            logsBody.innerHTML = visibleLogs.map((log) => `
+                <tr class="animate-slideDown align-top transition-colors hover:bg-blue-50/60 dark:hover:bg-white/5">
+                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${formatTimestamp(log.Timestamp)}</td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${levelClass(log.Log_Level)}">${escapeHtml(log.Log_Level)}</span>
+                    </td>
+                    <td class="px-5 py-3 text-sm">${escapeHtml(log.Application_Name)}</td>
+                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${escapeHtml(log.Trace_ID)}</td>
+                    <td class="px-5 py-3 text-sm whitespace-normal break-words">${escapeHtml(log.Message)}</td>
+                    <td class="px-5 py-3">
+                        <div class="flex flex-wrap gap-1">
+                            ${(log.Tags || []).map((tag) => `<span class="rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-medium dark:border-gray-600 dark:bg-white/10">${escapeHtml(tag)}</span>`).join('') || '<span class="text-xs text-aws-textMuted dark:text-aws-textMutedDark">-</span>'}
+                        </div>
+                    </td>
+                    <td class="px-5 py-3 text-sm font-bold ${statusClass(log.Status)}">${escapeHtml(log.Status)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function showGlobalAlert(log, count) {
+            if (localStorage.getItem('alerts_enabled') === 'false') return;
+            const container = document.getElementById('global-alert-container');
+            const toast = document.createElement('div');
+            toast.className = 'cloudscape-flash animate-fadeIn px-4 py-3 text-sm';
+            toast.innerHTML = `
+                <p class="font-bold text-red-500">${escapeHtml(log.Application_Name || 'Unknown')} · ${escapeHtml(log.Log_Level || 'ALERT')}</p>
+                <p class="mt-1 text-aws-text dark:text-aws-textDark">${escapeHtml(log.Message || 'Alert')}</p>
+                <p class="mt-1 text-xs text-aws-textMuted dark:text-aws-textMutedDark">Count: ${count || 1}</p>
+            `;
+            container.prepend(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        async function fetchHistoricalLogs() {
+            const res = await fetch('/api/logs/recent', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('logrider_token')}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch logs');
+            const { logs } = await res.json();
+            logsByTraceId.clear();
+            applicationFilter.innerHTML = '<option value="">All Applications</option>';
+            (logs || []).forEach((log) => upsertLog(normalizeHistoricalLog(log)));
+            scheduleRender();
+        }
+
+        function connectWs() {
+            if (ws) ws.close();
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`);
+
+            ws.onopen = () => {
+                setWsIndicator(true);
+                fetchHistoricalLogs().catch((error) => {
+                    console.error('Failed to backfill logs after WebSocket open:', error);
+                });
+            };
+            ws.onclose = () => {
+                setWsIndicator(false);
+                setTimeout(connectWs, 3000);
+            };
+            ws.onerror = () => setWsIndicator(false);
+            ws.onmessage = (event) => {
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch {
+                    return;
+                }
+
+                if (data.type === 'ALERT') {
+                    showGlobalAlert(data.log || data, data.count || 1);
+                    return;
+                }
+
+                if (data.type === 'TAGS') {
+                    const record = upsertLog({
+                        Trace_ID: data.Trace_ID,
+                        Application_Name: data.Application_Name,
+                        Tags: data.Tags || []
+                    });
+                    if (!record) return;
+                    applyStatusTransition(record.Trace_ID, 'Classified', data.Tags || []);
+                    scheduleRender();
+                    return;
+                }
+
+                if (data.Trace_ID && data.Status === 'Normalized') {
+                    const record = upsertLog({
+                        Trace_ID: data.Trace_ID,
+                        Application_Name: data.Application_Name
+                    });
+                    if (!record) return;
+                    applyStatusTransition(record.Trace_ID, 'Normalized');
+                    scheduleRender();
+                    return;
+                }
+
+                if (data.Trace_ID && data.Status === 'Persisted') {
+                    const record = upsertLog({
+                        Trace_ID: data.Trace_ID,
+                        Application_Name: data.Application_Name,
+                        Log_Level: data.Log_Level,
+                        Message: data.Message,
+                        Timestamp: data.Timestamp
+                    });
+                    if (!record) return;
+                    applyStatusTransition(record.Trace_ID, 'Persisted');
+                    scheduleRender();
+                    return;
+                }
+
+                if (data.Application_Name && data.Log_Level) {
+                    const record = upsertLog({
+                        Trace_ID: data.Trace_ID,
+                        Application_Name: data.Application_Name,
+                        Log_Level: data.Log_Level,
+                        Message: data.Message,
+                        Timestamp: data.Timestamp,
+                        Status: 'Ingested'
+                    });
+                    if (!record) return;
+                    scheduleRender();
+                }
+            };
+        }
+
+        function applyFilters() {
+            scheduleRender();
+        }
+
+        async function handleRefresh() {
+            const icon = document.getElementById('refresh-icon');
+            const tableContainer = document.getElementById('logs-body');
+            
+            if (icon) {
+                icon.style.animation = 'spin 1s linear infinite';
+            }
+            
+            if (tableContainer) {
+                tableContainer.classList.add('opacity-50', 'pointer-events-none', 'transition-opacity', 'duration-300');
+            }
+            
+            try {
+                const startTime = Date.now();
+                await fetchHistoricalLogs();
+                const elapsed = Date.now() - startTime;
+                if (elapsed < 1000) {
+                    await new Promise(resolve => setTimeout(resolve, 1000 - elapsed));
+                }
+            } finally {
+                if (icon) {
+                    icon.style.animation = '';
+                }
+                if (tableContainer) {
+                    tableContainer.classList.remove('opacity-50', 'pointer-events-none');
+                }
+            }
+        }
+
+        async function showDashboard() {
+            loginScreen.classList.add('hidden');
+            dashboardScreen.classList.remove('hidden');
+            dashboardScreen.classList.add('flex');
+
+            if (typeof syncTopbarUser === 'function') syncTopbarUser();
+
+            connectWs();
+
+            try {
+                await fetchHistoricalLogs();
+            } catch (error) {
+                console.error('Failed to fetch historical logs:', error);
+            }
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+            errorEl.classList.add('hidden');
+
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                errorEl.textContent = data.error || 'Login failed';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            localStorage.setItem('logrider_token', data.token);
+            localStorage.setItem('logrider_role', data.role);
+            localStorage.setItem('logrider_username', username);
+            await showDashboard();
+        });
+
+        window.logout = function() {
+            localStorage.removeItem('logrider_token');
+            localStorage.removeItem('logrider_role');
+            localStorage.removeItem('logrider_username');
+            if (ws) ws.close();
+            window.location.reload();
+        };
+
+        initTheme();
+        if (localStorage.getItem('logrider_token')) {
+            showDashboard().catch(console.error);
+        } else {
+            setWsIndicator(false);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogRider Alerts</title>
+    <link href="https://fonts.cdnfonts.com/css/amazon-ember" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/public/css/cloudscape-logrider.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        aws: {
+                            nav: '#0f1b2d',
+                            bg: '#f2f3f3',
+                            bgDark: '#0f1b2d',
+                            panel: '#ffffff',
+                            panelDark: '#1c2539',
+                            border: '#eaeded',
+                            borderDark: '#414d5c',
+                            text: '#16191f',
+                            textDark: '#ffffff',
+                            textMuted: '#545b64',
+                            textMutedDark: '#9ba7b6',
+                            primary: '#0972d3',
+                            primaryHover: '#035b96'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Amazon Ember"', 'sans-serif'],
+                        mono: ['Menlo', 'Monaco', 'Consolas', '"Courier New"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .logs-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .logs-scroll::-webkit-scrollbar-track { background: transparent; }
+        .logs-scroll::-webkit-scrollbar-thumb { background: #aab7b8; border-radius: 999px; }
+        .dark .logs-scroll::-webkit-scrollbar-thumb { background: #545b64; }
+    </style>
+</head>
+<body class="bg-aws-bg font-sans text-aws-text antialiased transition-colors duration-200 dark:bg-aws-bgDark dark:text-aws-textDark h-screen flex flex-col overflow-hidden">
+    <!-- TOPBAR -->
+
+    <main class="mx-auto max-w-[1400px] w-full px-4 py-8 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div id="login-screen" class="mx-auto mt-12 max-w-md">
+            <div class="overflow-hidden rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                <div class="border-b border-aws-border px-6 py-5 dark:border-aws-borderDark">
+                    <h2 class="text-xl font-bold">Sign in</h2>
+                    <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Enter your credentials to access alerts.</p>
+                </div>
+                <div class="px-6 py-6">
+                    <form id="login-form" class="space-y-4">
+                        <div>
+                            <label class="mb-1 block text-sm font-bold">Username</label>
+                            <input id="username" type="text" required class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-bold">Password</label>
+                            <input id="password" type="password" required class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f]">
+                        </div>
+                        <button type="submit" class="w-full rounded-full bg-aws-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-aws-primaryHover">Sign in</button>
+                        <p id="login-error" class="hidden text-sm font-medium text-red-500"></p>
+                    </form>
+                </div>
+                <div class="border-t border-aws-border bg-gray-50 px-6 py-4 text-xs text-aws-textMuted dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
+                    <span class="font-semibold">Demo accounts:</span> Ayin/admin123 or Benjamin/eng123
+                </div>
+            </div>
+        </div>
+
+        <div id="alerts-screen" class="hidden flex-col space-y-6 flex-1 overflow-hidden">
+            <section class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold">Alert Stream</h1>
+                    <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Recent and live ERROR / CRITICAL alerts grouped by application and message.</p>
+                </div>
+                <button onclick="handleRefresh()" class="inline-flex items-center gap-2 rounded-full bg-aws-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-aws-primaryHover">
+                    <svg id="refresh-icon" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span>Refresh</span>
+                </button>
+            </section>
+
+            <section class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Total Alerts</p>
+                    <p id="summary-total" class="mt-2 text-3xl font-bold">0</p>
+                </div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Critical</p>
+                    <p id="summary-critical" class="mt-2 text-3xl font-bold text-red-500">0</p>
+                </div>
+                <div class="rounded-lg border border-aws-border bg-aws-panel p-4 shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark">
+                    <p class="text-xs font-bold uppercase text-aws-textMuted dark:text-aws-textMutedDark">Unique Signatures</p>
+                    <p id="summary-unique" class="mt-2 text-3xl font-bold text-aws-primary">0</p>
+                </div>
+            </section>
+
+            <section class="rounded-lg border border-aws-border bg-aws-panel shadow-sm dark:border-aws-borderDark dark:bg-aws-panelDark flex-1 flex flex-col overflow-hidden">
+                <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                    <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+                        <div class="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(300px,1fr)_180px_180px]">
+                            <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm w-full">
+                                <svg class="w-4 h-4 text-gray-400 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                <select id="search-col" onchange="renderAlerts()" class="bg-transparent text-sm font-bold text-aws-text dark:text-aws-textDark focus:outline-none cursor-pointer">
+                                    <option value="application">Application</option>
+                                    <option value="message">Message</option>
+                                </select>
+                                <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 shrink-0"></div>
+                                <input id="search-query" type="text" oninput="renderAlerts()" placeholder="Search alerts..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
+                            </div>
+                            <select id="application-filter" onchange="renderAlerts()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
+                                <option value="">All Applications</option>
+                            </select>
+                            <select id="level-filter" onchange="renderAlerts()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
+                                <option value="">All Levels</option>
+                                <option value="ERROR">ERROR</option>
+                                <option value="CRITICAL">CRITICAL</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-end">
+                            <span class="relative flex h-3 w-3">
+                                <span id="ws-ping" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                                <span id="ws-dot" class="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-auto logs-scroll">
+                    <table class="min-w-full table-fixed text-left text-sm">
+                        <thead class="sticky top-0 z-10 border-b border-aws-border bg-gray-50 text-xs font-bold uppercase text-aws-textMuted shadow-sm dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
+                            <tr>
+                                <th class="w-[110px] px-5 py-3">Count</th>
+                                <th class="w-[120px] px-5 py-3">Level</th>
+                                <th class="w-[220px] px-5 py-3">Application</th>
+                                <th class="px-5 py-3">Message</th>
+                                <th class="w-[220px] px-5 py-3">Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alerts-body" class="divide-y divide-aws-border dark:divide-aws-borderDark"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const alertsBySignature = new Map();
+        let ws;
+
+        const loginScreen = document.getElementById('login-screen');
+        const alertsScreen = document.getElementById('alerts-screen');
+        const alertsBody = document.getElementById('alerts-body');
+        const applicationFilter = document.getElementById('application-filter');
+
+        function initTheme() {
+            const darkIcon = document.getElementById('theme-toggle-dark-icon');
+            const lightIcon = document.getElementById('theme-toggle-light-icon');
+            const prefersDark = localStorage.getItem('color-theme') === 'dark'
+                || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+            document.documentElement.classList.toggle('dark', prefersDark);
+            darkIcon?.classList.toggle('hidden', !document.documentElement.classList.contains('dark'));
+            lightIcon?.classList.toggle('hidden', document.documentElement.classList.contains('dark'));
+
+            document.getElementById('theme-toggle')?.addEventListener('click', () => {
+                const nextDark = !document.documentElement.classList.contains('dark');
+                document.documentElement.classList.toggle('dark', nextDark);
+                localStorage.setItem('color-theme', nextDark ? 'dark' : 'light');
+                darkIcon?.classList.toggle('hidden', !nextDark);
+                lightIcon?.classList.toggle('hidden', nextDark);
+            });
+        }
+
+        function setWsIndicator(isConnected) {
+            document.getElementById('ws-dot').className = `relative inline-flex h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`;
+            document.getElementById('ws-ping').className = isConnected
+                ? 'absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75'
+                : 'hidden';
+        }
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value ?? '';
+            return div.innerHTML;
+        }
+
+        function formatTimestamp(value) {
+            let str = String(value);
+            if (!str.endsWith('Z') && str.length > 10) {
+                str = str.replace(' ', 'T');
+                if (!str.endsWith('Z')) str += 'Z';
+            }
+            const date = new Date(str);
+            if (Number.isNaN(date.getTime())) return escapeHtml(String(value || '-'));
+            return escapeHtml(date.toLocaleString('en-CA', {
+                hour12: false,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).replace(',', ''));
+        }
+
+        function alertSignature(log) {
+            return `${log.Application_Name || 'unknown'}|${log.Message || ''}`;
+        }
+
+        function ensureApplicationOption(appName) {
+            if (!appName || [...applicationFilter.options].some((option) => option.value === appName)) return;
+            const option = document.createElement('option');
+            option.value = appName;
+            option.textContent = appName;
+            applicationFilter.appendChild(option);
+        }
+
+        function upsertAlert(log) {
+            const signature = alertSignature(log);
+            const existing = alertsBySignature.get(signature);
+            let ts = log.Timestamp;
+            if (ts && typeof ts === 'string' && ts.includes(' ') && !ts.includes('T')) {
+                ts = ts.replace(' ', 'T');
+                if (!ts.endsWith('Z')) ts += 'Z';
+            }
+            const next = {
+                Application_Name: log.Application_Name || 'unknown',
+                Log_Level: (log.Log_Level || 'ERROR').toUpperCase(),
+                Message: log.Message || '',
+                Timestamp: ts,
+                alert_count: Number(log.alert_count || log.count || 1),
+            };
+
+            if (existing) {
+                existing.alert_count = Math.max(existing.alert_count, next.alert_count);
+                existing.Timestamp = next.Timestamp;
+                existing.Log_Level = next.Log_Level;
+            } else {
+                alertsBySignature.set(signature, next);
+            }
+
+            ensureApplicationOption(next.Application_Name);
+        }
+
+        function getVisibleAlerts() {
+            const query = document.getElementById('search-query').value.trim().toLowerCase();
+            const searchCol = document.getElementById('search-col').value;
+            const app = applicationFilter.value;
+            const level = document.getElementById('level-filter').value;
+
+            return [...alertsBySignature.values()]
+                .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp))
+                .filter((alert) => {
+                    if (app && alert.Application_Name !== app) return false;
+                    if (level && alert.Log_Level !== level) return false;
+                    if (!query) return true;
+                    if (searchCol === 'message') return alert.Message.toLowerCase().includes(query);
+                    return alert.Application_Name.toLowerCase().includes(query);
+                });
+        }
+
+        function updateSummary() {
+            const alerts = [...alertsBySignature.values()];
+            document.getElementById('summary-total').textContent = alerts.reduce((sum, alert) => sum + alert.alert_count, 0);
+            document.getElementById('summary-critical').textContent = alerts
+                .filter((alert) => alert.Log_Level === 'CRITICAL')
+                .reduce((sum, alert) => sum + alert.alert_count, 0);
+            document.getElementById('summary-unique').textContent = alerts.length;
+        }
+
+        function renderAlerts() {
+            const alerts = getVisibleAlerts();
+            updateSummary();
+
+            if (alerts.length === 0) {
+                alertsBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-5 py-12 text-center text-sm text-aws-textMuted dark:text-aws-textMutedDark">
+                            No alerts found.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            alertsBody.innerHTML = alerts.map((alert) => `
+                <tr class="transition-colors hover:bg-blue-50/60 dark:hover:bg-white/5">
+                    <td class="px-5 py-3">
+                        <span class="inline-flex min-w-[54px] justify-center rounded-full bg-aws-primary/10 px-2 py-0.5 text-xs font-bold text-aws-primary dark:text-sky-300">x${alert.alert_count}</span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${alert.Log_Level === 'CRITICAL' ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}">${escapeHtml(alert.Log_Level)}</span>
+                    </td>
+                    <td class="px-5 py-3">${escapeHtml(alert.Application_Name)}</td>
+                    <td class="px-5 py-3 whitespace-normal break-words">${escapeHtml(alert.Message)}</td>
+                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${formatTimestamp(alert.Timestamp)}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function fetchHistoricalAlerts() {
+            const res = await fetch('/api/alerts/recent', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('logrider_token')}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch alerts');
+            const { alerts } = await res.json();
+            alertsBySignature.clear();
+            applicationFilter.innerHTML = '<option value="">All Applications</option>';
+            (alerts || []).forEach((alert) => upsertAlert(alert));
+            renderAlerts();
+        }
+
+        function connectWs() {
+            if (ws) ws.close();
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`);
+            ws.onopen = () => {
+                setWsIndicator(true);
+                fetchHistoricalAlerts().catch((error) => {
+                    console.error('Failed to backfill alerts after WebSocket open:', error);
+                });
+            };
+            ws.onclose = () => {
+                setWsIndicator(false);
+                setTimeout(connectWs, 3000);
+            };
+            ws.onerror = () => setWsIndicator(false);
+            ws.onmessage = (event) => {
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch {
+                    return;
+                }
+
+                const log = data.type === 'ALERT' ? { ...data.log, alert_count: data.count || 1 } : data;
+                if (!log?.Log_Level || (log.Log_Level !== 'ERROR' && log.Log_Level !== 'CRITICAL')) return;
+                upsertAlert(log);
+                renderAlerts();
+            };
+        }
+
+        async function handleRefresh() {
+            const icon = document.getElementById('refresh-icon');
+            const tableContainer = document.getElementById('alerts-body');
+            
+            if (icon) {
+                icon.style.animation = 'spin 1s linear infinite';
+            }
+            if (tableContainer) {
+                tableContainer.classList.add('opacity-50', 'pointer-events-none', 'transition-opacity', 'duration-300');
+            }
+            
+            try {
+                const startTime = Date.now();
+                await fetchHistoricalAlerts();
+                const elapsed = Date.now() - startTime;
+                if (elapsed < 1000) {
+                    await new Promise(resolve => setTimeout(resolve, 1000 - elapsed));
+                }
+            } finally {
+                if (icon) icon.style.animation = '';
+                if (tableContainer) tableContainer.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        async function showAlerts() {
+            loginScreen.classList.add('hidden');
+            alertsScreen.classList.remove('hidden');
+            alertsScreen.classList.add('flex');
+
+            if (typeof syncTopbarUser === 'function') syncTopbarUser();
+
+            connectWs();
+
+            try {
+                await fetchHistoricalAlerts();
+            } catch (error) {
+                console.error('Failed to fetch historical alerts:', error);
+            }
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+            errorEl.classList.add('hidden');
+
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                errorEl.textContent = data.error || 'Login failed';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            localStorage.setItem('logrider_token', data.token);
+            localStorage.setItem('logrider_role', data.role);
+            localStorage.setItem('logrider_username', username);
+            await showAlerts();
+        });
+
+        window.logout = function() {
+            localStorage.removeItem('logrider_token');
+            localStorage.removeItem('logrider_role');
+            localStorage.removeItem('logrider_username');
+            if (ws) ws.close();
+            window.location.reload();
+        };
+
+        initTheme();
+        if (localStorage.getItem('logrider_token')) {
+            showAlerts().catch(console.error);
+        } else {
+            setWsIndicator(false);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: benchmarks/k6/ingest.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 100 max VUs, 31s max duration (incl. graceful stop):
+              * constant_request_rate: 100.00 iterations/s for 1s (maxVUs: 10-100, gracefulStop: 30s)
+
+
+running (01.0s), 000/014 VUs, 91 complete and 0 interrupted iterations
+constant_request_rate   [  97% ] 000/014 VUs  1.0s/1s  100.00 iters/s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 95      94.348663/s
+    checks_succeeded...: 100.00% 95 out of 95
+    checks_failed......: 0.00%   0 out of 95
+
+    ✓ status was 202
+
+    HTTP
+    http_req_duration..............: avg=36.7ms  min=1.79ms med=7.3ms  max=180.3ms  p(90)=143.91ms p(95)=161.39ms
+      { expected_response:true }...: avg=36.7ms  min=1.79ms med=7.3ms  max=180.3ms  p(90)=143.91ms p(95)=161.39ms
+    http_req_failed................: 0.00% 0 out of 95
+    http_reqs......................: 95    94.348663/s
+
+    EXECUTION
+    dropped_iterations.............: 6     5.958863/s
+    iteration_duration.............: avg=37.66ms min=2.06ms med=7.74ms max=182.15ms p(90)=150.5ms  p(95)=164.88ms
+    iterations.....................: 95    94.348663/s
+    vus............................: 0     min=0       max=0 
+    vus_max........................: 14    min=14      max=14
+
+    NETWORK
+    data_received..................: 15 kB 15 kB/s
+    data_sent......................: 36 kB 36 kB/s
+
+
+
+
+running (01.0s), 000/014 VUs, 95 complete and 0 interrupted iterations
+constant_request_rate ✓ [ 100% ] 000/014 VUs  1s  100.00 iters/s

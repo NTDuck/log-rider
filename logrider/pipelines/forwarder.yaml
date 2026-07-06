@@ -1,0 +1,18 @@
+input:
+  kafka:
+    addresses:
+      - redpanda:29092
+    topics:
+      - alerts-ingested
+    consumer_group: "alerts_forwarder"
+
+pipeline:
+  processors:
+    - mapping: |
+        root.type = "ALERT_STREAM"
+        root.log = this
+
+output:
+  redis_pubsub:
+    url: redis://redis:6379
+    channel: alerts-stream

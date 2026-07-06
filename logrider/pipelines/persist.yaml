@@ -1,0 +1,48 @@
+input:
+  kafka:
+    addresses:
+      - redpanda:29092
+    topics:
+      - logs-persist
+    consumer_group: "logrider_persist"
+
+buffer:
+  memory:
+    limit: 67108864
+    batch_policy:
+      count: 2000
+      period: "250ms"
+    # batch_policy:
+    #   count: 500
+    #   period: "1s"
+
+output:
+  broker:
+    pattern: fan_out
+    outputs:
+      # Broadcast "Persisted" status to dashboard (each individual message, before archive)
+      - redis_pubsub:
+          url: redis://redis:6379
+          channel: ws-events
+        processors:
+          - mapping: |
+              root = this
+              root.Status = "Persisted"
+
+      # Write the batch to ClickHouse
+      - fallback:
+          - http_client:
+              # url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider.logs_enriched%20FORMAT%20JSONEachRow&user=${CLICKHOUSE_USER:default}&password=${CLICKHOUSE_PASSWORD:password}"
+              url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider.logs_enriched%20FORMAT%20JSONEachRow&async_insert=1&wait_for_async_insert=1&user=${CLICKHOUSE_USER:default}&password=${CLICKHOUSE_PASSWORD:password}"
+              verb: POST
+              headers:
+                Content-Type: application/x-ndjson
+              max_in_flight: 4
+              # max_in_flight: 1
+            processors:
+              - archive:
+                  format: lines
+          - kafka:
+              addresses:
+                - redpanda:29092
+              topic: dlq-clickhouse

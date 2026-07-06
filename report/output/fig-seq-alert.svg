@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="758" viewBox="0 0 1300 758" role="img" aria-label="ERROR/CRITICAL alert deduplication and Telegram delivery">
+<defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8 z" fill="#334155"/></marker><marker id="arrowopen" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8" fill="none" stroke="#334155" stroke-width="1.2"/></marker></defs>
+<rect x="0" y="0" width="100%" height="100%" fill="white"/>
+<text x="650.0" y="32" text-anchor="middle" font-family="Times New Roman, serif" font-size="22" font-weight="600" fill="#0f172a">ERROR/CRITICAL alert deduplication and Telegram delivery</text>
+<rect x="14.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="70.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Benthos</text>
+<text x="70.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Unified</text>
+<line x1="70.0" y1="112" x2="70.0" y2="713" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="179.71428571428572" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="235.71428571428572" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">alerts-ingested</text>
+<text x="235.71428571428572" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Topic</text>
+<line x1="235.71428571428572" y1="112" x2="235.71428571428572" y2="713" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="345.42857142857144" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="401.42857142857144" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Alert</text>
+<text x="401.42857142857144" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Worker</text>
+<line x1="401.42857142857144" y1="112" x2="401.42857142857144" y2="713" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="511.1428571428571" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="567.1428571428571" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Redis</text>
+<text x="567.1428571428571" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">State</text>
+<line x1="567.1428571428571" y1="112" x2="567.1428571428571" y2="713" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="676.8571428571429" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="732.8571428571429" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Bun Web</text>
+<text x="732.8571428571429" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Server</text>
+<line x1="732.8571428571429" y1="112" x2="732.8571428571429" y2="713" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="842.5714285714286" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="898.5714285714286" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Browser</text>
+<text x="898.5714285714286" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Alerts</text>
+<line x1="898.5714285714286" y1="112" x2="898.5714285714286" y2="713" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="1008.2857142857142" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="1064.2857142857142" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Telegram</text>
+<text x="1064.2857142857142" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Bot</text>
+<line x1="1064.2857142857142" y1="112" x2="1064.2857142857142" y2="713" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="1174.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="1230.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Telegram</text>
+<text x="1230.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">User</text>
+<line x1="1230.0" y1="112" x2="1230.0" y2="713" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<line x1="80.0" y1="136" x2="225.71428571428572" y2="136" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="84.45714285714286" y="114" width="136.8" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="152.85714285714286" y="128" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">route ERROR/CRITICAL log</text>
+<text x="76.0" y="130" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">1</text>
+<line x1="245.71428571428572" y1="178" x2="391.42857142857144" y2="178" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="264.4214285714286" y="156" width="108.3" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="318.57142857142856" y="170" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">consume alert batch</text>
+<text x="241.71428571428572" y="172" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">2</text>
+<line x1="391.42857142857144" y1="220" x2="411.42857142857144" y2="220" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="276.02857142857147" y="198" width="250.8" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="401.42857142857144" y="212" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">compute signature(application, message hash)</text>
+<text x="395.42857142857144" y="214" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">3</text>
+<line x1="411.42857142857144" y1="262" x2="557.1428571428571" y2="262" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="413.0357142857143" y="240" width="142.5" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="484.2857142857143" y="254" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">Lua/pipeline dedup update</text>
+<text x="407.42857142857144" y="256" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">4</text>
+<line x1="557.1428571428571" y1="304" x2="411.42857142857144" y2="304" stroke="#334155" stroke-width="1.25" stroke-dasharray="6 5" marker-end="url(#arrowopen)"/>
+<rect x="395.93571428571425" y="282" width="176.70000000000002" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="484.2857142857143" y="296" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">new, threshold or silent update</text>
+<text x="561.1428571428571" y="298" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">5</text>
+<line x1="411.42857142857144" y1="346" x2="557.1428571428571" y2="346" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="415.88571428571424" y="324" width="136.8" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="484.2857142857143" y="338" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">store active alert state</text>
+<text x="407.42857142857144" y="340" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">6</text>
+<line x1="411.42857142857144" y1="388" x2="557.1428571428571" y2="388" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="430.1357142857143" y="366" width="108.3" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="484.2857142857143" y="380" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">publish alert event</text>
+<text x="407.42857142857144" y="382" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">7</text>
+<line x1="577.1428571428571" y1="430" x2="722.8571428571429" y2="430" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="578.75" y="408" width="142.5" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="650.0" y="422" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">alerts-stream / ws-events</text>
+<text x="573.1428571428571" y="424" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">8</text>
+<line x1="742.8571428571429" y1="472" x2="888.5714285714286" y2="472" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="735.9142857142858" y="450" width="159.6" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="815.7142857142858" y="464" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">update alert table and popup</text>
+<text x="738.8571428571429" y="466" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">9</text>
+<line x1="411.42857142857144" y1="514" x2="557.1428571428571" y2="514" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="413.0357142857143" y="492" width="142.5" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="484.2857142857143" y="506" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">enqueue telegram_outbound</text>
+<text x="407.42857142857144" y="508" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">10</text>
+<line x1="577.1428571428571" y1="556" x2="1054.2857142857142" y2="556" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="744.4642857142857" y="534" width="142.5" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="815.7142857142857" y="548" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">outbound notification job</text>
+<text x="573.1428571428571" y="550" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">11</text>
+<line x1="1074.2857142857142" y1="598" x2="1220.0" y2="598" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="1081.5928571428572" y="576" width="131.1" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="1147.142857142857" y="590" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">send deduplicated alert</text>
+<text x="1070.2857142857142" y="592" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">12</text>
+<rect x="331.42857142857144" y="624" width="305.71428571428567" height="31" rx="7" fill="#fff7ed" stroke="#f59e0b" stroke-width="1"/>
+<text x="484.2857142857143" y="644" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">duplicate inside quiet period: update count only</text>
+</svg>

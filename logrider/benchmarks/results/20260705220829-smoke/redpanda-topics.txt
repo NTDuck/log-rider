@@ -1,0 +1,8 @@
+NAME             PARTITIONS  REPLICAS
+alerts-ingested  21          1
+dlq-clickhouse   3           1
+dlq-logs         3           1
+logs-classified  9           1
+logs-ingested    129         1
+logs-normalized  12          1
+logs-persist     9           1

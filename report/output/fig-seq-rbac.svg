@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1050" height="842" viewBox="0 0 1050 842" role="img" aria-label="Authentication, RBAC-scoped historical query and live stream filtering">
+<defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8 z" fill="#334155"/></marker><marker id="arrowopen" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8" fill="none" stroke="#334155" stroke-width="1.2"/></marker></defs>
+<rect x="0" y="0" width="100%" height="100%" fill="white"/>
+<text x="525.0" y="32" text-anchor="middle" font-family="Times New Roman, serif" font-size="22" font-weight="600" fill="#0f172a">Authentication, RBAC-scoped historical query and live stream filtering</text>
+<rect x="14.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="70.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Browser</text>
+<text x="70.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">User</text>
+<line x1="70.0" y1="112" x2="70.0" y2="797" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="241.5" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="297.5" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Bun Web</text>
+<text x="297.5" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Server</text>
+<line x1="297.5" y1="112" x2="297.5" y2="797" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="469.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="525.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">PostgreSQL</text>
+<text x="525.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Users</text>
+<line x1="525.0" y1="112" x2="525.0" y2="797" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="696.5" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="752.5" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">ClickHouse</text>
+<text x="752.5" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Logs</text>
+<line x1="752.5" y1="112" x2="752.5" y2="797" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<rect x="924.0" y="70" width="112" height="42" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="1.1"/>
+<text x="980.0" y="88" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" font-weight="600" fill="#0f172a">Redis</text>
+<text x="980.0" y="103" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" font-weight="400" fill="#0f172a">Pub/Sub</text>
+<line x1="980.0" y1="112" x2="980.0" y2="797" stroke="#94a3b8" stroke-width="1" stroke-dasharray="5 6"/>
+<line x1="80.0" y1="136" x2="287.5" y2="136" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="95.39999999999999" y="114" width="176.70000000000002" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="183.75" y="128" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">POST /login {username,password}</text>
+<text x="76.0" y="130" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">1</text>
+<line x1="307.5" y1="178" x2="515.0" y2="178" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="308.65" y="156" width="205.20000000000002" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="411.25" y="170" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">validate user, role and allowed_apps</text>
+<text x="303.5" y="172" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">2</text>
+<line x1="515.0" y1="220" x2="307.5" y2="220" stroke="#334155" stroke-width="1.25" stroke-dasharray="6 5" marker-end="url(#arrowopen)"/>
+<rect x="334.3" y="198" width="153.9" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="411.25" y="212" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">user profile and RBAC scope</text>
+<text x="519.0" y="214" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">3</text>
+<line x1="287.5" y1="262" x2="80.0" y2="262" stroke="#334155" stroke-width="1.25" stroke-dasharray="6 5" marker-end="url(#arrowopen)"/>
+<rect x="138.75" y="240" width="90" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="183.75" y="254" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">token + role</text>
+<text x="291.5" y="256" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">4</text>
+<line x1="80.0" y1="304" x2="287.5" y2="304" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="75.45" y="282" width="216.6" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="183.75" y="296" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">GET /api/logs/recent with bearer token</text>
+<text x="76.0" y="298" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">5</text>
+<line x1="307.5" y1="346" x2="515.0" y2="346" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="314.35" y="324" width="193.8" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="411.25" y="338" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">resolve role and application scope</text>
+<text x="303.5" y="340" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">6</text>
+<line x1="307.5" y1="388" x2="742.5" y2="388" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="399.6" y="366" width="250.8" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="525.0" y="380" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">admin: all apps; engineer: allowed_apps only</text>
+<text x="303.5" y="382" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">7</text>
+<line x1="742.5" y1="430" x2="307.5" y2="430" stroke="#334155" stroke-width="1.25" stroke-dasharray="6 5" marker-end="url(#arrowopen)"/>
+<rect x="480.0" y="408" width="90" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="525.0" y="422" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">recent log rows</text>
+<text x="746.5" y="424" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">8</text>
+<line x1="287.5" y1="472" x2="80.0" y2="472" stroke="#334155" stroke-width="1.25" stroke-dasharray="6 5" marker-end="url(#arrowopen)"/>
+<rect x="138.75" y="450" width="90" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="183.75" y="464" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">JSON snapshot</text>
+<text x="291.5" y="466" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">9</text>
+<line x1="80.0" y1="514" x2="287.5" y2="514" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="135.3" y="492" width="96.9" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="183.75" y="506" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">WebSocket /api/ws</text>
+<text x="76.0" y="508" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">10</text>
+<line x1="307.5" y1="556" x2="515.0" y2="556" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="362.8" y="534" width="96.9" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="411.25" y="548" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">load stream scope</text>
+<text x="303.5" y="550" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">11</text>
+<line x1="307.5" y1="598" x2="970.0" y2="598" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="547.55" y="576" width="182.4" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="638.75" y="590" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">subscribe runtime event channels</text>
+<text x="303.5" y="592" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">12</text>
+<line x1="970.0" y1="640" x2="307.5" y2="640" stroke="#334155" stroke-width="1.25" stroke-dasharray="6 5" marker-end="url(#arrowopen)"/>
+<rect x="567.5" y="618" width="142.5" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="638.75" y="632" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">lifecycle/tag/alert event</text>
+<text x="974.0" y="634" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">13</text>
+<line x1="287.5" y1="682" x2="307.5" y2="682" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="177.8" y="660" width="239.4" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="297.5" y="674" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">authorize event application before fan-out</text>
+<text x="291.5" y="676" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">14</text>
+<line x1="287.5" y1="724" x2="80.0" y2="724" stroke="#334155" stroke-width="1.25"  marker-end="url(#arrow)"/>
+<rect x="103.95" y="702" width="159.6" height="18" rx="5" fill="white" stroke="none" opacity="0.93"/>
+<text x="183.75" y="716" text-anchor="middle" font-family="Times New Roman, serif" font-size="12" fill="#0f172a">allowed realtime update only</text>
+<text x="291.5" y="718" text-anchor="middle" font-family="Times New Roman, serif" font-size="10" fill="#64748b">15</text>
+</svg>
