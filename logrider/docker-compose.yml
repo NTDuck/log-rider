@@ -1,6 +1,7 @@
 services:
   redpanda:
-    image: docker.redpanda.com/redpandadata/redpanda:v23.2.19
+    image: docker.redpanda.com/redpandadata/redpanda:v25.1.9
+    # image: docker.redpanda.com/redpandadata/redpanda:v23.2.19
     command:
       - redpanda
       - start
