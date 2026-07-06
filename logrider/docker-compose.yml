@@ -1,6 +1,6 @@
 services:
   redpanda:
-    image: docker.redpanda.com/redpandadata/redpanda:latest
+    image: docker.redpanda.com/redpandadata/redpanda:v25.1.9
     command:
       - redpanda
       - start
@@ -16,6 +16,8 @@ services:
       - --pandaproxy-addr 0.0.0.0:8082
       - --advertise-pandaproxy-addr localhost:8082
     mem_limit: 1g
+    volumes:
+      - redpanda_data_v25:/var/lib/redpanda/data
     # Redpanda ports removed to prevent unauthenticated ingress
     healthcheck:
       test:
@@ -218,3 +220,6 @@ services:
       redis:
         condition: service_healthy
     command: -c /benthos.yaml
+
+volumes:
+  redpanda_data_v25:
