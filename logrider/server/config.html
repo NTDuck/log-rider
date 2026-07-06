@@ -87,19 +87,50 @@
 
         button, a, select, input { transition: transform 0.1s, filter 0.1s; }
         button:active { transform: scale(0.95); filter: brightness(0.9); }
-        .dropdown-content { display: none; }
-        .dropdown:hover .dropdown-content { display: block; }
+        @keyframes dropdownSlideDown {
+            from { opacity: 0; transform: translateY(-6px); max-height: 0; }
+            to { opacity: 1; transform: translateY(0); max-height: 320px; }
+        }
+        @keyframes dropdownSlideUp {
+            from { opacity: 1; transform: translateY(0); max-height: 320px; }
+            to { opacity: 0; transform: translateY(-6px); max-height: 0; }
+        }
+        .dropdown-content {
+            display: block;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            pointer-events: none;
+            transform: translateY(-6px);
+            transform-origin: top;
+            transition: max-height 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
+        }
+        .dropdown:hover .dropdown-content,
+        .dropdown:focus-within .dropdown-content {
+            animation: dropdownSlideDown 0.18s ease-out;
+            max-height: 320px;
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .dropdown:not(:hover):not(:focus-within) .dropdown-content {
+            animation: dropdownSlideUp 0.14s ease-in;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200 animate-fade-in">
     <!-- TOPBAR -->
 
     <main class="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 lg:px-8 space-y-6" id="app-content">
-        <section class="flex flex-col gap-2">
-            <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark">Global Configuration</h1>
-            <p class="max-w-3xl text-sm text-aws-textMuted dark:text-aws-textMutedDark">
-                Runtime-safe controls for alert policy, Telegram delivery, query defaults, display behavior, metrics, and RBAC.
-            </p>
+        <section class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex flex-col gap-2">
+                <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark">Global Configuration</h1>
+                <p class="max-w-3xl text-sm text-aws-textMuted dark:text-aws-textMutedDark">
+                    Runtime-safe controls for alert policy, Telegram delivery, query defaults, display behavior, metrics, and RBAC.
+                </p>
+                <p id="global-config-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
+            </div>
+            <button id="global-save-btn" onclick="saveAllConfig()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save</button>
         </section>
         
         <!-- Alert Policy Panel -->
@@ -110,28 +141,37 @@
             </div>
             <div class="grid gap-5 p-5 lg:grid-cols-2">
                 <div>
-                    <label class="block text-sm font-bold mb-4">Alert deduplication TTL</label>
-                    <div class="flex items-center space-x-4 w-full">
-                        <div class="flex flex-col flex-grow items-center relative pb-6 w-full">
-                        <input type="range" id="ttl-input" min="0" max="11" step="1" class="w-full transition-colors duration-300" style="accent-color: hsl(120, 80%, 50%);">
-                            <div class="flex justify-between w-full absolute top-6 px-1 text-[11px] text-aws-textMuted dark:text-aws-textMutedDark font-mono font-bold">
-                                <span>1s</span><span>10s</span><span>30s</span><span>1m</span><span>10m</span><span>30m</span>
-                                <span>1h</span><span>3h</span><span>6h</span><span>9h</span><span>12h</span><span>24h</span>
-                            </div>
-                        </div>
-                    </div>
+                    <label for="ttl-input" class="mb-1 block text-sm font-bold">Alert deduplication TTL</label>
+                    <select id="ttl-input" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="1">1 second</option>
+                        <option value="10">10 seconds</option>
+                        <option value="30">30 seconds</option>
+                        <option value="60">1 minute</option>
+                        <option value="600">10 minutes</option>
+                        <option value="1800">30 minutes</option>
+                        <option value="3600">1 hour</option>
+                        <option value="10800">3 hours</option>
+                        <option value="21600">6 hours</option>
+                        <option value="32400">9 hours</option>
+                        <option value="43200">12 hours</option>
+                        <option value="86400">24 hours</option>
+                    </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-bold mb-4">Notification TTL</label>
-                    <div class="flex items-center space-x-4 w-full">
-                        <div class="flex flex-col flex-grow items-center relative pb-6 w-full">
-                            <input type="range" id="noti-ttl-input" min="0" max="10" step="1" class="w-full transition-colors duration-300" style="accent-color: hsl(120, 80%, 50%);">
-                            <div class="flex justify-between w-full absolute top-6 px-1 text-[11px] text-aws-textMuted dark:text-aws-textMutedDark font-mono font-bold">
-                                <span>10s</span><span>30s</span><span>1m</span><span>5m</span><span>10m</span><span>30m</span>
-                                <span>1h</span><span>3h</span><span>6h</span><span>12h</span><span>24h</span>
-                            </div>
-                        </div>
-                    </div>
+                    <label for="noti-ttl-input" class="mb-1 block text-sm font-bold">Notification TTL</label>
+                    <select id="noti-ttl-input" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="10">10 seconds</option>
+                        <option value="30">30 seconds</option>
+                        <option value="60">1 minute</option>
+                        <option value="300">5 minutes</option>
+                        <option value="600">10 minutes</option>
+                        <option value="1800">30 minutes</option>
+                        <option value="3600">1 hour</option>
+                        <option value="10800">3 hours</option>
+                        <option value="21600">6 hours</option>
+                        <option value="43200">12 hours</option>
+                        <option value="86400">24 hours</option>
+                    </select>
                 </div>
                 <div>
                     <label for="realert-threshold-input" class="mb-1 block text-sm font-bold">Re-alert threshold</label>
@@ -185,11 +225,6 @@
                     </select>
                 </div>
             </div>
-            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
-                <p id="ttl-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
-                <p id="noti-ttl-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
-                <button onclick="saveAlertPolicy()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save alert policy</button>
-            </div>
         </div>
 
         <!-- Telegram Panel -->
@@ -209,10 +244,6 @@
                         <option value="1800">30 minutes</option>
                     </select>
                 </div>
-            </div>
-            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
-                <p id="telegram-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
-                <button onclick="saveTelegramConfig()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save Telegram settings</button>
             </div>
         </div>
 
@@ -256,10 +287,6 @@
                     </select>
                 </div>
             </div>
-            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
-                <p id="ch-ttl-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
-                <button onclick="saveRetentionConfig()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save retention settings</button>
-            </div>
         </div>
 
         <!-- Metrics Panel -->
@@ -300,10 +327,6 @@
                     </div>
                 </div>
             </div>
-            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
-                <p id="metrics-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
-                <button onclick="saveMetricsConfig()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save metrics settings</button>
-            </div>
         </div>
 
         <!-- Display Panel -->
@@ -336,10 +359,6 @@
                         <option value="locale">Locale default</option>
                     </select>
                 </div>
-            </div>
-            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
-                <p id="display-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
-                <button onclick="saveDisplayConfig()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save display defaults</button>
             </div>
         </div>
 
@@ -444,6 +463,7 @@
             const el = document.getElementById(id);
             if (!el) return;
             el.value = String(value);
+            el.dataset.original = String(value);
         }
 
         function setCheckboxValue(id, value) {
@@ -472,21 +492,8 @@
         function applyRuntimeConfig(config) {
             window.runtimeConfig = config || {};
 
-            const alertIdx = alertTTLValues.indexOf(configValue('alert.dedup_ttl_seconds', 60));
-            if (alertIdx !== -1) {
-                const el = document.getElementById('ttl-input');
-                el.value = alertIdx;
-                el.dataset.original = alertIdx;
-                updateSliderColor(el);
-            }
-
-            const notiIdx = notificationTTLValues.indexOf(configValue('alert.notification_ttl_seconds', 86400));
-            if (notiIdx !== -1) {
-                const el = document.getElementById('noti-ttl-input');
-                el.value = notiIdx;
-                el.dataset.original = notiIdx;
-                updateSliderColor(el);
-            }
+            setSelectValue('ttl-input', configValue('alert.dedup_ttl_seconds', 60));
+            setSelectValue('noti-ttl-input', configValue('alert.notification_ttl_seconds', 86400));
 
             const chIdx = chTTLValues.indexOf(configValue('retention.clickhouse_ttl_hours', 168));
             if (chIdx !== -1) {
@@ -547,7 +554,7 @@
             el.classList.add('text-red-600', 'dark:text-red-400');
         }
 
-        async function patchRuntimeConfig(updates, statusId) {
+        async function patchRuntimeConfig(updates, statusId = 'global-config-status') {
             const res = await fetch('/api/config', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -566,57 +573,104 @@
             return data;
         }
 
-        async function saveAlertPolicy() {
+        function alertPolicyUpdates() {
             const severities = [
                 document.getElementById('alert-severity-error').checked ? 'ERROR' : null,
                 document.getElementById('alert-severity-critical').checked ? 'CRITICAL' : null,
             ].filter(Boolean);
 
-            await patchRuntimeConfig([
-                { key: 'alert.dedup_ttl_seconds', value: alertTTLValues[parseInt(document.getElementById('ttl-input').value, 10)] },
-                { key: 'alert.notification_ttl_seconds', value: notificationTTLValues[parseInt(document.getElementById('noti-ttl-input').value, 10)] },
+            return [
+                { key: 'alert.dedup_ttl_seconds', value: parseInt(document.getElementById('ttl-input').value, 10) },
+                { key: 'alert.notification_ttl_seconds', value: parseInt(document.getElementById('noti-ttl-input').value, 10) },
                 { key: 'alert.realert_threshold', value: parseInt(document.getElementById('realert-threshold-input').value, 10) },
                 { key: 'alert.enabled_severities', value: severities },
                 { key: 'alert.grouping_strategy', value: document.getElementById('grouping-strategy-select').value },
                 { key: 'alert.popup_default_enabled', value: document.getElementById('popup-default-enabled').checked },
                 { key: 'alert.popup_duration_ms', value: parseInt(document.getElementById('popup-duration-select').value, 10) },
                 { key: 'alert.websocket_reconnect_interval_ms', value: parseInt(document.getElementById('ws-reconnect-select').value, 10) },
-            ], 'ttl-status');
+            ];
+        }
+
+        function telegramConfigUpdates() {
+            return [
+                { key: 'telegram.enabled', value: document.getElementById('telegram-enabled').checked },
+                { key: 'telegram.link_token_ttl_seconds', value: parseInt(document.getElementById('telegram-link-ttl-select').value, 10) },
+            ];
+        }
+
+        function retentionConfigUpdates() {
+            return [
+                { key: 'query.historical_logs_lookback_hours', value: parseInt(document.getElementById('historical-lookback-select').value, 10) },
+                { key: 'dashboard.max_live_rows', value: parseInt(document.getElementById('max-live-rows-select').value, 10) },
+            ];
+        }
+
+        function metricsConfigUpdates() {
+            return [
+                { key: 'metrics.default_period', value: document.getElementById('metrics-default-period').value },
+                { key: 'metrics.enabled_periods', value: checkedValues('.metrics-period-checkbox') },
+                { key: 'metrics.high_error_rate_threshold_percent', value: Number(document.getElementById('high-error-threshold-select').value) },
+            ];
+        }
+
+        function displayConfigUpdates() {
+            return [
+                { key: 'display.default_theme', value: document.getElementById('display-theme-select').value },
+                { key: 'display.timestamp_timezone_policy', value: document.getElementById('display-timezone-select').value },
+                { key: 'display.timestamp_format', value: document.getElementById('display-timestamp-format-select').value },
+            ];
+        }
+
+        async function saveAllConfig() {
+            const button = document.getElementById('global-save-btn');
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Saving...';
+            }
+
+            try {
+                await updateChTTL({ silent: true });
+                const updates = [
+                    ...alertPolicyUpdates(),
+                    ...telegramConfigUpdates(),
+                    ...retentionConfigUpdates(),
+                    ...metricsConfigUpdates(),
+                    ...displayConfigUpdates(),
+                ];
+                await patchRuntimeConfig(updates, 'global-config-status');
+            } catch (error) {
+                showConfigError('global-config-status', error.message || 'Config update failed');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Save';
+                }
+            }
+        }
+
+        async function saveAlertPolicy() {
+            await patchRuntimeConfig(alertPolicyUpdates(), 'global-config-status');
         }
 
         async function saveTelegramConfig() {
-            await patchRuntimeConfig([
-                { key: 'telegram.enabled', value: document.getElementById('telegram-enabled').checked },
-                { key: 'telegram.link_token_ttl_seconds', value: parseInt(document.getElementById('telegram-link-ttl-select').value, 10) },
-            ], 'telegram-status');
+            await patchRuntimeConfig(telegramConfigUpdates(), 'global-config-status');
         }
 
         async function saveRetentionConfig() {
             try {
-                await updateChTTL();
-                await patchRuntimeConfig([
-                    { key: 'query.historical_logs_lookback_hours', value: parseInt(document.getElementById('historical-lookback-select').value, 10) },
-                    { key: 'dashboard.max_live_rows', value: parseInt(document.getElementById('max-live-rows-select').value, 10) },
-                ], 'ch-ttl-status');
+                await updateChTTL({ silent: true });
+                await patchRuntimeConfig(retentionConfigUpdates(), 'global-config-status');
             } catch (error) {
-                showConfigError('ch-ttl-status', error.message || 'Retention update failed');
+                showConfigError('global-config-status', error.message || 'Retention update failed');
             }
         }
 
         async function saveMetricsConfig() {
-            await patchRuntimeConfig([
-                { key: 'metrics.default_period', value: document.getElementById('metrics-default-period').value },
-                { key: 'metrics.enabled_periods', value: checkedValues('.metrics-period-checkbox') },
-                { key: 'metrics.high_error_rate_threshold_percent', value: Number(document.getElementById('high-error-threshold-select').value) },
-            ], 'metrics-status');
+            await patchRuntimeConfig(metricsConfigUpdates(), 'global-config-status');
         }
 
         async function saveDisplayConfig() {
-            await patchRuntimeConfig([
-                { key: 'display.default_theme', value: document.getElementById('display-theme-select').value },
-                { key: 'display.timestamp_timezone_policy', value: document.getElementById('display-timezone-select').value },
-                { key: 'display.timestamp_format', value: document.getElementById('display-timestamp-format-select').value },
-            ], 'display-status');
+            await patchRuntimeConfig(displayConfigUpdates(), 'global-config-status');
         }
 
         async function loadData() {
@@ -630,25 +684,13 @@
             const resTTL = await fetch('/api/config/ttl');
             if (resTTL.ok) {
                 const data = await resTTL.json();
-                const idx = alertTTLValues.indexOf(data.ttl);
-                if (idx !== -1) {
-                    const el = document.getElementById('ttl-input');
-                    el.value = idx;
-                    el.dataset.original = idx;
-                    updateSliderColor(el);
-                }
+                if (alertTTLValues.includes(data.ttl)) setSelectValue('ttl-input', data.ttl);
             }
 
             const resNotiTTL = await fetch('/api/config/noti-ttl');
             if (resNotiTTL.ok) {
                 const data = await resNotiTTL.json();
-                const idx = notificationTTLValues.indexOf(data.ttl);
-                if (idx !== -1) {
-                    const el = document.getElementById('noti-ttl-input');
-                    el.value = idx;
-                    el.dataset.original = idx;
-                    updateSliderColor(el);
-                }
+                if (notificationTTLValues.includes(data.ttl)) setSelectValue('noti-ttl-input', data.ttl);
             }
 
             const resChTTL = await fetch('/api/config/clickhouse-ttl', { headers: { 'Authorization': 'Bearer ' + token } });
@@ -684,8 +726,7 @@
         }
 
         async function updateTTL() {
-            const idx = parseInt(document.getElementById('ttl-input').value, 10);
-            const val = alertTTLValues[idx];
+            const val = parseInt(document.getElementById('ttl-input').value, 10);
             
             const res = await fetch('/api/config/ttl', {
                 method: 'POST',
@@ -695,17 +736,12 @@
             if (res.ok) {
                 const el = document.getElementById('ttl-input');
                 el.dataset.original = el.value;
-                updateSliderColor(el);
-                const p = document.getElementById('ttl-status');
-                p.innerText = 'Saved!';
-                p.classList.remove('hidden');
-                setTimeout(() => p.classList.add('hidden'), 2000);
+                showConfigStatus('global-config-status', 'Saved.');
             }
         }
 
         async function updateNotiTTL() {
-            const idx = parseInt(document.getElementById('noti-ttl-input').value, 10);
-            const val = notificationTTLValues[idx];
+            const val = parseInt(document.getElementById('noti-ttl-input').value, 10);
             
             const res = await fetch('/api/config/noti-ttl', {
                 method: 'POST',
@@ -715,15 +751,11 @@
             if (res.ok) {
                 const el = document.getElementById('noti-ttl-input');
                 el.dataset.original = el.value;
-                updateSliderColor(el);
-                const p = document.getElementById('noti-ttl-status');
-                p.innerText = 'Saved!';
-                p.classList.remove('hidden');
-                setTimeout(() => p.classList.add('hidden'), 2000);
+                showConfigStatus('global-config-status', 'Saved.');
             }
         }
 
-        async function updateChTTL() {
+        async function updateChTTL({ silent = false } = {}) {
             const idx = document.getElementById('ch-ttl-input').value;
             const ttl = chTTLValues[idx];
             const res = await fetch('/api/config/clickhouse-ttl', {
@@ -739,9 +771,7 @@
                     ...(window.runtimeConfig['retention.clickhouse_ttl_hours'] || {}),
                     value: ttl
                 };
-                document.getElementById('ch-ttl-status').innerText = 'ClickHouse TTL Saved!';
-                document.getElementById('ch-ttl-status').classList.remove('hidden');
-                setTimeout(() => document.getElementById('ch-ttl-status').classList.add('hidden'), 2000);
+                if (!silent) showConfigStatus('global-config-status', 'ClickHouse TTL Saved!');
             } else {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error || 'ClickHouse TTL update failed');

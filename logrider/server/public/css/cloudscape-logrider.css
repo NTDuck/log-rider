@@ -72,7 +72,7 @@ main {
 }
 
 .cscape-nav-link {
-  border-radius: var(--cs-radius-control);
+  border-radius: 999px;
   color: #d5dbdb;
   padding: 7px 10px;
   line-height: 18px;
@@ -84,7 +84,7 @@ main {
 }
 
 .cscape-icon-button {
-  border-radius: var(--cs-radius-control);
+  border-radius: 999px;
   color: #d5dbdb;
 }
 
@@ -115,12 +115,15 @@ h2 {
   line-height: 24px;
 }
 
-button,
-a[role="button"],
 input,
 select,
 textarea {
   border-radius: var(--cs-radius-control) !important;
+}
+
+button,
+a[role="button"] {
+  border-radius: 999px !important;
 }
 
 button {
