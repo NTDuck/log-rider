@@ -45,7 +45,7 @@ services:
       retries: 5
 
   clickhouse:
-    image: clickhouse/clickhouse-server:23.8-alpine
+    image: clickhouse/clickhouse-server:24.8
     mem_limit: 1.5g
     environment:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
@@ -53,6 +53,7 @@ services:
       CLICKHOUSE_DB: logrider
     # ClickHouse ports removed to prevent exposure
     volumes:
+      - clickhouse_data:/var/lib/clickhouse
       - >-
         ./persist/init-clickhouse.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql
     healthcheck:

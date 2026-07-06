@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS logrider.logs_enriched (
     Tags Array(String)
 ) ENGINE = MergeTree()
 ORDER BY (Timestamp, Trace_ID)
-TTL Timestamp + INTERVAL 7 DAY;
+TTL toDateTime(Timestamp) + INTERVAL 7 DAY;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS logrider.logs_enriched_mv
 TO logrider.logs_enriched
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS logrider.logs (
     Trace_ID UUID
 ) ENGINE = MergeTree()
 ORDER BY (Timestamp, Trace_ID)
-TTL Timestamp + INTERVAL 7 DAY;
+TTL toDateTime(Timestamp) + INTERVAL 7 DAY;
 
 CREATE TABLE IF NOT EXISTS logrider.log_tags (
     Trace_ID UUID,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS logrider.log_tags (
     Timestamp DateTime64(3)
 ) ENGINE = MergeTree()
 ORDER BY (Timestamp, Trace_ID)
-TTL Timestamp + INTERVAL 7 DAY;
+TTL toDateTime(Timestamp) + INTERVAL 7 DAY;
 
 CREATE TABLE IF NOT EXISTS logrider.hourly_health_mv (
     hour DateTime,
