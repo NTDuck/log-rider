@@ -56,7 +56,7 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - >-
-        ./persist/init-clickhouse.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql
+        ../clickhouse/migrations/001_init.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql
     healthcheck:
       test:
         - CMD
@@ -78,7 +78,7 @@ services:
     # Postgres ports removed to prevent exposure
     volumes:
       - >-
-        ./persist/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
+        ../postgres/migrations/001_users.sql:/docker-entrypoint-initdb.d/init-postgres.sql
     healthcheck:
       test:
         - CMD-SHELL
@@ -91,7 +91,7 @@ services:
     image: jeffail/benthos:4
     mem_limit: 256m
     volumes:
-      - ./pipelines/unified.yaml:/benthos.yaml
+      - ../../pipelines/benthos/router/unified.yaml:/benthos.yaml
     depends_on:
       redpanda:
         condition: service_healthy
@@ -105,7 +105,7 @@ services:
     image: jeffail/benthos:4
     mem_limit: 256m
     volumes:
-      - ./pipelines/persist.yaml:/benthos.yaml
+      - ../../pipelines/benthos/persistence/logs-to-clickhouse.yaml:/benthos.yaml
     depends_on:
       redpanda:
         condition: service_healthy
@@ -116,7 +116,7 @@ services:
     command: -c /benthos.yaml
 
   ingest-worker:
-    build: ./workers/ingest
+    build: ../../apps/ingest-api
     mem_limit: 256m
     ports:
       - "8085:8080"
@@ -136,7 +136,7 @@ services:
     image: jeffail/benthos:4
     mem_limit: 256m
     volumes:
-      - ./pipelines/tags.yaml:/benthos.yaml
+      - ../../pipelines/benthos/persistence/tags-to-clickhouse.yaml:/benthos.yaml
     depends_on:
       redpanda:
         condition: service_healthy
@@ -147,7 +147,7 @@ services:
     command: -c /benthos.yaml
 
   alert-worker:
-    build: ./workers/alert
+    build: ../../apps/alert-worker
     mem_limit: 256m
     depends_on:
       redis:
@@ -160,7 +160,7 @@ services:
 
   classifier-worker:
     build:
-      context: ./workers/classifier
+      context: ../../apps/classifier-worker
       dockerfile: Dockerfile
     profiles: ["ml"]
     mem_limit: 2g
@@ -181,7 +181,7 @@ services:
 
   classifier-worker-lite:
     build:
-      context: ./workers/classifier
+      context: ../../apps/classifier-worker
       dockerfile: Dockerfile
     mem_limit: 384m
     memswap_limit: 384m
@@ -196,7 +196,7 @@ services:
         condition: service_healthy
 
   telegram-bot:
-    build: ./integrations/telegram
+    build: ../../apps/telegram-bot
     mem_limit: 128m
     depends_on:
       redis:
@@ -206,7 +206,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
 
   web-server:
-    build: ./server
+    build: ../../apps/web
     mem_limit: 512m
     ports:
       - "${SERVER_PORT:-3000}:${SERVER_PORT:-3000}"
@@ -232,7 +232,7 @@ services:
     image: jeffail/benthos:4
     mem_limit: 128m
     volumes:
-      - ./pipelines/forwarder.yaml:/benthos.yaml
+      - ../../pipelines/benthos/alerts/alerts-forwarder.yaml:/benthos.yaml
     depends_on:
       redpanda:
         condition: service_healthy
