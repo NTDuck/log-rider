@@ -1,17 +1,27 @@
 :root {
+  --lr-theme-transition-duration: 300ms;
+  --lr-theme-transition-easing: ease;
   --cs-color-background-layout-main: #f2f3f3;
   --cs-color-background-container-content: #ffffff;
   --cs-color-background-container-header: #fafafa;
+  --cs-color-background-top-navigation: #ffffff;
+  --cs-color-background-top-navigation-hover: rgba(9, 114, 211, 0.08);
+  --cs-color-background-top-navigation-active: rgba(9, 114, 211, 0.12);
   --cs-color-border-divider-default: #d5dbdb;
+  --cs-color-border-top-navigation: #d5dbdb;
   --cs-color-border-input-default: #879596;
   --cs-color-text-body-default: #16191f;
   --cs-color-text-body-secondary: #5f6b7a;
   --cs-color-text-heading-default: #16191f;
   --cs-color-text-accent: #0972d3;
+  --cs-color-text-top-navigation: #16191f;
+  --cs-color-text-top-navigation-secondary: #5f6b7a;
+  --cs-color-text-top-navigation-hover: #0972d3;
   --cs-color-background-button-primary-default: #0972d3;
   --cs-color-background-button-primary-hover: #033160;
   --cs-color-focus-ring: #0972d3;
   --cs-shadow-container: 0 1px 1px rgba(0, 28, 36, 0.12);
+  --cs-shadow-top-navigation: 0 1px 1px rgba(0, 28, 36, 0.12);
   --cs-radius-control: 2px;
   --cs-radius-container: 8px;
 }
@@ -20,15 +30,23 @@
   --cs-color-background-layout-main: #0f141a;
   --cs-color-background-container-content: #151d26;
   --cs-color-background-container-header: #111923;
+  --cs-color-background-top-navigation: #0f1b2a;
+  --cs-color-background-top-navigation-hover: rgba(255, 255, 255, 0.08);
+  --cs-color-background-top-navigation-active: rgba(255, 255, 255, 0.10);
   --cs-color-border-divider-default: #414d5c;
+  --cs-color-border-top-navigation: #2a3545;
   --cs-color-border-input-default: #5f6b7a;
   --cs-color-text-body-default: #eaeded;
   --cs-color-text-body-secondary: #aab7b8;
   --cs-color-text-heading-default: #ffffff;
   --cs-color-text-accent: #44b9ff;
+  --cs-color-text-top-navigation: #ffffff;
+  --cs-color-text-top-navigation-secondary: #aab7b8;
+  --cs-color-text-top-navigation-hover: #ffffff;
   --cs-color-background-button-primary-default: #0972d3;
   --cs-color-background-button-primary-hover: #44b9ff;
   --cs-color-focus-ring: #44b9ff;
+  --cs-shadow-top-navigation: 0 1px 1px rgba(0, 0, 0, 0.28);
 }
 
 html,
@@ -41,62 +59,109 @@ body {
   font-size: 14px;
 }
 
+html,
+body,
+main,
+header,
+section,
+aside,
+div,
+table,
+thead,
+tbody,
+tr,
+td,
+th,
+button,
+a,
+input,
+select,
+textarea,
+svg,
+path,
+.lr-select,
+.lr-select-trigger,
+.lr-select-menu,
+.cscape-top-navigation,
+.cscape-nav-link,
+.cscape-icon-button,
+.cscape-user-badge,
+.cscape-service-title,
+.cscape-service-subtitle {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow, opacity;
+  transition-duration: var(--lr-theme-transition-duration) !important;
+  transition-timing-function: var(--lr-theme-transition-easing) !important;
+}
+
 main {
   background: var(--cs-color-background-layout-main);
 }
 
 .cscape-top-navigation {
-  background: #0f1b2a;
-  color: #ffffff;
-  border-bottom: 1px solid #2a3545;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.28);
+  background: var(--cs-color-background-top-navigation);
+  color: var(--cs-color-text-top-navigation);
+  border-bottom: 1px solid var(--cs-color-border-top-navigation);
+  box-shadow: var(--cs-shadow-top-navigation);
 }
 
 .cscape-service-logo {
   width: 28px;
   height: 28px;
   object-fit: contain;
+  mix-blend-mode: normal;
+}
+
+.cscape-logo-shell {
+  background: var(--cs-color-background-top-navigation-active);
+  border-color: var(--cs-color-border-top-navigation);
 }
 
 .cscape-service-title {
-  color: #ffffff;
+  color: var(--cs-color-text-top-navigation);
   font-size: 16px;
   font-weight: 700;
   line-height: 20px;
 }
 
 .cscape-service-subtitle {
-  color: #aab7b8;
+  color: var(--cs-color-text-top-navigation-secondary);
   font-size: 12px;
   line-height: 16px;
 }
 
 .cscape-nav-link {
   border-radius: 999px;
-  color: #d5dbdb;
+  color: var(--cs-color-text-top-navigation-secondary) !important;
   padding: 7px 10px;
   line-height: 18px;
 }
 
 .cscape-nav-link:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--cs-color-text-top-navigation-hover) !important;
+  background: var(--cs-color-background-top-navigation-hover);
+}
+
+.cscape-nav-link.bg-white\/10,
+.cscape-nav-link.text-white {
+  color: var(--cs-color-text-top-navigation) !important;
+  background: var(--cs-color-background-top-navigation-active) !important;
 }
 
 .cscape-icon-button {
   border-radius: 999px;
-  color: #d5dbdb;
+  color: var(--cs-color-text-top-navigation-secondary);
 }
 
 .cscape-icon-button:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--cs-color-text-top-navigation-hover);
+  background: var(--cs-color-background-top-navigation-hover);
 }
 
 .cscape-user-badge {
   border-radius: var(--cs-radius-control);
-  border: 1px solid #414d5c;
-  background: #192534;
+  border: 1px solid var(--cs-color-border-top-navigation);
+  background: var(--cs-color-background-top-navigation-active);
+  color: var(--cs-color-text-top-navigation);
 }
 
 h1 {
