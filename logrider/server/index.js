@@ -445,10 +445,23 @@ async function serveHTML(filename) {
       path.join(import.meta.dir, "components", "topbar.html"),
     ).text();
     const rendered = fileContent.replace("<!-- TOPBAR -->", topbarContent);
-    return new Response(rendered, { headers: { "Content-Type": "text/html" } });
+    return new Response(rendered, {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch (e) {
     return new Response("File not found", { status: 404 });
   }
+}
+
+function contentTypeForPath(filePath) {
+  if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
+  if (filePath.endsWith(".js")) return "text/javascript; charset=utf-8";
+  if (filePath.endsWith(".png")) return "image/png";
+  if (filePath.endsWith(".svg")) return "image/svg+xml";
+  return "application/octet-stream";
 }
 
 bunServer = Bun.serve({
@@ -467,7 +480,12 @@ bunServer = Bun.serve({
     if (req.method === "GET" && url.pathname.startsWith("/public/")) {
       const filePath = path.join(import.meta.dir, url.pathname);
       const file = Bun.file(filePath);
-      return new Response(file);
+      return new Response(file, {
+        headers: {
+          "Content-Type": contentTypeForPath(filePath),
+          "Cache-Control": "no-store, max-age=0",
+        },
+      });
     }
 
     if (req.method === "GET" && url.pathname === "/dashboard") {
