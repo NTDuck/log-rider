@@ -139,13 +139,15 @@ Then:
 ./example/run-standard.sh
 ./example/run-alerts.sh
 ./example/clean.sh
+./example/teardown.sh
 ```
 
 * `example/setup.sh` Creates demo users/config/resources.
 * `example/run.sh` Parameterized log generator.
 * `example/run-standard.sh` Sends 500 logs in 2 seconds.
 * `example/run-alerts.sh` Sends 1000 ERROR/CRITICAL logs in 2 seconds with unique-k incident grouping.
-* `example/clean.sh` Removes only example-created resources.
+* `example/clean.sh` Clears generated log, alert, tag, and analytics data. Preserves users, sessions, config, credentials, and demo setup.
+* `example/teardown.sh` Reverts example/setup.sh. Removes demo users and demo-only resources.
 
 ## Ingesting Logs
 
@@ -246,7 +248,8 @@ docker compose logs -f telegram-bot
 ```
 
 * `scripts/clean.sh` removes all local state.
-* `example/clean.sh` removes only example-created resources.
+* `example/clean.sh` clears generated log, alert, tag, and analytics data. Preserves users, sessions, config, credentials, and demo setup.
+* `example/teardown.sh` reverts example/setup.sh. Removes demo users and demo-only resources.
 
 ## Security Model
 * Strict env validation

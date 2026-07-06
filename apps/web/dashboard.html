@@ -415,14 +415,29 @@
                 });
         }
 
-        let globalSummary = { total: 0, normalized: 0, persisted: 0, classified: 0 };
         function updateSummaryCards() {
-            // Summary is now updated incrementally by WebSocket events to save CPU
+            const allLogs = [...logsByTraceId.values()];
+            const total = allLogs.length;
+            let normalized = 0;
+            let persisted = 0;
+            let classified = 0;
+            
+            allLogs.forEach(log => {
+                const s = log.Status;
+                if (s === 'Classified') {
+                    normalized++; persisted++; classified++;
+                } else if (s === 'Persisted') {
+                    normalized++; persisted++;
+                } else if (s === 'Normalized') {
+                    normalized++;
+                }
+            });
+
             const ids = [
-                ['summary-total', globalSummary.total],
-                ['summary-normalized', globalSummary.normalized],
-                ['summary-persisted', globalSummary.persisted],
-                ['summary-classified', globalSummary.classified],
+                ['summary-total', total],
+                ['summary-normalized', normalized],
+                ['summary-persisted', persisted],
+                ['summary-classified', classified],
             ];
 
             ids.forEach(([id, value]) => {
@@ -539,7 +554,6 @@
                 }
 
                 if (data.type === 'TAGS') {
-                    globalSummary.classified++;
                     const record = upsertLog({
                         trace_id: data.trace_id || data.Trace_ID,
                         application_name: data.application_name || data.Application_Name,
@@ -552,7 +566,6 @@
                 }
 
                 if ((data.trace_id || data.Trace_ID) && (data.Status === 'Normalized' || data.status === 'normalized')) {
-                    globalSummary.normalized++;
                     const record = upsertLog({
                         trace_id: data.trace_id || data.Trace_ID,
                         application_name: data.application_name || data.Application_Name
@@ -564,7 +577,6 @@
                 }
 
                 if ((data.trace_id || data.Trace_ID) && (data.Status === 'Persisted' || data.status === 'persisted')) {
-                    globalSummary.persisted++;
                     const record = upsertLog({
                         trace_id: data.trace_id || data.Trace_ID,
                         application_name: data.application_name || data.Application_Name,
@@ -579,7 +591,6 @@
                 }
 
                 if ((data.application_name || data.Application_Name) && (data.severity || data.Log_Level)) {
-                    globalSummary.total++;
                     const record = upsertLog({
                         trace_id: data.trace_id || data.Trace_ID,
                         application_name: data.application_name || data.Application_Name,

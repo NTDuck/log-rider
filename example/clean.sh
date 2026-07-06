@@ -9,21 +9,48 @@ source scripts/lib/compose.sh
 
 load_env ".env"
 
-if [ "${LOGRIDER_ENABLE_DEMO:-false}" != "true" ]; then
-  echo "Error: LOGRIDER_ENABLE_DEMO must be true in .env" >&2
-  exit 1
-fi
+echo "Cleaning generated non-user example data..."
 
-echo "Cleaning up demo environment..."
+echo "Cleaning ClickHouse analytics data..."
+compose exec -T clickhouse clickhouse-client \
+  -u "${CLICKHOUSE_USER}" \
+  --password "${CLICKHOUSE_PASSWORD}" \
+  -q "TRUNCATE TABLE IF EXISTS ${CLICKHOUSE_DATABASE}.${CLICKHOUSE_TABLE_LOG_EVENTS}"
 
-# Delete demo users
-compose exec -T postgres psql -U "${POSTGRES_USER}" -d logrider -c "DELETE FROM users WHERE role IN ('admin', 'engineer');"
+compose exec -T clickhouse clickhouse-client \
+  -u "${CLICKHOUSE_USER}" \
+  --password "${CLICKHOUSE_PASSWORD}" \
+  -q "TRUNCATE TABLE IF EXISTS ${CLICKHOUSE_DATABASE}.${CLICKHOUSE_TABLE_LOG_EVENT_TAGS}"
 
-# Clear Redis state
-compose exec -T redis redis-cli flushall
+compose exec -T clickhouse clickhouse-client \
+  -u "${CLICKHOUSE_USER}" \
+  --password "${CLICKHOUSE_PASSWORD}" \
+  -q "TRUNCATE TABLE IF EXISTS ${CLICKHOUSE_DATABASE}.${CLICKHOUSE_TABLE_APP_HEALTH_HOURLY}"
 
-# Truncate ClickHouse tables
-compose exec -T clickhouse clickhouse-client -u "${CLICKHOUSE_USER}" --password "${CLICKHOUSE_PASSWORD}" -q "TRUNCATE TABLE logrider_analytics.log_events"
-compose exec -T clickhouse clickhouse-client -u "${CLICKHOUSE_USER}" --password "${CLICKHOUSE_PASSWORD}" -q "TRUNCATE TABLE logrider_analytics.app_health_hourly"
+echo "Cleaning Redis generated runtime data only..."
 
-echo "Demo cleanup complete."
+delete_redis_pattern() {
+  local pattern="$1"
+  compose exec -T redis sh -lc '
+    pattern="$1"
+    cursor=0
+    while :; do
+      out=$(redis-cli SCAN "$cursor" MATCH "$pattern" COUNT 500)
+      cursor=$(printf "%s\n" "$out" | head -n1)
+      keys=$(printf "%s\n" "$out" | tail -n +2)
+      if [ -n "$keys" ]; then
+        printf "%s\n" "$keys" | xargs -r redis-cli DEL >/dev/null
+      fi
+      [ "$cursor" = "0" ] && break
+    done
+  ' sh "$pattern"
+}
+
+delete_redis_pattern "${REDIS_KEY_PREFIX_INCIDENT}:*"
+delete_redis_pattern "${REDIS_HASH_NOTIFICATION_DATA}"
+delete_redis_pattern "${REDIS_ZSET_NOTIFICATION_INDEX}"
+delete_redis_pattern "${REDIS_KEY_PREFIX_TAG_CACHE}:*"
+
+rm -rf example/results
+
+echo "Example generated data cleaned."

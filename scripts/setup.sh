@@ -17,7 +17,7 @@ assert_no_default_secrets
 
 require_cmd docker
 require_cmd curl
-require_cmd jq
+# require_cmd jq
 
 compose pull
 compose build

@@ -22,3 +22,12 @@ sleep 10
 
 echo "Demo environment setup complete!"
 echo "You can now run benchmarks using ./example/run-standard.sh or ./example/run-alerts.sh"
+
+source .env.demo.example
+
+mkdir -p example/.state
+
+cat > example/.state/resources.env <<EOF
+DEMO_USERS="${DEMO_ADMIN_USERNAME:-Ayin} ${DEMO_ENGINEER_1_USERNAME:-Benjamin} ${DEMO_ENGINEER_2_USERNAME:-Carmen}"
+DEMO_CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+EOF
