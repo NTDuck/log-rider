@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LogRecord",
+  "type": "object",
+  "properties": {
+    "Trace_ID": { "type": "string" },
+    "Application_Name": { "type": "string" },
+    "Message": { "type": "string" }
+  },
+  "required": ["Application_Name", "Message"]
+}

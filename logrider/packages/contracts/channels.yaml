@@ -1,0 +1,3 @@
+redis_channels:
+  ws_events: ws-events
+  alerts_stream: alerts-stream

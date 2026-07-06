@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AlertEvent",
+  "type": "object",
+  "properties": {
+    "Application_Name": { "type": "string" },
+    "Message": { "type": "string" },
+    "Severity": { "type": "string" }
+  },
+  "required": ["Application_Name", "Message"]
+}

@@ -1,0 +1,5 @@
+statuses:
+  ingested: Ingested
+  normalized: Normalized
+  persisted: Persisted
+  classified: Classified

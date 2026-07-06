@@ -1,0 +1,8 @@
+topics:
+  logs_ingested: logs-ingested
+  logs_normalized: logs-normalized
+  logs_persist: logs-persist
+  logs_classified: logs-classified
+  alerts_ingested: alerts-ingested
+  dlq_logs: dlq-logs
+  dlq_clickhouse: dlq-clickhouse
