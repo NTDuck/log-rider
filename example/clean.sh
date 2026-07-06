@@ -9,20 +9,21 @@ source scripts/lib/compose.sh
 
 load_env ".env"
 
-echo "Cleaning up example data..."
-
-# Delete demo users
-if [ -f example/.state/demo_users.sql ]; then
-  compose exec -T postgres psql -U "${POSTGRES_USER}" -d logrider -c "DELETE FROM users WHERE username IN ('${DEMO_ADMIN_USERNAME}', '${DEMO_ENGINEER_1_USERNAME}', '${DEMO_ENGINEER_2_USERNAME}');"
-  rm example/.state/demo_users.sql
+if [ "${LOGRIDER_ENABLE_DEMO:-false}" != "true" ]; then
+  echo "Error: LOGRIDER_ENABLE_DEMO must be true in .env" >&2
+  exit 1
 fi
 
-# Clean redis incidents/sessions
-compose exec -T redis redis-cli keys "${REDIS_KEY_PREFIX_SESSION}:*" | xargs -r compose exec -T redis redis-cli del
-compose exec -T redis redis-cli keys "${REDIS_KEY_PREFIX_INCIDENT}:*" | xargs -r compose exec -T redis redis-cli del
+echo "Cleaning up demo environment..."
 
-# Delete results
-rm -rf example/.generated/*
-rm -rf benchmarks/results/*
+# Delete demo users
+compose exec -T postgres psql -U "${POSTGRES_USER}" -d logrider -c "DELETE FROM users WHERE role IN ('admin', 'engineer');"
 
-echo "Example cleanup complete."
+# Clear Redis state
+compose exec -T redis redis-cli flushall
+
+# Truncate ClickHouse tables
+compose exec -T clickhouse clickhouse-client -u "${CLICKHOUSE_USER}" --password "${CLICKHOUSE_PASSWORD}" -q "TRUNCATE TABLE logrider_analytics.log_events"
+compose exec -T clickhouse clickhouse-client -u "${CLICKHOUSE_USER}" --password "${CLICKHOUSE_PASSWORD}" -q "TRUNCATE TABLE logrider_analytics.app_health_hourly"
+
+echo "Demo cleanup complete."

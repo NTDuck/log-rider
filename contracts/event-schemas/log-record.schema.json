@@ -1,18 +1,24 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "LogRecord",
+  "title": "LogRecordV1",
   "type": "object",
+  "required": ["application_name", "severity", "message", "event_timestamp"],
   "properties": {
-    "trace_id": { "type": "string" },
     "application_name": { "type": "string" },
+    "severity": { "type": "string", "enum": ["INFO", "WARN", "ERROR", "CRITICAL"] },
     "message": { "type": "string" },
-    "event_timestamp": { "type": "string" },
-    "received_at": { "type": "string" },
-    "normalized_at": { "type": "string" },
-    "persistence_requested_at": { "type": "string" },
-    "persisted_at": { "type": "string" },
-    "tags_assigned_at": { "type": "string" },
-    "alert_processed_at": { "type": "string" }
-  },
-  "required": ["application_name", "message"]
+    "event_timestamp": { "type": "string", "format": "date-time" },
+    "trace_id": { "type": "string" },
+    "received_at": { "type": "string", "format": "date-time" },
+    "normalized_at": { "type": ["string", "null"], "format": "date-time" },
+    "persistence_requested_at": { "type": ["string", "null"], "format": "date-time" },
+    "persisted_at": { "type": ["string", "null"], "format": "date-time" },
+    "tags_assigned_at": { "type": ["string", "null"], "format": "date-time" },
+    "alert_processed_at": { "type": ["string", "null"], "format": "date-time" },
+    "source": { "type": "string" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
 }

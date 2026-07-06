@@ -33,7 +33,9 @@ services:
   redis:
     image: redis:7-alpine
     mem_limit: 256m
-    # Redis is internal-only
+    # Redis is internal-only but exposed for local benchmarks
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -109,11 +111,8 @@ services:
     environment:
       REDPANDA_BROKERS: redpanda:29092
       CLICKHOUSE_HOST: clickhouse
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:?CLICKHOUSE_USER is required}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD is required}
-      MIN_BATCH_ROWS: 10000
-      MAX_BATCH_ROWS: 50000
-      MAX_BATCH_INTERVAL: 1000
+    env_file:
+      - .env
     depends_on:
       redpanda:
         condition: service_healthy
@@ -126,18 +125,23 @@ services:
     build: ./apps/ingest-api
     mem_limit: 256m
     ports:
-      - "8085:8080"
+      - "${INGEST_HTTP_PORT:-8085}:8080"
+      - "${INGEST_GRPC_PORT:-50051}:50051"
     environment:
       REDPANDA_BROKERS: redpanda:29092
-      INGEST_API_KEY: ${INGEST_API_KEY:?INGEST_API_KEY is required}
-      INGEST_TOPIC: logs-ingested
-      HTTP_PORT: 8080
-      GRPC_PORT: 50051
-      MAX_RECORDS_PER_REQUEST: 5000
-      MAX_BODY_BYTES: 5242880
+      INGEST_TOPIC: ${KAFKA_TOPIC_LOGS_RECEIVED:?KAFKA_TOPIC_LOGS_RECEIVED is required}
+      HTTP_PORT: "8080"
+      GRPC_PORT: "50051"
+    env_file:
+      - .env
     depends_on:
       redpanda:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${INGEST_HTTP_PORT:-8085}/livez"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   log-tag-writer:
     image: jeffail/benthos:4
@@ -164,6 +168,8 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
       REDPANDA_BROKERS: redpanda:29092
+    env_file:
+      - .env
 
   log-tagger:
     build:
@@ -173,13 +179,11 @@ services:
     mem_limit: 2g
     memswap_limit: 2g
     environment:
-      ENABLE_ML_CLASSIFIER: "true"
+      LOGRIDER_ENABLE_ML_CLASSIFIER: "true"
       REDPANDA_BROKERS: redpanda:29092
       REDIS_URL: redis://redis:6379
-      OMP_NUM_THREADS: "2"
-      MKL_NUM_THREADS: "2"
-      TOKENIZERS_PARALLELISM: "false"
-      MALLOC_ARENA_MAX: "2"
+    env_file:
+      - .env
     depends_on:
       redpanda:
         condition: service_healthy
@@ -193,9 +197,11 @@ services:
     mem_limit: 384m
     memswap_limit: 384m
     environment:
-      ENABLE_ML_CLASSIFIER: "false"
+      LOGRIDER_ENABLE_ML_CLASSIFIER: "false"
       REDPANDA_BROKERS: redpanda:29092
       REDIS_URL: redis://redis:6379
+    env_file:
+      - .env
     depends_on:
       redpanda:
         condition: service_healthy
@@ -210,7 +216,8 @@ services:
         condition: service_healthy
     environment:
       REDIS_URL: redis://redis:6379
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+    env_file:
+      - .env
 
   web:
     build: ./apps/web
@@ -231,9 +238,14 @@ services:
       REDPANDA_BROKERS: redpanda:29092
       REDIS_URL: redis://redis:6379
       CLICKHOUSE_HOST: clickhouse
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:?CLICKHOUSE_USER is required}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD is required}
       POSTGRES_URI: postgres://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DATABASE:?POSTGRES_DATABASE is required}
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WEB_PORT:-3000}/livez"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   alert-realtime-forwarder:
     image: jeffail/benthos:4

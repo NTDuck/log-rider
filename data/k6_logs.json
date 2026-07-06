@@ -1,0 +1,5 @@
+[
+  {"application_name": "checkout-service", "severity": "INFO", "message": "Payment processed successfully"},
+  {"application_name": "auth-service", "severity": "ERROR", "message": "Failed to validate token"},
+  {"application_name": "inventory-api", "severity": "WARN", "message": "Low stock for item X"}
+]

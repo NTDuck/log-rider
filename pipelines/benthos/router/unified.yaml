@@ -1,10 +1,10 @@
 input:
   kafka:
     addresses:
-      - redpanda:29092
+      - ${REDPANDA_BROKERS}
     topics:
-      - logrider.logs.received.v1
-    consumer_group: "logrider.router.unified.v1"
+      - ${KAFKA_TOPIC_LOGS_RECEIVED}
+    consumer_group: "${KAFKA_GROUP_ROUTER}"
 
 pipeline:
   processors:
@@ -23,8 +23,8 @@ output:
     outputs:
       # Step 1: Broadcast "Ingested" immediately so dashboard shows the log first
       - redis_pubsub:
-          url: redis://redis:6379
-          channel: logrider:realtime:log-events
+          url: ${REDIS_URL}
+          channel: ${REDIS_CHANNEL_LOG_REALTIME}
         processors:
           - mapping: |
               root = this
@@ -32,13 +32,13 @@ output:
 
       # Step 2: Route to classifier for asynchronous tag enrichment
       - kafka:
-          addresses: [ "redpanda:29092" ]
-          topic: logrider.logs.normalized.v1
+          addresses: [ "${REDPANDA_BROKERS}" ]
+          topic: ${KAFKA_TOPIC_LOGS_NORMALIZED}
 
       # Step 3: Broadcast "Normalized" after the log has entered the normalized topic
       - redis_pubsub:
-          url: redis://redis:6379
-          channel: logrider:realtime:log-events
+          url: ${REDIS_URL}
+          channel: ${REDIS_CHANNEL_LOG_REALTIME}
         processors:
           - mapping: |
               root = this
@@ -46,8 +46,8 @@ output:
 
       # Step 4: Route to persistence immediately so dashboard history is not gated by ML startup
       - kafka:
-          addresses: [ "redpanda:29092" ]
-          topic: logrider.logs.persistence-requested.v1
+          addresses: [ "${REDPANDA_BROKERS}" ]
+          topic: ${KAFKA_TOPIC_LOGS_PERSISTENCE_REQUESTED}
         processors:
           - mapping: |
               root = this
@@ -55,5 +55,9 @@ output:
 
       # Step 5: Route to alert pipeline, worker will filter by config
       - kafka:
-          addresses: [ "redpanda:29092" ]
-          topic: logrider.alerts.candidate-detected.v1
+          addresses: [ "${REDPANDA_BROKERS}" ]
+          topic: ${KAFKA_TOPIC_ALERT_CANDIDATES}
+        processors:
+          - mapping: |
+              root = if this.severity == "ERROR" || this.severity == "CRITICAL" { this } else { deleted() }
+              root.alert_candidate_at = now()

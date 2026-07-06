@@ -215,7 +215,7 @@
         function renderCharts() {
             const colors = chartColors();
             const hourLabels = [...new Set(healthRows.map((row) => formatTimestamp(row.hour)))];
-            const apps = [...new Set(healthRows.map((row) => row.Application_Name))];
+            const apps = [...new Set(healthRows.map((row) => row.application_name))];
             const palette = ['#0972d3', '#e11d48', '#7c3aed', '#059669', '#ea580c', '#0f766e', '#1d4ed8'];
 
             const lineData = {
@@ -224,7 +224,7 @@
                     label: app,
                     data: hourLabels.map((label) => {
                         const match = healthRows.find((row) =>
-                            row.Application_Name === app &&
+                            row.application_name === app &&
                             formatTimestamp(row.hour) === label
                         );
                         return match ? Number(match.error_rate || 0) : 0;
@@ -263,7 +263,7 @@
             barChart = new Chart(document.getElementById('bar-chart'), {
                 type: 'bar',
                 data: {
-                    labels: sortedApps.map((row) => row.Application_Name),
+                    labels: sortedApps.map((row) => row.application_name),
                     datasets: [{
                         label: 'Errors',
                         data: sortedApps.map((row) => Number(row.error_count || 0) + Number(row.critical_count || 0)),
@@ -275,7 +275,7 @@
                     ...commonOptions,
                     onClick: (_, elements) => {
                         if (!elements.length) return;
-                        const app = sortedApps[elements[0].index].Application_Name;
+                        const app = sortedApps[elements[0].index].application_name;
                         renderDrilldown(app);
                     },
                     plugins: { legend: { display: false } }
@@ -286,7 +286,7 @@
             pieChart = new Chart(document.getElementById('pie-chart'), {
                 type: 'pie',
                 data: {
-                    labels: overviewLevels.map((row) => row.Log_Level),
+                    labels: overviewLevels.map((row) => row.severity),
                     datasets: [{
                         data: overviewLevels.map((row) => Number(row.count || 0)),
                         backgroundColor: ['#f97316', '#dc2626']
@@ -299,13 +299,13 @@
                 }
             });
 
-            if (sortedApps.length) renderDrilldown(sortedApps[0].Application_Name);
+            if (sortedApps.length) renderDrilldown(sortedApps[0].application_name);
             else document.getElementById('drilldown-panel').innerHTML = '<p>No application selected.</p>';
         }
 
         function renderDrilldown(appName) {
-            const summary = overviewApps.find((row) => row.Application_Name === appName);
-            const series = healthRows.filter((row) => row.Application_Name === appName);
+            const summary = overviewApps.find((row) => row.application_name === appName);
+            const series = healthRows.filter((row) => row.application_name === appName);
             const latest = series[series.length - 1];
             const panel = document.getElementById('drilldown-panel');
 

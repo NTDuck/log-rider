@@ -10,6 +10,13 @@ type LogRecord = {
   Message?: string;
   Timestamp?: string;
   Trace_ID?: string;
+  
+  // V1 fields
+  application_name?: string;
+  severity?: string;
+  message?: string;
+  event_timestamp?: string;
+  trace_id?: string;
 };
 
 function requiredEnv(name: string): string {
@@ -29,6 +36,8 @@ const INGEST_API_KEY = requiredEnv("INGEST_API_KEY");
 
 const MAX_RECORDS_PER_REQUEST = Number(requiredEnv("INGEST_MAX_RECORDS_PER_REQUEST"));
 const MAX_BODY_BYTES = Number(requiredEnv("INGEST_MAX_BODY_BYTES"));
+const MAX_MESSAGE_BYTES = Number(requiredEnv("INGEST_MAX_MESSAGE_BYTES") || "8192");
+const MAX_APP_NAME_BYTES = Number(requiredEnv("INGEST_MAX_APPLICATION_NAME_BYTES") || "128");
 
 const kafka = new Kafka({
   clientId: "logrider-ingest",
@@ -46,27 +55,45 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-function normalizeLevel(value: unknown): string {
-  const level = String(value || "INFO").toUpperCase();
-
-  if (["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"].includes(level)) {
+function parseLevel(value: unknown): string {
+  const level = String(value || "").toUpperCase();
+  if (["INFO", "WARN", "ERROR", "CRITICAL"].includes(level)) {
     return level;
   }
+  throw new Error(`Invalid severity level: ${value}. Expected INFO, WARN, ERROR, or CRITICAL.`);
+}
 
-  return "INFO";
+function parseTimestamp(value: unknown): string {
+  if (!value) return new Date().toISOString();
+  const d = new Date(String(value));
+  if (isNaN(d.getTime())) {
+    throw new Error(`Invalid timestamp: ${value}`);
+  }
+  return d.toISOString();
 }
 
 function normalizeRecord(record: LogRecord): Record<string, any> {
-  const trace_id =
-    record.Trace_ID && isUuid(record.Trace_ID)
-      ? record.Trace_ID
+  const trace_id_raw = record.trace_id || record.Trace_ID;
+  const trace_id = trace_id_raw && isUuid(trace_id_raw)
+      ? trace_id_raw
       : crypto.randomUUID();
 
+  const appNameRaw = record.application_name || record.Application_Name;
+  if (!appNameRaw) throw new Error("application_name is required");
+
+  const severityRaw = record.severity || record.Log_Level;
+  if (!severityRaw) throw new Error("severity is required");
+
+  const messageRaw = record.message || record.Message;
+  if (!messageRaw) throw new Error("message is required");
+
+  const timestampRaw = record.event_timestamp || record.Timestamp;
+
   return {
-    application_name: String(record.Application_Name || "unknown").slice(0, 255),
-    severity: normalizeLevel(record.Log_Level),
-    message: String(record.Message || "").slice(0, 8192),
-    event_timestamp: record.Timestamp || new Date().toISOString(),
+    application_name: String(appNameRaw).slice(0, MAX_APP_NAME_BYTES),
+    severity: parseLevel(severityRaw),
+    message: String(messageRaw).slice(0, MAX_MESSAGE_BYTES),
+    event_timestamp: parseTimestamp(timestampRaw),
     received_at: new Date().toISOString(),
     trace_id,
   };
@@ -103,7 +130,7 @@ async function ingestRecords(rawRecords: unknown): Promise<number> {
   await producer.send({
     topic: TOPIC,
     acks: -1,
-    compression: CompressionTypes.ZSTD,
+    compression: CompressionTypes.GZIP,
     messages,
   });
 
@@ -120,7 +147,15 @@ function checkHttpAuth(req: Request): boolean {
   const key = req.headers.get("x-logrider-ingest-key") || "";
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
 
-  return key === INGEST_API_KEY || bearer === INGEST_API_KEY;
+  const token = key || bearer;
+  if (!token) return false;
+
+  const tokenBuf = Buffer.alloc(INGEST_API_KEY.length, token);
+  const expectedBuf = Buffer.from(INGEST_API_KEY);
+
+  if (tokenBuf.length !== expectedBuf.length) return false;
+
+  return crypto.timingSafeEqual(tokenBuf, expectedBuf);
 }
 
 async function startHttpServer() {
@@ -130,8 +165,17 @@ async function startHttpServer() {
     async fetch(req) {
       const url = new URL(req.url);
 
-      if (req.method === "GET" && url.pathname === "/health") {
-        return Response.json({ status: "ok" });
+      if (req.method === "GET" && url.pathname === "/livez") {
+        return Response.json({ status: "alive" });
+      }
+
+      if (req.method === "GET" && url.pathname === "/readyz") {
+        try {
+          await kafka.admin().listTopics();
+          return Response.json({ status: "ready" });
+        } catch (e: any) {
+          return Response.json({ status: "not ready", error: e.message }, { status: 503 });
+        }
       }
 
       if (req.method !== "POST" || url.pathname !== "/v1/logs") {
@@ -179,13 +223,24 @@ async function startHttpServer() {
 
 function checkGrpcAuth(call: any): boolean {
   if (!INGEST_API_KEY) return true;
-  const keys = call.metadata.get("x-logrider-ingest-key");
-  const bearerList = call.metadata.get("authorization");
+  const keys = call.metadata.get("x-logrider-ingest-key") || [];
+  const bearerList = call.metadata.get("authorization") || [];
+  
+  const key = keys[0] ? String(keys[0]) : "";
   const bearer = bearerList
     .map(String)
     .find((v: string) => v.toLowerCase().startsWith("bearer "))
-    ?.replace(/^Bearer\s+/i, "");
-  return keys.includes(INGEST_API_KEY) || bearer === INGEST_API_KEY;
+    ?.replace(/^Bearer\s+/i, "") || "";
+
+  const token = key || bearer;
+  if (!token) return false;
+
+  const tokenBuf = Buffer.alloc(INGEST_API_KEY.length, token);
+  const expectedBuf = Buffer.from(INGEST_API_KEY);
+
+  if (tokenBuf.length !== expectedBuf.length) return false;
+
+  return crypto.timingSafeEqual(tokenBuf, expectedBuf);
 }
 
 function startGrpcServer() {

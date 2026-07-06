@@ -1,10 +1,10 @@
 input:
   kafka:
     addresses:
-      - redpanda:29092
+      - ${REDPANDA_BROKERS}
     topics:
-      - logrider.alerts.candidate-detected.v1
-    consumer_group: "logrider.realtime.alert-forwarder.v1"
+      - ${KAFKA_TOPIC_ALERT_CANDIDATES}
+    consumer_group: "${KAFKA_GROUP_ALERT_REALTIME_FORWARDER}"
 
 pipeline:
   processors:
@@ -14,5 +14,5 @@ pipeline:
 
 output:
   redis_pubsub:
-    url: redis://redis:6379
-    channel: logrider:realtime:alert-events
+    url: ${REDIS_URL}
+    channel: ${REDIS_CHANNEL_ALERT_REALTIME}

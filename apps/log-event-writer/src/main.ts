@@ -10,24 +10,27 @@ function requiredEnv(name: string): string {
 }
 
 const KAFKA_BROKERS = requiredEnv("REDPANDA_BROKERS").split(",");
-const TOPIC_IN = "logrider.logs.persistence-requested.v1";
-const DLQ_TOPIC = "logrider.dlq.log-persistence-failed.v1";
+const TOPIC_IN = requiredEnv("KAFKA_TOPIC_LOGS_PERSISTENCE_REQUESTED");
+const DLQ_TOPIC = requiredEnv("KAFKA_TOPIC_DLQ_LOG_PERSISTENCE_FAILED");
+const GROUP_ID = requiredEnv("KAFKA_GROUP_LOG_EVENT_WRITER");
 
 const CLICKHOUSE_HOST = requiredEnv("CLICKHOUSE_HOST");
+const CLICKHOUSE_PORT = process.env.CLICKHOUSE_PORT || "8123";
 const CLICKHOUSE_USER = requiredEnv("CLICKHOUSE_USER");
 const CLICKHOUSE_PASSWORD = requiredEnv("CLICKHOUSE_PASSWORD");
-const CLICKHOUSE_DB = "logrider_analytics";
+const CLICKHOUSE_DB = requiredEnv("CLICKHOUSE_DATABASE");
+const CLICKHOUSE_TABLE = requiredEnv("CLICKHOUSE_TABLE_LOG_EVENTS");
 
-const MIN_BATCH_ROWS = parseInt(requiredEnv("MIN_BATCH_ROWS"), 10);
-const MAX_BATCH_ROWS = parseInt(requiredEnv("MAX_BATCH_ROWS"), 10);
-const MAX_BATCH_INTERVAL = parseInt(requiredEnv("MAX_BATCH_INTERVAL"), 10);
+const MIN_BATCH_ROWS = parseInt(process.env.MIN_BATCH_ROWS || "1000", 10);
+const MAX_BATCH_ROWS = parseInt(process.env.MAX_BATCH_ROWS || "5000", 10);
+const MAX_BATCH_INTERVAL = parseInt(process.env.MAX_BATCH_INTERVAL || "1000", 10);
 
 const kafka = new Kafka({ clientId: "log-event-writer", brokers: KAFKA_BROKERS });
-const consumer = kafka.consumer({ groupId: "logrider.persistence.log-events-writer.v1" });
+const consumer = kafka.consumer({ groupId: GROUP_ID });
 const producer = kafka.producer();
 
 const clickhouse = createClient({
-  url: `http://${CLICKHOUSE_HOST}:8123`,
+  url: `http://${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}`,
   username: CLICKHOUSE_USER,
   password: CLICKHOUSE_PASSWORD,
   database: CLICKHOUSE_DB,
@@ -56,7 +59,7 @@ async function main() {
     try {
       // 4. Insert batch into ClickHouse.
       await clickhouse.insert({
-        table: 'log_events',
+        table: CLICKHOUSE_TABLE,
         values: currentBatch,
         format: 'JSONEachRow',
       });
@@ -66,9 +69,17 @@ async function main() {
     } catch (error: any) {
       console.error("ClickHouse insert failed", error);
       // 6. On non-retryable row failure, write to DLQ (Simplified here as sending whole batch to DLQ on fail for safety)
+      const dlqMessages = currentBatch.map(b => ({
+        value: JSON.stringify({
+          original_payload: b,
+          error: error.message || error.toString(),
+          failed_at: new Date().toISOString(),
+          component: "log-event-writer"
+        })
+      }));
       await producer.send({
         topic: DLQ_TOPIC,
-        messages: currentBatch.map(b => ({ value: JSON.stringify(b) }))
+        messages: dlqMessages
       });
     }
   };
@@ -82,12 +93,18 @@ async function main() {
         // 2. Decode and validate minimally.
         try {
           const record = JSON.parse(message.value.toString());
-          record.persisted_at = new Date().toISOString();
+
           batch.push(record);
           batchOffsets.push({ topic: kafkaBatch.topic, partition: kafkaBatch.partition, offset: message.offset });
-        } catch (e) {
+        } catch (e: any) {
           // Parse error, DLQ immediately
-          await producer.send({ topic: DLQ_TOPIC, messages: [{ value: message.value }] });
+          const dlqRecord = {
+            original_payload: { raw_value: message.value.toString() },
+            error: `Parse error: ${e.message}`,
+            failed_at: new Date().toISOString(),
+            component: "log-event-writer"
+          };
+          await producer.send({ topic: DLQ_TOPIC, messages: [{ value: JSON.stringify(dlqRecord) }] });
         }
       }
 

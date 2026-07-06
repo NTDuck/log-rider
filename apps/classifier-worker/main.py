@@ -110,12 +110,12 @@ redis_url = required_env('REDIS_URL')
 
 consumer = Consumer({
     'bootstrap.servers': brokers,
-    'group.id': 'logrider.classification.tagger.v1',
+    'group.id': required_env('KAFKA_GROUP_CLASSIFIER'),
     'auto.offset.reset': 'earliest',
     'fetch.wait.max.ms': 1000,
     'enable.auto.commit': False,
 })
-topic_in = 'logrider.logs.normalized.v1'
+topic_in = required_env('KAFKA_TOPIC_LOGS_NORMALIZED')
 consumer.subscribe([topic_in])
 
 producer = Producer({
@@ -125,9 +125,12 @@ producer = Producer({
 })
 redis_client = redis.Redis.from_url(redis_url)
 
-print("Starting Python Classifier worker listening to logs.normalized...")
+print(f"Starting Python Classifier worker listening to {topic_in}...")
 
 BATCH_SIZE = int(required_env("CLASSIFIER_BATCH_SIZE"))
+DLQ_TOPIC = required_env("KAFKA_TOPIC_DLQ_TAG_WRITE_FAILED")
+OUT_TOPIC = required_env("KAFKA_TOPIC_LOG_TAGS_ASSIGNED")
+REALTIME_CHANNEL = required_env("REDIS_CHANNEL_LOG_REALTIME")
 
 def get_consumer_lag():
     try:
@@ -171,37 +174,35 @@ while True:
         try:
             payload = msg.value().decode('utf-8')
             log = json.loads(payload)
-            trace_id = log.get('trace_id') or log.get('Trace_ID')
+            trace_id = log.get('trace_id')
             if trace_id:
                 log['trace_id'] = trace_id
                 logs.append(log)
                 raw_msgs.append(msg)
             else:
                 dlq_record = {
-                    "topic": msg.topic(),
-                    "partition": msg.partition(),
-                    "offset": msg.offset(),
-                    "reason": "Missing trace_id",
-                    "raw_value": payload
+                    "original_payload": log,
+                    "error": "Missing trace_id",
+                    "failed_at": datetime.utcnow().isoformat() + "Z",
+                    "component": "classifier-worker"
                 }
-                producer.produce('logrider.dlq.log-tags-write-failed.v1', json.dumps(dlq_record).encode('utf-8'))
+                producer.produce(DLQ_TOPIC, json.dumps(dlq_record).encode('utf-8'))
         except Exception as e:
             print(f"Parse error: {e}")
             dlq_record = {
-                "topic": msg.topic(),
-                "partition": msg.partition(),
-                "offset": msg.offset(),
-                "reason": f"Parse error: {str(e)}",
-                "raw_value": msg.value().decode('utf-8', errors='replace') if msg.value() else ""
+                "original_payload": {"raw_value": msg.value().decode('utf-8', errors='replace') if msg.value() else ""},
+                "error": f"Parse error: {str(e)}",
+                "failed_at": datetime.utcnow().isoformat() + "Z",
+                "component": "classifier-worker"
             }
-            producer.produce('logrider.dlq.log-tags-write-failed.v1', json.dumps(dlq_record).encode('utf-8'))
+            producer.produce(DLQ_TOPIC, json.dumps(dlq_record).encode('utf-8'))
 
     if not logs:
         producer.flush()
         consumer.commit(asynchronous=False)
         continue
 
-    messages = [log.get('message', log.get('Message', '')) or '' for log in logs]
+    messages = [log.get('message', '') or '' for log in logs]
     
     predicted_tags = []
     msgs_to_classify = []
@@ -210,7 +211,7 @@ while True:
     # Check cache
     for idx, msg_text in enumerate(messages):
         msg_hash = hashlib.sha256(msg_text.encode('utf-8')).hexdigest()
-        redis_key = f"logrider:tags:cache:{msg_hash}"
+        redis_key = f"{required_env('REDIS_KEY_PREFIX_TAG_CACHE')}:{msg_hash}"
         
         cached = local_cache.get(msg_hash)
         if cached:
@@ -252,7 +253,7 @@ while True:
                     msg_hash = hashlib.sha256(msg_text.encode('utf-8')).hexdigest()
                     local_cache.put(msg_hash, tag_list)
                     try:
-                        redis_client.setex(f"logrider:tags:cache:{msg_hash}", 21600, json.dumps(tag_list))
+                        redis_client.setex(f"{required_env('REDIS_KEY_PREFIX_TAG_CACHE')}:{msg_hash}", int(required_env('CLASSIFIER_CACHE_TTL_SECONDS')), json.dumps(tag_list))
                     except Exception:
                         pass
                 success = True
@@ -268,7 +269,7 @@ while True:
         now_str = datetime.utcnow().isoformat() + "Z"
         for idx, log in enumerate(logs):
             tags = predicted_tags[idx]
-            app_name = log.get('application_name', log.get('Application_Name', 'unknown'))
+            app_name = log.get('application_name', 'unknown')
             trace_id = log['trace_id']
             
             classified_ws = {
@@ -280,16 +281,16 @@ while True:
                 'tags_assigned_at': now_str
             }
             # Throttling real-time updates could be done here or in web
-            redis_client.publish('logrider:realtime:log-events', json.dumps(classified_ws))
+            redis_client.publish(REALTIME_CHANNEL, json.dumps(classified_ws))
 
             tag_record = {
                 'trace_id': trace_id,
                 'application_name': app_name,
                 'tags': tags,
-                'event_timestamp': log.get('event_timestamp', log.get('Timestamp')),
+                'event_timestamp': log.get('event_timestamp'),
                 'tags_assigned_at': now_str
             }
-            producer.produce('logrider.logs.tags-assigned.v1', json.dumps(tag_record).encode('utf-8'))
+            producer.produce(OUT_TOPIC, json.dumps(tag_record).encode('utf-8'))
 
         producer.flush()
         consumer.commit(asynchronous=False)

@@ -13,33 +13,29 @@ function requiredEnv(name) {
 const REDIS_URL = requiredEnv("REDIS_URL");
 const REDPANDA_BROKERS = requiredEnv("REDPANDA_BROKERS");
 
+const KAFKA_TOPIC_ALERT_CANDIDATES = requiredEnv("KAFKA_TOPIC_ALERT_CANDIDATES");
+const KAFKA_GROUP_ALERT_DEDUP = requiredEnv("KAFKA_GROUP_ALERT_DEDUP");
+const REDIS_CHANNEL_ALERT_REALTIME = requiredEnv("REDIS_CHANNEL_ALERT_REALTIME");
+const REDIS_ZSET_TELEGRAM_DIRTY_INCIDENTS = requiredEnv("REDIS_ZSET_TELEGRAM_DIRTY_INCIDENTS");
+const REDIS_HASH_NOTIFICATION_DATA = requiredEnv("REDIS_HASH_NOTIFICATION_DATA");
+const REDIS_ZSET_NOTIFICATION_INDEX = requiredEnv("REDIS_ZSET_NOTIFICATION_INDEX");
+const REDIS_KEY_PREFIX_INCIDENT = requiredEnv("REDIS_KEY_PREFIX_INCIDENT");
+
+const ALERT_DEDUP_TTL_SECONDS = parseInt(requiredEnv("ALERT_DEDUP_TTL_SECONDS"), 10);
+const ALERT_ENABLED_SEVERITIES = requiredEnv("ALERT_ENABLED_SEVERITIES").split(",");
+const ALERT_GROUPING_STRATEGY = requiredEnv("ALERT_GROUPING_STRATEGY");
+const ALERT_NOTIFICATION_TTL_SECONDS = parseInt(requiredEnv("ALERT_NOTIFICATION_TTL_SECONDS"), 10);
+
 const redisClient = createClient({ url: REDIS_URL });
 
 const kafka = new Kafka({
     clientId: 'alert-worker',
-    brokers: [REDPANDA_BROKERS]
+    brokers: REDPANDA_BROKERS.split(',')
 });
 
-const consumer = kafka.consumer({ groupId: 'alert-worker-group' });
+const consumer = kafka.consumer({ groupId: KAFKA_GROUP_ALERT_DEDUP });
 
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
-
-async function getConfig(key, defaultVal) {
-    const val = await redisClient.get(`config:${key}`);
-    if (!val) {
-        // Fallback to legacy key for alert_ttl if it exists, though we prefer the new one
-        if (key === 'alert.dedup_ttl_seconds') {
-            const legacyVal = await redisClient.get('config:alert_ttl');
-            if (legacyVal) return parseInt(legacyVal, 10);
-        }
-        return defaultVal;
-    }
-    try {
-        return JSON.parse(val);
-    } catch (e) {
-        return val;
-    }
-}
 
 (async () => {
     try {
@@ -47,7 +43,7 @@ async function getConfig(key, defaultVal) {
         console.log('Connected to Redis');
         
         await consumer.connect();
-        await consumer.subscribe({ topic: 'alerts-ingested', fromBeginning: true });
+        await consumer.subscribe({ topic: KAFKA_TOPIC_ALERT_CANDIDATES, fromBeginning: true });
 
         const luaScript = `
             local incKey = KEYS[1]
@@ -56,14 +52,22 @@ async function getConfig(key, defaultVal) {
             local ttl = tonumber(ARGV[2])
 
             local count = redis.call("HINCRBY", incKey, "count", 1)
-            redis.call("HSET", incKey, "last_seen", now)
-            redis.call("HSETNX", incKey, "first_seen", now)
-            redis.call("HSETNX", incKey, "status", "Active")
-            redis.call("EXPIRE", incKey, ttl)
+            
+            local is_new_incident = 0
+            local should_notify = 0
+
+            if redis.call("HSETNX", incKey, "first_seen", now) == 1 then
+                is_new_incident = 1
+                should_notify = 1
+                redis.call("HSET", incKey, "status", "Active")
+            end
 
             redis.call("ZADD", dirtyQ, "NX", now, incKey)
 
-            return count
+            redis.call("HSET", incKey, "last_seen", now)
+            redis.call("EXPIRE", incKey, ttl)
+
+            return {count, is_new_incident, should_notify}
         `;
         
         const scriptSha = await redisClient.scriptLoad(luaScript);
@@ -72,9 +76,9 @@ async function getConfig(key, defaultVal) {
             eachBatchAutoResolve: false,
             eachBatch: async ({ batch, resolveOffset, heartbeat, commitOffsetsIfNecessary }) => {
                 try {
-                    const ttl = await getConfig('alert.dedup_ttl_seconds', 60);
-                    const enabledSeverities = await getConfig('alert.enabled_severities', ["ERROR", "CRITICAL"]);
-                    const groupingStrategy = await getConfig('alert.grouping_strategy', "app_message");
+                    const ttl = ALERT_DEDUP_TTL_SECONDS;
+                    const enabledSeverities = ALERT_ENABLED_SEVERITIES;
+                    const groupingStrategy = ALERT_GROUPING_STRATEGY;
                     
                     const pipeline = redisClient.multi();
                     const messagesProcessed = [];
@@ -84,37 +88,34 @@ async function getConfig(key, defaultVal) {
                     for (let message of batch.messages) {
                         const log = JSON.parse(message.value.toString());
                         
-                        // 2. Drop disabled severities
-                        if (!enabledSeverities.includes(log.Log_Level)) {
+                        if (!enabledSeverities.includes(log.severity)) {
                             resolveOffset(message.offset);
                             continue;
                         }
 
-                        // 3. Implement alert.grouping_strategy in the incident fingerprint.
                         let groupStr = '';
                         if (groupingStrategy === "app_message") {
-                            groupStr = `${log.Application_Name || ''}:${log.Message || ''}`;
+                            groupStr = `${log.application_name || ''}:${log.message || ''}`;
                         } else if (groupingStrategy === "app_level_message") {
-                            groupStr = `${log.Application_Name || ''}:${log.Log_Level || ''}:${log.Message || ''}`;
+                            groupStr = `${log.application_name || ''}:${log.severity || ''}:${log.message || ''}`;
                         } else if (groupingStrategy === "message_only") {
-                            groupStr = `${log.Message || ''}`;
+                            groupStr = `${log.message || ''}`;
                         } else {
-                            groupStr = `${log.Application_Name || ''}:${log.Message || ''}`;
+                            groupStr = `${log.application_name || ''}:${log.message || ''}`;
                         }
 
                         const errorHash = crypto.createHash('md5').update(groupStr).digest('hex').substring(0, 8);
                         
-                        const incKey = `incident:${log.Application_Name || 'unknown'}:${errorHash}`;
+                        const incKey = `${REDIS_KEY_PREFIX_INCIDENT}:${log.application_name || 'unknown'}:${errorHash}`;
                         
                         pipeline.evalSha(scriptSha, {
-                            keys: [incKey, "telegram:dirty_incidents"],
+                            keys: [incKey, REDIS_ZSET_TELEGRAM_DIRTY_INCIDENTS],
                             arguments: [now.toString(), ttl.toString()]
                         });
                         
-                        // Store the message content and other metadata if it's the first time
-                        pipeline.hSetNX(incKey, "app", log.Application_Name || "");
-                        pipeline.hSetNX(incKey, "severity", log.Log_Level || "");
-                        pipeline.hSetNX(incKey, "message", log.Message || "");
+                        pipeline.hSetNX(incKey, "app", log.application_name || "");
+                        pipeline.hSetNX(incKey, "severity", log.severity || "");
+                        pipeline.hSetNX(incKey, "message", log.message || "");
 
                         messagesProcessed.push({ log, errorHash, incKey, offset: message.offset });
                     }
@@ -127,21 +128,27 @@ async function getConfig(key, defaultVal) {
 
                     const results = await pipeline.exec();
                     
-                    // Now process results for WebSocket real-time updates
                     for (let i = 0; i < messagesProcessed.length; i++) {
                         const { log, errorHash, incKey, offset } = messagesProcessed[i];
-                        const res = results[i * 4]; // We have 4 pipeline commands per message
-                        const count = res;
+                        const res = results[i * 4];
+                        const count = res[0];
+                        const is_new_incident = res[1];
+                        const should_notify = res[2];
                         
                         resolveOffset(offset);
                         
-                        const alertMsg = JSON.stringify({ type: 'ALERT', log, count });
-                        const notifKey = `${log.Application_Name || 'unknown'}:${errorHash}`;
-                        const notifData = JSON.stringify({ type: 'ALERT', log, count, incident_key: incKey });
-
-                        await redisClient.publish('alerts-stream', alertMsg);
-                        await redisClient.hSet('notifications:data', notifKey, notifData);
-                        await redisClient.zAdd('notifications:index', [{ score: Date.now(), value: notifKey }]);
+                        if (should_notify === 1) {
+                            const alertMsg = JSON.stringify({ type: 'ALERT', log, count, incident_key: incKey });
+                            const notifKey = `${log.application_name || 'unknown'}:${errorHash}`;
+                            
+                            await redisClient.publish(REDIS_CHANNEL_ALERT_REALTIME, alertMsg);
+                            await redisClient.hSet(REDIS_HASH_NOTIFICATION_DATA, notifKey, alertMsg);
+                            await redisClient.zAdd(REDIS_ZSET_NOTIFICATION_INDEX, [{ score: Date.now(), value: notifKey }]);
+                        } else {
+                            // Publish aggregate update without notification events
+                            const updateMsg = JSON.stringify({ type: 'INCIDENT_UPDATE', log, count, incident_key: incKey });
+                            await redisClient.publish(REDIS_CHANNEL_ALERT_REALTIME, updateMsg);
+                        }
                     }
                     
                     await commitOffsetsIfNecessary();
@@ -153,7 +160,7 @@ async function getConfig(key, defaultVal) {
             }
         });
         
-        console.log('Listening to alerts-ingested on Kafka with Batching');
+        console.log(`Listening to ${KAFKA_TOPIC_ALERT_CANDIDATES} on Kafka with Batching`);
     } catch (e) {
         console.error('Initialization error:', e);
     }

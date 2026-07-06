@@ -111,7 +111,7 @@
                                 <svg class="w-4 h-4 text-gray-400 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                 <select id="search-col" onchange="renderAlerts()" class="bg-transparent text-sm font-bold text-aws-text dark:text-aws-textDark focus:outline-none cursor-pointer">
                                     <option value="application">Application</option>
-                                    <option value="message">Message</option>
+                                    <option value="message">message</option>
                                 </select>
                                 <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 shrink-0"></div>
                                 <input id="search-query" type="text" oninput="renderAlerts()" placeholder="Search alerts..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
@@ -141,7 +141,7 @@
                                 <th class="w-[110px] px-5 py-3">Count</th>
                                 <th class="w-[120px] px-5 py-3">Level</th>
                                 <th class="w-[220px] px-5 py-3">Application</th>
-                                <th class="px-5 py-3">Message</th>
+                                <th class="px-5 py-3">message</th>
                                 <th class="w-[220px] px-5 py-3">Last Seen</th>
                             </tr>
                         </thead>
@@ -226,7 +226,7 @@
         }
 
         function alertSignature(log) {
-            return `${log.Application_Name || 'unknown'}|${log.Message || ''}`;
+            return `${log.application_name || 'unknown'}|${log.message || ''}`;
         }
 
         function ensureApplicationOption(appName) {
@@ -240,28 +240,28 @@
         function upsertAlert(log) {
             const signature = alertSignature(log);
             const existing = alertsBySignature.get(signature);
-            let ts = log.Timestamp;
+            let ts = log.event_timestamp;
             if (ts && typeof ts === 'string' && ts.includes(' ') && !ts.includes('T')) {
                 ts = ts.replace(' ', 'T');
                 if (!ts.endsWith('Z')) ts += 'Z';
             }
             const next = {
-                Application_Name: log.Application_Name || 'unknown',
-                Log_Level: (log.Log_Level || 'ERROR').toUpperCase(),
-                Message: log.Message || '',
-                Timestamp: ts,
+                application_name: log.application_name || 'unknown',
+                severity: (log.severity || 'ERROR').toUpperCase(),
+                message: log.message || '',
+                event_timestamp: ts,
                 alert_count: Number(log.alert_count || log.count || 1),
             };
 
             if (existing) {
                 existing.alert_count = Math.max(existing.alert_count, next.alert_count);
-                existing.Timestamp = next.Timestamp;
-                existing.Log_Level = next.Log_Level;
+                existing.event_timestamp = next.event_timestamp;
+                existing.severity = next.severity;
             } else {
                 alertsBySignature.set(signature, next);
             }
 
-            ensureApplicationOption(next.Application_Name);
+            ensureApplicationOption(next.application_name);
         }
 
         function getVisibleAlerts() {
@@ -271,13 +271,13 @@
             const level = document.getElementById('level-filter').value;
 
             return [...alertsBySignature.values()]
-                .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp))
+                .sort((a, b) => new Date(b.event_timestamp) - new Date(a.event_timestamp))
                 .filter((alert) => {
-                    if (app && alert.Application_Name !== app) return false;
-                    if (level && alert.Log_Level !== level) return false;
+                    if (app && alert.application_name !== app) return false;
+                    if (level && alert.severity !== level) return false;
                     if (!query) return true;
-                    if (searchCol === 'message') return alert.Message.toLowerCase().includes(query);
-                    return alert.Application_Name.toLowerCase().includes(query);
+                    if (searchCol === 'message') return alert.message.toLowerCase().includes(query);
+                    return alert.application_name.toLowerCase().includes(query);
                 });
         }
 
@@ -285,7 +285,7 @@
             const alerts = [...alertsBySignature.values()];
             document.getElementById('summary-total').textContent = alerts.reduce((sum, alert) => sum + alert.alert_count, 0);
             document.getElementById('summary-critical').textContent = alerts
-                .filter((alert) => alert.Log_Level === 'CRITICAL')
+                .filter((alert) => alert.severity === 'CRITICAL')
                 .reduce((sum, alert) => sum + alert.alert_count, 0);
             document.getElementById('summary-unique').textContent = alerts.length;
         }
@@ -311,11 +311,11 @@
                         <span class="inline-flex min-w-[54px] justify-center rounded-full bg-aws-primary/10 px-2 py-0.5 text-xs font-bold text-aws-primary dark:text-sky-300">x${alert.alert_count}</span>
                     </td>
                     <td class="px-5 py-3">
-                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${alert.Log_Level === 'CRITICAL' ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}">${escapeHtml(alert.Log_Level)}</span>
+                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${alert.severity === 'CRITICAL' ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}">${escapeHtml(alert.severity)}</span>
                     </td>
-                    <td class="px-5 py-3">${escapeHtml(alert.Application_Name)}</td>
-                    <td class="px-5 py-3 whitespace-normal break-words">${escapeHtml(alert.Message)}</td>
-                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${formatTimestamp(alert.Timestamp)}</td>
+                    <td class="px-5 py-3">${escapeHtml(alert.application_name)}</td>
+                    <td class="px-5 py-3 whitespace-normal break-words">${escapeHtml(alert.message)}</td>
+                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${formatTimestamp(alert.event_timestamp)}</td>
                 </tr>
             `).join('');
         }
@@ -356,7 +356,7 @@
                 }
 
                 const log = data.type === 'ALERT' ? { ...data.log, alert_count: data.count || 1 } : data;
-                if (!log?.Log_Level || (log.Log_Level !== 'ERROR' && log.Log_Level !== 'CRITICAL')) return;
+                if (!log?.severity || (log.severity !== 'ERROR' && log.severity !== 'CRITICAL')) return;
                 upsertAlert(log);
                 renderAlerts();
             };

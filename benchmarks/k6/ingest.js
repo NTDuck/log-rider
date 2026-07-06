@@ -4,7 +4,7 @@ import grpc from 'k6/net/grpc';
 import { check, sleep } from 'k6';
 
 const client = new grpc.Client();
-client.load(['../../workers/ingest/proto'], 'log.proto');
+client.load(['../../apps/ingest-api/proto'], 'log.proto');
 
 export let options = {
   scenarios: {
@@ -37,22 +37,22 @@ export default function () {
   if (SCENARIO_NAME === 'alert-dedup') {
     for (let i = 0; i < BATCH_SIZE; i++) {
       records.push({
-        Application_Name: "benchmark-alert-app",
-        Log_Level: "ERROR",
-        Message: "repeated benchmark database timeout",
-        Timestamp: new Date().toISOString(),
-        Trace_ID: "trace-" + Math.random()
+        application_name: "benchmark-alert-app",
+        severity: "ERROR",
+        message: "repeated benchmark database timeout",
+        event_timestamp: new Date().toISOString(),
+        trace_id: "trace-" + Math.random()
       });
     }
   } else {
     for (let i = 0; i < BATCH_SIZE; i++) {
-      const log = logsData[Math.floor(Math.random() * logsData.length)].value;
+      const log = logsData[Math.floor(Math.random() * logsData.length)].value || logsData[Math.floor(Math.random() * logsData.length)];
       records.push({
-        Application_Name: log.Application_Name,
-        Log_Level: log.Log_Level,
-        Message: log.Message,
-        Timestamp: new Date().toISOString(),
-        Trace_ID: "trace-" + Math.random()
+        application_name: log.Application_Name || log.application_name || "benchmark-app",
+        severity: log.Log_Level || log.severity || "INFO",
+        message: log.Message || log.message || "benchmark log",
+        event_timestamp: new Date().toISOString(),
+        trace_id: "trace-" + Math.random()
       });
     }
   }

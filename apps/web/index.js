@@ -3,13 +3,7 @@ import { createClient } from "redis";
 import path from "path";
 import crypto from "crypto";
 import pg from "pg";
-import { Kafka } from "kafkajs";
 const { Pool } = pg;
-
-const kafka = new Kafka({
-  clientId: "logrider-web-server",
-  brokers: ["redpanda:29092"],
-});
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -25,11 +19,19 @@ const POSTGRES_URI = requiredEnv("POSTGRES_URI");
 const CLICKHOUSE_HOST = requiredEnv("CLICKHOUSE_HOST");
 const CLICKHOUSE_USER = requiredEnv("CLICKHOUSE_USER");
 const CLICKHOUSE_PASSWORD = requiredEnv("CLICKHOUSE_PASSWORD");
+const REDIS_CHANNEL_ALERT_REALTIME = requiredEnv("REDIS_CHANNEL_ALERT_REALTIME");
+const REDIS_CHANNEL_LOG_REALTIME = requiredEnv("REDIS_CHANNEL_LOG_REALTIME");
+const REDIS_KEY_PREFIX_INCIDENT = requiredEnv("REDIS_KEY_PREFIX_INCIDENT");
+const REDIS_KEY_PREFIX_CONFIG = requiredEnv("REDIS_KEY_PREFIX_CONFIG");
 const chBaseUrl = `http://${CLICKHOUSE_HOST}:8123/?user=${CLICKHOUSE_USER}&password=${CLICKHOUSE_PASSWORD}`;
 const pgClient = new Pool({ connectionString: POSTGRES_URI });
 pgClient.on("error", (err) =>
   console.error("Postgres Pool Error", err.message),
 );
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 const CONFIG_REGISTRY = {
   "alert.dedup_ttl_seconds": {
@@ -189,7 +191,7 @@ const CONFIG_REGISTRY = {
     public: true,
   },
   "display.timestamp_timezone_policy": {
-    label: "Timestamp timezone policy",
+    label: "event_timestamp timezone policy",
     description: "How browser pages should localize timestamps.",
     type: "enum",
     defaultValue: "browser",
@@ -197,7 +199,7 @@ const CONFIG_REGISTRY = {
     public: true,
   },
   "display.timestamp_format": {
-    label: "Timestamp format",
+    label: "event_timestamp format",
     description: "Preferred timestamp rendering format for browser pages.",
     type: "enum",
     defaultValue: "YYYY-MM-DD HH:mm:ss.SSS",
@@ -260,7 +262,7 @@ async function getConfigValue(key) {
   const entry = CONFIG_REGISTRY[key];
   if (!entry) throw new Error(`Unknown config key: ${key}`);
 
-  const raw = await redisClient.get(`config:${key}`);
+  const raw = await redisClient.get(`${REDIS_KEY_PREFIX_CONFIG}:${key}`);
   if (raw) return JSON.parse(raw);
 
   const legacyKey = LEGACY_CONFIG_KEYS[key];
@@ -273,7 +275,7 @@ async function getConfigValue(key) {
 }
 
 async function setConfigValue(key, value) {
-  await redisClient.set(`config:${key}`, JSON.stringify(value));
+  await redisClient.set(`${REDIS_KEY_PREFIX_CONFIG}:${key}`, JSON.stringify(value));
 
   const legacyKey = LEGACY_CONFIG_KEYS[key];
   if (legacyKey) await redisClient.set(legacyKey, String(value));
@@ -298,7 +300,7 @@ async function requireSession(req, { adminOnly = false } = {}) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return { response: Response.json({ error: "No token" }, { status: 401 }) };
 
-  const sessionStr = await redisClient.get(`session:${token}`);
+  const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
   if (!sessionStr) return { response: Response.json({ error: "Invalid token" }, { status: 401 }) };
 
   const session = JSON.parse(sessionStr);
@@ -395,11 +397,11 @@ let bunServer;
 
     await redisSubscriber.connect();
 
-    await redisSubscriber.subscribe("logrider:realtime:alert-events", (message) => {
+    await redisSubscriber.subscribe(REDIS_CHANNEL_ALERT_REALTIME, (message) => {
       if (bunServer) {
         try {
           const parsed = JSON.parse(message);
-          const appName = parsed.log?.application_name || parsed.application_name || parsed.log?.Application_Name || parsed.Application_Name;
+          const appName = parsed.log?.application_name || parsed.application_name || parsed.log?.application_name || parsed.application_name;
           const appDelivered = appName ? bunServer.publish(`alerts-stream:${appName}`, message) : 0;
           const globalDelivered = bunServer.publish(`alerts-stream:global`, message);
 
@@ -427,7 +429,7 @@ let bunServer;
       wsEventStats = { received: 0, normalized: 0, persisted: 0, classified: 0 };
     }, 1000);
 
-    await redisSubscriber.subscribe("logrider:realtime:log-events", (message) => {
+    await redisSubscriber.subscribe(REDIS_CHANNEL_LOG_REALTIME, (message) => {
       if (bunServer) {
         try {
           const parsed = JSON.parse(message);
@@ -440,16 +442,16 @@ let bunServer;
           wsEventsPerSec++;
           if (wsEventsPerSec > 1000) return; // Throttle individual messages
 
-          const appName = parsed.application_name || parsed.Application_Name || parsed.log?.Application_Name;
+          const appName = parsed.application_name || parsed.application_name || parsed.log?.application_name;
           const appDelivered = appName ? bunServer.publish(`ws-frontend:${appName}`, message) : 0;
           const globalDelivered = bunServer.publish(`ws-frontend:global`, message);
         } catch (e) {
-          console.error("Error handling logrider:realtime:log-events message:", e);
+          console.error(`Error handling ${REDIS_CHANNEL_LOG_REALTIME} message:`, e);
         }
       }
     });
 
-    console.log("Subscribed to Redis channels logrider:realtime:alert-events and logrider:realtime:log-events");
+    console.log(`Subscribed to Redis channels ${REDIS_CHANNEL_ALERT_REALTIME} and ${REDIS_CHANNEL_LOG_REALTIME}`);
   } catch (e) {
     console.error("Initialization error:", e);
   }
@@ -488,6 +490,20 @@ bunServer = Bun.serve({
   port: PORT,
   async fetch(req, server) {
     const url = new URL(req.url);
+
+    if (req.method === "GET" && url.pathname === "/livez") {
+      return Response.json({ status: "alive" });
+    }
+
+    if (req.method === "GET" && url.pathname === "/readyz") {
+      try {
+        await redisClient.ping();
+        await pgClient.query("SELECT 1");
+        return Response.json({ status: "ready" });
+      } catch (e) {
+        return Response.json({ status: "not ready", error: e.message }, { status: 503 });
+      }
+    }
 
     if (req.method === "GET" && url.pathname === "/health") {
       return Response.json({
@@ -550,7 +566,7 @@ bunServer = Bun.serve({
 
         const token = (await import("crypto")).randomBytes(32).toString("hex");
         await redisClient.setEx(
-          `session:${token}`,
+          `session:${hashToken(token)}`,
           86400,
           JSON.stringify({
             username: user.username,
@@ -591,7 +607,7 @@ bunServer = Bun.serve({
         const token = req.headers.get("authorization")?.replace("Bearer ", "");
         if (!token)
           return Response.json({ error: "No token" }, { status: 401 });
-        const sessionStr = await redisClient.get(`session:${token}`);
+        const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
         if (!sessionStr)
           return Response.json({ error: "Invalid token" }, { status: 401 });
         const session = JSON.parse(sessionStr);
@@ -622,7 +638,7 @@ bunServer = Bun.serve({
     if (url.pathname.startsWith("/api/users")) {
       const token = req.headers.get("authorization")?.replace("Bearer ", "");
       if (!token) return Response.json({ error: "No token" }, { status: 401 });
-      const sessionStr = await redisClient.get(`session:${token}`);
+      const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
       if (!sessionStr)
         return Response.json({ error: "Invalid token" }, { status: 401 });
       const session = JSON.parse(sessionStr);
@@ -789,7 +805,7 @@ bunServer = Bun.serve({
         if (!token)
           return Response.json({ error: "No token" }, { status: 401 });
 
-        const sessionStr = await redisClient.get(`session:${token}`);
+        const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
         if (!sessionStr)
           return Response.json({ error: "Invalid token" }, { status: 401 });
 
@@ -831,7 +847,7 @@ bunServer = Bun.serve({
         if (!token)
           return Response.json({ error: "No token" }, { status: 401 });
 
-        const sessionStr = await redisClient.get(`session:${token}`);
+        const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
         if (!sessionStr)
           return Response.json({ error: "Invalid token" }, { status: 401 });
 
@@ -865,13 +881,13 @@ bunServer = Bun.serve({
 
         let hours = await getConfigValue("retention.clickhouse_ttl_hours");
         const matchHour = createTableStr.match(
-          /TTL Timestamp \+ toIntervalHour\((\d+)\)/,
+          /TTL event_timestamp \+ toIntervalHour\((\d+)\)/,
         );
         if (matchHour) {
           hours = parseInt(matchHour[1], 10);
         } else {
           const matchDay = createTableStr.match(
-            /TTL Timestamp \+ toIntervalDay\((\d+)\)/,
+            /TTL event_timestamp \+ toIntervalDay\((\d+)\)/,
           );
           if (matchDay) hours = parseInt(matchDay[1], 10) * 24;
         }
@@ -894,7 +910,7 @@ bunServer = Bun.serve({
         if (!token)
           return Response.json({ error: "No token" }, { status: 401 });
 
-        const sessionStr = await redisClient.get(`session:${token}`);
+        const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
         if (!sessionStr)
           return Response.json({ error: "Invalid token" }, { status: 401 });
 
@@ -911,9 +927,9 @@ bunServer = Bun.serve({
         if (!result.ok) return Response.json({ error: result.message }, { status: 400 });
 
         const queries = [
-          `ALTER TABLE logrider.logs MODIFY TTL Timestamp + toIntervalHour(${result.value})`,
-          `ALTER TABLE logrider.log_tags MODIFY TTL Timestamp + toIntervalHour(${result.value})`,
-          `ALTER TABLE logrider.logs_enriched MODIFY TTL Timestamp + toIntervalHour(${result.value})`,
+          `ALTER TABLE logrider.logs MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
+          `ALTER TABLE logrider.log_tags MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
+          `ALTER TABLE logrider.logs_enriched MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
         ];
 
         for (let q of queries) {
@@ -941,7 +957,7 @@ bunServer = Bun.serve({
         if (!token)
           return Response.json({ error: "No token" }, { status: 401 });
 
-        const sessionStr = await redisClient.get(`session:${token}`);
+        const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
         if (!sessionStr)
           return Response.json({ error: "Invalid token" }, { status: 401 });
 
@@ -953,13 +969,13 @@ bunServer = Bun.serve({
         const query = `
                     SELECT
                         hour,
-                        Application_Name,
+                        application_name as application_name,
                         sum(error_count) as err_cnt,
                         sum(total_count) as tot_cnt,
                         (sum(error_count) / sum(total_count)) * 100 as error_rate
-                    FROM logrider.hourly_health_mv
+                    FROM logrider_analytics.app_health_hourly
                     WHERE hour >= now() - INTERVAL ${intervalStr}
-                    GROUP BY hour, Application_Name
+                    GROUP BY hour, application_name
                     ORDER BY hour ASC
                     FORMAT JSON
                 `;
@@ -981,7 +997,7 @@ bunServer = Bun.serve({
             return Response.json({ data: [] });
           }
           filteredData = chData.data.filter((row) =>
-            session.allowed_apps.includes(row.Application_Name),
+            session.allowed_apps.includes(row.application_name),
           );
         }
 
@@ -1001,7 +1017,7 @@ bunServer = Bun.serve({
         if (!token)
           return Response.json({ error: "No token" }, { status: 401 });
 
-        const sessionStr = await redisClient.get(`session:${token}`);
+        const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
         if (!sessionStr)
           return Response.json({ error: "Invalid token" }, { status: 401 });
 
@@ -1018,32 +1034,32 @@ bunServer = Bun.serve({
           if (apps.length === 0) {
             return Response.json({ apps: [], levels: [] });
           }
-          filterClause = `AND Application_Name IN (${apps.map(quoteClickHouseString).join(",")})`;
+          filterClause = `AND application_name IN (${apps.map(quoteClickHouseString).join(",")})`;
         }
 
         const appsQuery = `
           SELECT
-            Application_Name,
+            application_name as application_name,
             count() AS total_count,
-            countIf(Log_Level = 'ERROR') AS error_count,
-            countIf(Log_Level = 'CRITICAL') AS critical_count
-          FROM logrider.logs_enriched
-          WHERE Timestamp >= now() - INTERVAL ${intervalStr}
+            countIf(severity = 'ERROR') AS error_count,
+            countIf(severity = 'CRITICAL') AS critical_count
+          FROM logrider_analytics.log_events
+          WHERE event_timestamp >= now() - INTERVAL ${intervalStr}
             ${filterClause}
-          GROUP BY Application_Name
+          GROUP BY application_name
           ORDER BY error_count DESC, critical_count DESC, total_count DESC
           FORMAT JSON
         `;
 
         const levelsQuery = `
           SELECT
-            Log_Level,
+            severity as severity,
             count() AS count
-          FROM logrider.logs_enriched
-          WHERE Timestamp >= now() - INTERVAL ${intervalStr}
-            AND Log_Level IN ('ERROR', 'CRITICAL')
+          FROM logrider_analytics.log_events
+          WHERE event_timestamp >= now() - INTERVAL ${intervalStr}
+            AND severity IN ('ERROR', 'CRITICAL')
             ${filterClause}
-          GROUP BY Log_Level
+          GROUP BY severity
           ORDER BY count DESC
           FORMAT JSON
         `;
@@ -1089,7 +1105,7 @@ bunServer = Bun.serve({
         if (!token)
           return Response.json({ error: "No token" }, { status: 401 });
 
-        const sessionStr = await redisClient.get(`session:${token}`);
+        const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
         if (!sessionStr)
           return Response.json({ error: "Invalid token" }, { status: 401 });
 
@@ -1097,11 +1113,11 @@ bunServer = Bun.serve({
 
         let query;
         const lookbackHours = await getConfigValue("query.historical_logs_lookback_hours");
-        const lookbackClause = `Timestamp >= now() - INTERVAL ${lookbackHours} HOUR`;
+        const lookbackClause = `event_timestamp >= now() - INTERVAL ${lookbackHours} HOUR`;
 
         // Admin users see all logs
         if (session.is_admin) {
-          query = `SELECT * FROM logrider.logs_enriched WHERE ${lookbackClause} ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
+          query = `SELECT trace_id as trace_id, application_name as application_name, severity as severity, message as message, event_timestamp as event_timestamp, tags as tags FROM logrider_analytics.log_events WHERE ${lookbackClause} ORDER BY event_timestamp DESC LIMIT 1000 FORMAT JSON`;
         } else {
           const apps =
             typeof session.allowed_apps === "string"
@@ -1113,7 +1129,7 @@ bunServer = Bun.serve({
           // Sanitize to prevent SQL injection, then filter
           const safeApps = apps.map((app) => app.replace(/'/g, "''"));
           const inClause = safeApps.map((app) => `'${app}'`).join(",");
-          query = `SELECT * FROM logrider.logs_enriched WHERE ${lookbackClause} AND Application_Name IN (${inClause}) ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
+          query = `SELECT trace_id as trace_id, application_name as application_name, severity as severity, message as message, event_timestamp as event_timestamp, tags as tags FROM logrider_analytics.log_events WHERE ${lookbackClause} AND application_name IN (${inClause}) ORDER BY event_timestamp DESC LIMIT 1000 FORMAT JSON`;
         }
 
         const chRes = await fetch(chBaseUrl, {
@@ -1127,40 +1143,14 @@ bunServer = Bun.serve({
 
         const chData = await chRes.json();
         const rows = chData.data || [];
-        const traceIds = [...new Set(rows.map((row) => row.Trace_ID).filter(Boolean))];
-        let tagsByTraceId = new Map();
-
-        if (traceIds.length > 0) {
-          const tagsQuery = `
-            SELECT Trace_ID, Tags
-            FROM logrider.log_tags
-            WHERE Trace_ID IN (${traceIds.map(quoteClickHouseString).join(",")})
-            ORDER BY Timestamp DESC
-            FORMAT JSON
-          `;
-
-          const tagsRes = await fetch(chBaseUrl, {
-            method: "POST",
-            body: tagsQuery,
-          });
-
-          if (!tagsRes.ok) {
-            throw new Error(`ClickHouse tag query error: ${await tagsRes.text()}`);
-          }
-
-          const tagsData = await tagsRes.json();
-          tagsByTraceId = new Map(
-            (tagsData.data || []).map((row) => [row.Trace_ID, row.Tags || []]),
-          );
-        }
 
         const logs = rows.map((row) => ({
-          Trace_ID: row.Trace_ID,
-          Application_Name: row.Application_Name,
-          Log_Level: row.Log_Level,
-          Message: row.Message,
-          Timestamp: row.Timestamp,
-          Tags: tagsByTraceId.get(row.Trace_ID) || row.Tags || [],
+          trace_id: row.trace_id,
+          application_name: row.application_name,
+          severity: row.severity,
+          message: row.message,
+          event_timestamp: row.event_timestamp,
+          tags: row.tags || [],
         }));
 
         return Response.json({ logs });
@@ -1186,17 +1176,17 @@ bunServer = Bun.serve({
         if (!token)
           return Response.json({ error: "No token" }, { status: 401 });
 
-        const sessionStr = await redisClient.get(`session:${token}`);
+        const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
         if (!sessionStr)
           return Response.json({ error: "Invalid token" }, { status: 401 });
 
         const session = JSON.parse(sessionStr);
 
-        let ttlStr = await redisClient.get("config:noti_ttl");
-        let ttl = ttlStr ? parseInt(ttlStr, 10) : 86400; // Default 24 hours
+        let ttlStr = await redisClient.get(`${REDIS_KEY_PREFIX_CONFIG}:alert.notification_ttl_seconds`);
+        let ttl = ttlStr ? parseInt(ttlStr, 10) : parseInt(requiredEnv("ALERT_NOTIFICATION_TTL_SECONDS"), 10);
 
         let alerts = [];
-        const keys = await redisClient.keys('incident:*');
+        const keys = await redisClient.keys(`${REDIS_KEY_PREFIX_INCIDENT}:*`);
         
         let apps = [];
         if (!session.is_admin) {
@@ -1212,16 +1202,16 @@ bunServer = Bun.serve({
             if (!incident.app) continue;
             
             alerts.push({
-                Application_Name: incident.app,
-                Log_Level: incident.severity,
-                Message: incident.message,
+                application_name: incident.app,
+                severity: incident.severity,
+                message: incident.message,
                 alert_count: parseInt(incident.count || "1", 10),
                 first_seen: parseInt(incident.first_seen || "0", 10),
-                Timestamp: parseInt(incident.last_seen || "0", 10) * 1000,
+                event_timestamp: parseInt(incident.last_seen || "0", 10) * 1000,
                 status: incident.status
             });
         }
-        alerts.sort((a, b) => b.Timestamp - a.Timestamp);
+        alerts.sort((a, b) => b.event_timestamp - a.event_timestamp);
         alerts = alerts.slice(0, 1000);
 
         return Response.json({ alerts });
@@ -1243,7 +1233,7 @@ bunServer = Bun.serve({
       }
       if (!token) return new Response("No token", { status: 401 });
 
-      const sessionStr = await redisClient.get(`session:${token}`);
+      const sessionStr = await redisClient.get(`session:${hashToken(token)}`);
       if (!sessionStr) return new Response("Invalid token", { status: 401 });
 
       const session = JSON.parse(sessionStr);

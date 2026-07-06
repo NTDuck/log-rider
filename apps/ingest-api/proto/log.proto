@@ -7,11 +7,19 @@ service IngestService {
 }
 
 message LogRecord {
+  // Legacy fields for compatibility
   string Application_Name = 1;
   string Log_Level = 2;
   string Message = 3;
   string Timestamp = 4;
   string Trace_ID = 5;
+
+  // Canonical V1 fields
+  string application_name = 6;
+  string severity = 7;
+  string message = 8;
+  string event_timestamp = 9;
+  string trace_id = 10;
 }
 
 message IngestRequest {

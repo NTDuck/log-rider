@@ -1,10 +1,10 @@
 input:
   kafka:
     addresses:
-      - redpanda:29092
+      - ${REDPANDA_BROKERS}
     topics:
-      - logrider.logs.tags-assigned.v1
-    consumer_group: "logrider.persistence.log-tags-writer.v1"
+      - ${KAFKA_TOPIC_LOG_TAGS_ASSIGNED}
+    consumer_group: "${KAFKA_GROUP_LOG_TAG_WRITER}"
     start_from_oldest: true
     batching:
       count: 10000
@@ -16,7 +16,7 @@ output:
     outputs:
       - fallback:
           - http_client:
-              url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider_analytics.log_event_tags%20FORMAT%20JSONEachRow&user=${CLICKHOUSE_USER:default}&password=${CLICKHOUSE_PASSWORD:password}"
+              url: "http://${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/?query=INSERT%20INTO%20${CLICKHOUSE_DATABASE}.${CLICKHOUSE_TABLE_LOG_EVENT_TAGS}%20FORMAT%20JSONEachRow&user=${CLICKHOUSE_USER}&password=${CLICKHOUSE_PASSWORD}"
               verb: POST
               headers:
                 Content-Type: application/x-ndjson
@@ -25,5 +25,5 @@ output:
                   format: lines
           - kafka:
               addresses:
-                - redpanda:29092
-              topic: logrider.dlq.log-tags-write-failed.v1
+                - ${REDPANDA_BROKERS}
+              topic: ${KAFKA_TOPIC_DLQ_TAG_WRITE_FAILED}

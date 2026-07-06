@@ -1,0 +1,7 @@
+{
+  "name": "example-analytics",
+  "dependencies": {
+    "redis": "^4.6.13",
+    "dotenv": "^16.4.5"
+  }
+}

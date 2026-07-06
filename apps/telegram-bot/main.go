@@ -39,8 +39,8 @@ func RequiredEnv(name string) string {
 
 func main() {
 	botToken := RequiredEnv("TELEGRAM_BOT_TOKEN")
-
 	redisURL := RequiredEnv("REDIS_URL")
+	dirtyZSet := RequiredEnv("REDIS_ZSET_TELEGRAM_DIRTY_INCIDENTS")
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		log.Fatalf("invalid REDIS_URL: %v", err)
@@ -65,7 +65,7 @@ func main() {
 		log.Printf("Failed to set commands: %v", err)
 	}
 
-	go consumeDirtyIncidents(bot, rdb)
+	go consumeDirtyIncidents(bot, rdb, dirtyZSet)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -202,11 +202,10 @@ func handleStatus(bot *tgbotapi.BotAPI, rdb *redis.Client, chatID int64) {
 	bot.Send(tgbotapi.NewMessage(chatID, msg))
 }
 
-func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
+func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client, dirtyZSet string) {
 	for {
 		now := time.Now().Unix()
-		// BZPOPMIN telegram:dirty_incidents 0
-		res, err := rdb.BZPopMin(ctx, 5*time.Second, "telegram:dirty_incidents").Result()
+		res, err := rdb.BZPopMin(ctx, 5*time.Second, dirtyZSet).Result()
 		if err != nil {
 			// Timeout or error
 			continue
@@ -220,7 +219,7 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 		if int64(score) > now {
 			diff := int64(score) - now
 			if diff > 0 {
-				rdb.ZAdd(ctx, "telegram:dirty_incidents", redis.Z{Score: float64(score), Member: incKey})
+				rdb.ZAdd(ctx, dirtyZSet, redis.Z{Score: float64(score), Member: incKey})
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -275,12 +274,12 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 			severity = "CRITICAL"
 		}
 
-		// Extract app from incident key: incident:{app}:{hash}
+		// Extract app from incident key: prefix:app:hash
 		parts := strings.Split(incKey, ":")
-		if len(parts) < 3 {
+		if len(parts) < 2 {
 			continue
 		}
-		appID := parts[1]
+		appID := parts[len(parts)-2]
 
 		telegramMsgIDsStr := inc["telegram_message_ids"]
 		var telegramMsgIDs map[string]int
@@ -307,7 +306,7 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 				needsUpdate = true
 			} else {
 				// Requeue for later
-				rdb.ZAdd(ctx, "telegram:dirty_incidents", redis.Z{Score: float64(lastEditAt + minEditInterval), Member: incKey})
+				rdb.ZAdd(ctx, dirtyZSet, redis.Z{Score: float64(lastEditAt + minEditInterval), Member: incKey})
 				continue
 			}
 		}

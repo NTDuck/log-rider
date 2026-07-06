@@ -58,7 +58,7 @@ Local flow:
 
 ```text
 Client / producer
-  -> ingest-worker /v1/logs
+  -> ingest-api /v1/logs
   -> Kafka topic logs-ingested
   -> Benthos unified pipeline
       -> Redis ws-events: Ingested
@@ -69,9 +69,9 @@ Client / producer
       -> Redis ws-events: TAGS/Classified
       -> Kafka logs-classified
   -> Benthos tags pipeline
-      -> ClickHouse logrider.log_tags
-  -> Benthos persist pipeline
-      -> ClickHouse logrider.logs_enriched
+      -> ClickHouse logrider_analytics.log_event_tags
+  -> log-event-writer
+      -> ClickHouse logrider_analytics.log_events
       -> Redis ws-events: Persisted
   -> Web UI
       -> /dashboard
@@ -88,7 +88,7 @@ alerts-ingested
       -> Redis incident state
       -> Redis alerts-stream
       -> Redis telegram:dirty_incidents
-  -> web-server
+  -> web
       -> role-aware WebSocket fan-out
   -> telegram-bot
       -> one Telegram message per active incident
@@ -119,7 +119,7 @@ $EDITOR .env
 At minimum, review:
 
 ```env
-SERVER_PORT=3001
+WEB_PORT=3000
 CLICKHOUSE_USER=default
 CLICKHOUSE_PASSWORD=password
 POSTGRES_USER=logrider
@@ -138,7 +138,7 @@ Important environment variables:
 
 | Variable              | Purpose                              | Default                                               |
 | --------------------- | ------------------------------------ | ----------------------------------------------------- |
-| `SERVER_PORT`         | Host port for the web UI             | `3001`                                                |
+| `WEB_PORT`         | Host port for the web UI             | `3000`                                                |
 | `REDPANDA_BROKERS`    | Kafka broker list                    | `redpanda:29092`                                      |
 | `REDIS_URL`           | Redis connection URL                 | `redis://redis:6379`                                  |
 | `CLICKHOUSE_HOST`     | ClickHouse host                      | `clickhouse`                                          |
@@ -169,10 +169,10 @@ Create Redpanda topics:
 Open the web UI:
 
 ```text
-http://localhost:3001/dashboard
+http://localhost:3000/dashboard
 ```
 
-If you changed `SERVER_PORT`, replace `3001` with your configured port.
+If you changed `WEB_PORT`, replace `3000` with your configured port.
 
 Default local demo accounts:
 
@@ -203,8 +203,8 @@ docker compose logs -f
 To tail one service:
 
 ```bash
-docker compose logs -f web-server
-docker compose logs -f ingest-worker
+docker compose logs -f web
+docker compose logs -f ingest-api
 docker compose logs -f classifier-worker
 docker compose logs -f alert-worker
 docker compose logs -f telegram-bot
@@ -229,7 +229,7 @@ docker compose down -v
 Open:
 
 ```text
-http://localhost:3001/dashboard
+http://localhost:3000/dashboard
 ```
 
 The dashboard shows:
@@ -246,7 +246,7 @@ The dashboard shows:
 Open:
 
 ```text
-http://localhost:3001/alerts
+http://localhost:3000/alerts
 ```
 
 The alerts page shows:
@@ -264,7 +264,7 @@ Repeated identical alerts are grouped into one incident.
 Open:
 
 ```text
-http://localhost:3001/metrics
+http://localhost:3000/metrics
 ```
 
 The metrics page shows:
@@ -280,7 +280,7 @@ The metrics page shows:
 Open as admin:
 
 ```text
-http://localhost:3001/config
+http://localhost:3000/config
 ```
 
 The config page allows admins to modify runtime-safe settings such as:
@@ -320,11 +320,11 @@ curl -fsS \
   --data-binary '{
     "records": [
       {
-        "Application_Name": "demo-api",
-        "Log_Level": "ERROR",
-        "Message": "database timeout while fetching user profile",
-        "Timestamp": "2026-07-05T00:00:00Z",
-        "Trace_ID": "11111111-1111-4111-8111-111111111111"
+        "application_name": "demo-api",
+        "severity": "ERROR",
+        "message": "database timeout while fetching user profile",
+        "event_timestamp": "2026-07-05T00:00:00Z",
+        "trace_id": "11111111-1111-4111-8111-111111111111"
       }
     ]
   }' \
@@ -572,13 +572,13 @@ Useful commands:
 
 ```bash
 docker compose ps
-docker compose logs -f web-server
-docker compose logs -f ingest-worker
+docker compose logs -f web
+docker compose logs -f ingest-api
 docker compose logs -f classifier-worker
 docker compose logs -f alert-worker
 docker compose logs -f telegram-bot
-docker compose logs -f benthos-pipeline
-docker compose logs -f benthos-persist
+docker compose logs -f stream-router
+docker compose logs -f log-event-writer
 ```
 
 Inspect ClickHouse:
@@ -587,7 +587,7 @@ Inspect ClickHouse:
 docker compose exec -T clickhouse clickhouse-client \
   -u "${CLICKHOUSE_USER:-default}" \
   --password "${CLICKHOUSE_PASSWORD:-password}" \
-  -q "SELECT count() FROM logrider.logs_enriched"
+  -q "SELECT count() FROM logrider_analytics.log_events"
 ```
 
 Inspect Redis:
@@ -706,9 +706,9 @@ Run:
 Then check:
 
 ```bash
-docker compose logs -f web-server
-docker compose logs -f benthos-pipeline
-docker compose logs -f benthos-persist
+docker compose logs -f web
+docker compose logs -f stream-router
+docker compose logs -f log-event-writer
 ```
 
 Inspect ClickHouse:
@@ -717,7 +717,7 @@ Inspect ClickHouse:
 docker compose exec -T clickhouse clickhouse-client \
   -u default \
   --password password \
-  -q "SELECT count() FROM logrider.logs_enriched"
+  -q "SELECT count() FROM logrider_analytics.log_events"
 ```
 
 ### Logs persist but tags do not appear
@@ -734,7 +734,7 @@ Check tag table:
 docker compose exec -T clickhouse clickhouse-client \
   -u default \
   --password password \
-  -q "SELECT count() FROM logrider.log_tags"
+  -q "SELECT count() FROM logrider_analytics.log_event_tags"
 ```
 
 ### Alerts do not appear
@@ -761,11 +761,11 @@ curl -fsS \
   --data-binary '{
     "records": [
       {
-        "Application_Name": "demo-api",
-        "Log_Level": "ERROR",
-        "Message": "test alert",
-        "Timestamp": "2026-07-05T00:00:00Z",
-        "Trace_ID": "22222222-2222-4222-8222-222222222222"
+        "application_name": "demo-api",
+        "severity": "ERROR",
+        "message": "test alert",
+        "event_timestamp": "2026-07-05T00:00:00Z",
+        "trace_id": "22222222-2222-4222-8222-222222222222"
       }
     ]
   }' \
@@ -791,38 +791,36 @@ Confirm:
 
 ### Port conflict
 
-If port `3001` is already used, edit `.env`:
+If port `3000` is already used, edit `.env`:
 
 ```env
-SERVER_PORT=3002
+WEB_PORT=3001
 ```
 
 Restart:
 
 ```bash
-docker compose up -d web-server
+docker compose up -d web
 ```
 
 Open:
 
 ```text
-http://localhost:3002/dashboard
+http://localhost:3001/dashboard
 ```
 
 ## Repository Structure
 
 ```text
 logrider/
+  apps/                    Core runtime components (web, ingest-api, alert-worker, etc.)
   benchmarks/              Benchmark scenarios and k6 scripts
-  data/                    Demo Loghub-derived data
-  integrations/telegram/   Telegram bot
-  persist/                 ClickHouse/Postgres initialization SQL
+  contracts/               Shared schemas, proto files, and definitions
+  example/                 Demo Loghub data and test scripts
+  infra/                   Database migrations and infrastructure config
+  packages/                Shared libraries
   pipelines/               Benthos pipeline configs
-  scripts/                 Local setup, test, cleanup scripts
-  server/                  Bun web server and HTML pages
-  workers/alert/           Alert deduplication worker
-  workers/classifier/      Log classifier worker
-  workers/ingest/          HTTP/gRPC ingest worker
+  scripts/                 Utility scripts
   docker-compose.yml       Local development stack
   .env.example             Example environment variables
   README.md                This document

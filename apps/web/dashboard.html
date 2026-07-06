@@ -127,10 +127,10 @@
                             <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm">
                                 <svg class="w-4 h-4 text-gray-400 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                 <select id="search-col" onchange="applyFilters()" class="bg-transparent text-sm font-bold text-aws-text dark:text-aws-textDark focus:outline-none cursor-pointer">
-                                    <option value="message">Message</option>
+                                    <option value="message">message</option>
                                     <option value="trace_id">Trace ID</option>
                                     <option value="application">Application</option>
-                                    <option value="tags">Tags</option>
+                                    <option value="tags">tags</option>
                                 </select>
                                 <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 shrink-0"></div>
                                 <input id="search-query" oninput="applyFilters()" type="text" placeholder="Search logs..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
@@ -167,12 +167,12 @@
                     <table class="min-w-full table-fixed text-left text-sm">
                         <thead class="sticky top-0 z-10 border-b border-aws-border bg-gray-50 text-xs font-bold uppercase text-aws-textMuted shadow-sm dark:border-aws-borderDark dark:bg-black/20 dark:text-aws-textMutedDark">
                             <tr>
-                                <th class="w-[170px] px-5 py-3">Timestamp</th>
+                                <th class="w-[170px] px-5 py-3">event_timestamp</th>
                                 <th class="w-[110px] px-5 py-3">Level</th>
                                 <th class="w-[180px] px-5 py-3">Application</th>
                                 <th class="w-[220px] px-5 py-3">Trace ID</th>
-                                <th class="w-[42%] px-5 py-3">Message</th>
-                                <th class="w-[220px] px-5 py-3">Tags</th>
+                                <th class="w-[42%] px-5 py-3">message</th>
+                                <th class="w-[220px] px-5 py-3">tags</th>
                                 <th class="w-[130px] px-5 py-3">Status</th>
                             </tr>
                         </thead>
@@ -287,19 +287,19 @@
         }
 
         function normalizeHistoricalLog(log) {
-            let ts = log.Timestamp;
+            let ts = log.event_timestamp;
             if (ts && typeof ts === 'string' && ts.includes(' ') && !ts.includes('T')) {
                 ts = ts.replace(' ', 'T');
                 if (!ts.endsWith('Z')) ts += 'Z';
             }
             return {
-                Trace_ID: log.Trace_ID,
-                Application_Name: log.Application_Name || '-',
-                Log_Level: (log.Log_Level || 'INFO').toUpperCase(),
-                Message: log.Message || '',
-                Timestamp: ts,
-                Tags: Array.isArray(log.Tags) ? log.Tags : [],
-                Status: Array.isArray(log.Tags) && log.Tags.length > 0 ? 'Classified' : 'Persisted',
+                trace_id: log.trace_id,
+                application_name: log.application_name || '-',
+                severity: (log.severity || 'INFO').toUpperCase(),
+                message: log.message || '',
+                event_timestamp: ts,
+                tags: Array.isArray(log.tags) ? log.tags : [],
+                Status: Array.isArray(log.tags) && log.tags.length > 0 ? 'Classified' : 'Persisted',
                 pendingClassified: false,
                 pendingTags: [],
             };
@@ -314,33 +314,33 @@
         }
 
         function upsertLog(log) {
-            if (!log?.Trace_ID) return null;
-            const existing = logsByTraceId.get(log.Trace_ID);
+            if (!log?.trace_id) return null;
+            const existing = logsByTraceId.get(log.trace_id);
             const next = existing ? { ...existing } : {
-                Trace_ID: log.Trace_ID,
-                Application_Name: log.Application_Name || '-',
-                Log_Level: (log.Log_Level || 'INFO').toUpperCase(),
-                Message: log.Message || '',
-                Timestamp: log.Timestamp,
-                Tags: [],
+                trace_id: log.trace_id,
+                application_name: log.application_name || '-',
+                severity: (log.severity || 'INFO').toUpperCase(),
+                message: log.message || '',
+                event_timestamp: log.event_timestamp,
+                tags: [],
                 Status: 'Ingested',
                 pendingClassified: false,
                 pendingTags: [],
             };
 
-            if (log.Application_Name) next.Application_Name = log.Application_Name;
-            if (log.Log_Level) next.Log_Level = log.Log_Level.toUpperCase();
-            if (log.Message) next.Message = log.Message;
-            if (log.Timestamp) next.Timestamp = log.Timestamp;
-            if (Array.isArray(log.Tags) && log.Tags.length > 0) next.Tags = log.Tags;
+            if (log.application_name) next.application_name = log.application_name;
+            if (log.severity) next.severity = log.severity.toUpperCase();
+            if (log.message) next.message = log.message;
+            if (log.event_timestamp) next.event_timestamp = log.event_timestamp;
+            if (Array.isArray(log.tags) && log.tags.length > 0) next.tags = log.tags;
             if (log.Status) {
                 const nextRank = STATUS_RANK[log.Status] || 0;
                 const currentRank = STATUS_RANK[next.Status] || 0;
                 if (nextRank >= currentRank) next.Status = log.Status;
             }
 
-            logsByTraceId.set(next.Trace_ID, next);
-            ensureApplicationOption(next.Application_Name);
+            logsByTraceId.set(next.trace_id, next);
+            ensureApplicationOption(next.application_name);
             
             if (logsByTraceId.size > MAX_LOGS) {
                 const firstKey = logsByTraceId.keys().next().value;
@@ -363,7 +363,7 @@
                     record.Status = 'Persisted';
                 }
                 if (record.pendingClassified) {
-                    record.Tags = record.pendingTags.length ? record.pendingTags : record.Tags;
+                    record.tags = record.pendingTags.length ? record.pendingTags : record.tags;
                     setTimeout(() => {
                         const refreshed = logsByTraceId.get(traceId);
                         if (!refreshed) return;
@@ -372,7 +372,7 @@
                     }, 140);
                 }
             } else if (incomingStatus === 'Classified') {
-                if (tags.length) record.Tags = tags;
+                if (tags.length) record.tags = tags;
                 if ((STATUS_RANK[record.Status] || 0) >= STATUS_RANK.Persisted) {
                     record.Status = 'Classified';
                 } else {
@@ -390,16 +390,16 @@
             const status = document.getElementById('status-filter').value;
 
             return [...logsByTraceId.values()]
-                .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp))
+                .sort((a, b) => new Date(b.event_timestamp) - new Date(a.event_timestamp))
                 .filter((log) => {
-                    if (app && log.Application_Name !== app) return false;
-                    if (level && log.Log_Level !== level) return false;
+                    if (app && log.application_name !== app) return false;
+                    if (level && log.severity !== level) return false;
                     if (status && log.Status !== status) return false;
                     if (!query) return true;
-                    if (searchCol === 'application') return log.Application_Name.toLowerCase().includes(query);
-                    if (searchCol === 'trace_id') return log.Trace_ID.toLowerCase().includes(query);
-                    if (searchCol === 'tags') return (log.Tags || []).some((tag) => String(tag).toLowerCase().includes(query));
-                    return log.Message.toLowerCase().includes(query);
+                    if (searchCol === 'application') return log.application_name.toLowerCase().includes(query);
+                    if (searchCol === 'trace_id') return log.trace_id.toLowerCase().includes(query);
+                    if (searchCol === 'tags') return (log.tags || []).some((tag) => String(tag).toLowerCase().includes(query));
+                    return log.message.toLowerCase().includes(query);
                 });
         }
 
@@ -442,16 +442,16 @@
 
             logsBody.innerHTML = visibleLogs.slice(0, 100).map((log) => `
                 <tr class="animate-slideDown align-top transition-colors hover:bg-blue-50/60 dark:hover:bg-white/5">
-                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${formatTimestamp(log.Timestamp)}</td>
+                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${formatTimestamp(log.event_timestamp)}</td>
                     <td class="px-5 py-3">
-                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${levelClass(log.Log_Level)}">${escapeHtml(log.Log_Level)}</span>
+                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${levelClass(log.severity)}">${escapeHtml(log.severity)}</span>
                     </td>
-                    <td class="px-5 py-3 text-sm">${escapeHtml(log.Application_Name)}</td>
-                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${escapeHtml(log.Trace_ID)}</td>
-                    <td class="px-5 py-3 text-sm whitespace-normal break-words">${escapeHtml(log.Message)}</td>
+                    <td class="px-5 py-3 text-sm">${escapeHtml(log.application_name)}</td>
+                    <td class="px-5 py-3 font-mono text-xs text-aws-textMuted dark:text-aws-textMutedDark">${escapeHtml(log.trace_id)}</td>
+                    <td class="px-5 py-3 text-sm whitespace-normal break-words">${escapeHtml(log.message)}</td>
                     <td class="px-5 py-3">
                         <div class="flex flex-wrap gap-1">
-                            ${(log.Tags || []).map((tag) => `<span class="rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-medium dark:border-gray-600 dark:bg-white/10">${escapeHtml(tag)}</span>`).join('') || '<span class="text-xs text-aws-textMuted dark:text-aws-textMutedDark">-</span>'}
+                            ${(log.tags || []).map((tag) => `<span class="rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-medium dark:border-gray-600 dark:bg-white/10">${escapeHtml(tag)}</span>`).join('') || '<span class="text-xs text-aws-textMuted dark:text-aws-textMutedDark">-</span>'}
                         </div>
                     </td>
                     <td class="px-5 py-3 text-sm font-bold ${statusClass(log.Status)}">${escapeHtml(log.Status)}</td>
@@ -465,8 +465,8 @@
             const toast = document.createElement('div');
             toast.className = 'cloudscape-flash animate-fadeIn px-4 py-3 text-sm';
             toast.innerHTML = `
-                <p class="font-bold text-red-500">${escapeHtml(log.Application_Name || 'Unknown')} · ${escapeHtml(log.Log_Level || 'ALERT')}</p>
-                <p class="mt-1 text-aws-text dark:text-aws-textDark">${escapeHtml(log.Message || 'Alert')}</p>
+                <p class="font-bold text-red-500">${escapeHtml(log.application_name || 'Unknown')} · ${escapeHtml(log.severity || 'ALERT')}</p>
+                <p class="mt-1 text-aws-text dark:text-aws-textDark">${escapeHtml(log.message || 'Alert')}</p>
                 <p class="mt-1 text-xs text-aws-textMuted dark:text-aws-textMutedDark">Count: ${count || 1}</p>
             `;
             container.prepend(toast);
@@ -526,51 +526,51 @@
                 if (data.type === 'TAGS') {
                     globalSummary.classified++;
                     const record = upsertLog({
-                        Trace_ID: data.trace_id || data.Trace_ID,
-                        Application_Name: data.application_name || data.Application_Name,
-                        Tags: data.tags || data.Tags || []
+                        trace_id: data.trace_id || data.trace_id,
+                        application_name: data.application_name || data.application_name,
+                        tags: data.tags || data.tags || []
                     });
                     if (!record) return;
-                    applyStatusTransition(record.Trace_ID, 'Classified', data.tags || data.Tags || []);
+                    applyStatusTransition(record.trace_id, 'Classified', data.tags || data.tags || []);
                     scheduleRender();
                     return;
                 }
 
-                if ((data.Trace_ID || data.trace_id) && (data.Status === 'Normalized' || data.status === 'normalized')) {
+                if ((data.trace_id || data.trace_id) && (data.Status === 'Normalized' || data.status === 'normalized')) {
                     globalSummary.normalized++;
                     const record = upsertLog({
-                        Trace_ID: data.trace_id || data.Trace_ID,
-                        Application_Name: data.application_name || data.Application_Name
+                        trace_id: data.trace_id || data.trace_id,
+                        application_name: data.application_name || data.application_name
                     });
                     if (!record) return;
-                    applyStatusTransition(record.Trace_ID, 'Normalized');
+                    applyStatusTransition(record.trace_id, 'Normalized');
                     scheduleRender();
                     return;
                 }
 
-                if ((data.Trace_ID || data.trace_id) && (data.Status === 'Persisted' || data.status === 'persisted')) {
+                if ((data.trace_id || data.trace_id) && (data.Status === 'Persisted' || data.status === 'persisted')) {
                     globalSummary.persisted++;
                     const record = upsertLog({
-                        Trace_ID: data.trace_id || data.Trace_ID,
-                        Application_Name: data.application_name || data.Application_Name,
-                        Log_Level: data.severity || data.Log_Level,
-                        Message: data.message || data.Message,
-                        Timestamp: data.event_timestamp || data.Timestamp
+                        trace_id: data.trace_id || data.trace_id,
+                        application_name: data.application_name || data.application_name,
+                        severity: data.severity || data.severity,
+                        message: data.message || data.message,
+                        event_timestamp: data.event_timestamp || data.event_timestamp
                     });
                     if (!record) return;
-                    applyStatusTransition(record.Trace_ID, 'Persisted');
+                    applyStatusTransition(record.trace_id, 'Persisted');
                     scheduleRender();
                     return;
                 }
 
-                if ((data.Application_Name || data.application_name) && (data.Log_Level || data.severity)) {
+                if ((data.application_name || data.application_name) && (data.severity || data.severity)) {
                     globalSummary.total++;
                     const record = upsertLog({
-                        Trace_ID: data.trace_id || data.Trace_ID,
-                        Application_Name: data.application_name || data.Application_Name,
-                        Log_Level: data.severity || data.Log_Level,
-                        Message: data.message || data.Message,
-                        Timestamp: data.event_timestamp || data.Timestamp,
+                        trace_id: data.trace_id || data.trace_id,
+                        application_name: data.application_name || data.application_name,
+                        severity: data.severity || data.severity,
+                        message: data.message || data.message,
+                        event_timestamp: data.event_timestamp || data.event_timestamp,
                         Status: 'Ingested'
                     });
                     if (!record) return;
