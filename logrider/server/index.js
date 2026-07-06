@@ -25,6 +25,284 @@ pgClient.on("error", (err) =>
   console.error("Postgres Pool Error", err.message),
 );
 
+const CONFIG_REGISTRY = {
+  "alert.dedup_ttl_seconds": {
+    label: "Alert deduplication TTL",
+    description: "Time window during which identical alert signatures are deduplicated.",
+    type: "integer",
+    defaultValue: 60,
+    min: 1,
+    max: 86400,
+    presets: [1, 10, 30, 60, 600, 1800, 3600, 10800, 21600, 32400, 43200, 86400],
+    public: false,
+  },
+  "alert.notification_ttl_seconds": {
+    label: "Notification TTL",
+    description: "How long alert notification state remains visible before expiring.",
+    type: "integer",
+    defaultValue: 86400,
+    min: 10,
+    max: 86400,
+    presets: [10, 30, 60, 300, 600, 1800, 3600, 10800, 21600, 43200, 86400],
+    public: false,
+  },
+  "alert.realert_threshold": {
+    label: "Re-alert threshold",
+    description: "Repeated occurrences required before an alert is re-notified.",
+    type: "integer",
+    defaultValue: 100,
+    min: 1,
+    max: 10000,
+    presets: [1, 5, 10, 25, 50, 100, 250, 500, 1000],
+    public: false,
+  },
+  "alert.enabled_severities": {
+    label: "Enabled alert severities",
+    description: "Severities already routed to the alert worker that should produce notifications.",
+    type: "array",
+    itemType: "enum",
+    defaultValue: ["ERROR", "CRITICAL"],
+    options: ["ERROR", "CRITICAL"],
+    public: true,
+  },
+  "alert.grouping_strategy": {
+    label: "Alert grouping strategy",
+    description: "Fields used to group repeated alerts into one signature.",
+    type: "enum",
+    defaultValue: "app_message",
+    options: ["app_message", "app_level_message", "message_only"],
+    public: false,
+  },
+  "alert.popup_default_enabled": {
+    label: "Browser popups default",
+    description: "Default browser alert popup behavior when a user has no local preference.",
+    type: "boolean",
+    defaultValue: true,
+    public: true,
+  },
+  "alert.popup_duration_ms": {
+    label: "Browser popup duration",
+    description: "How long dashboard alert popups remain visible.",
+    type: "integer",
+    defaultValue: 5000,
+    min: 1000,
+    max: 30000,
+    presets: [3000, 5000, 8000, 10000],
+    public: true,
+  },
+  "alert.websocket_reconnect_interval_ms": {
+    label: "WebSocket reconnect interval",
+    description: "Delay before the browser reconnects a dropped live stream.",
+    type: "integer",
+    defaultValue: 3000,
+    min: 1000,
+    max: 30000,
+    presets: [1000, 3000, 5000, 10000],
+    public: true,
+  },
+  "telegram.enabled": {
+    label: "Telegram notifications enabled",
+    description: "Global switch for outbound Telegram alert delivery.",
+    type: "boolean",
+    defaultValue: true,
+    public: false,
+  },
+  "telegram.link_token_ttl_seconds": {
+    label: "Telegram link-token expiry",
+    description: "How long a generated Telegram account-link command remains valid.",
+    type: "integer",
+    defaultValue: 600,
+    min: 60,
+    max: 3600,
+    presets: [300, 600, 900, 1800],
+    public: false,
+  },
+  "retention.clickhouse_ttl_hours": {
+    label: "ClickHouse log retention TTL",
+    description: "Retention window applied to ClickHouse log tables.",
+    type: "integer",
+    defaultValue: 168,
+    min: 1,
+    max: 672,
+    presets: [1, 3, 6, 9, 12, 24, 168, 336, 672],
+    public: false,
+  },
+  "query.historical_logs_lookback_hours": {
+    label: "Historical logs lookback",
+    description: "Default window for recent-log API queries.",
+    type: "integer",
+    defaultValue: 168,
+    min: 1,
+    max: 672,
+    presets: [24, 72, 168, 336, 672],
+    public: false,
+  },
+  "dashboard.max_live_rows": {
+    label: "Dashboard max live rows",
+    description: "Maximum number of live rows kept in the browser log stream.",
+    type: "integer",
+    defaultValue: 500,
+    min: 50,
+    max: 5000,
+    presets: [100, 250, 500, 1000, 2000],
+    public: true,
+  },
+  "metrics.default_period": {
+    label: "Default metrics period",
+    description: "Default analytics period selected on the metrics page.",
+    type: "enum",
+    defaultValue: "7d",
+    options: ["1h", "24h", "7d", "14d", "28d"],
+    public: true,
+  },
+  "metrics.enabled_periods": {
+    label: "Enabled metrics periods",
+    description: "Allowed period options shown by the metrics UI.",
+    type: "array",
+    itemType: "enum",
+    defaultValue: ["1h", "24h", "7d", "14d", "28d"],
+    options: ["1h", "24h", "7d", "14d", "28d"],
+    public: true,
+  },
+  "metrics.high_error_rate_threshold_percent": {
+    label: "High error-rate threshold",
+    description: "Threshold used by the UI to mark high error-rate applications.",
+    type: "number",
+    defaultValue: 10,
+    min: 0,
+    max: 100,
+    presets: [1, 5, 10, 20, 50],
+    public: true,
+  },
+  "display.default_theme": {
+    label: "Default theme",
+    description: "Theme used when a browser has no saved preference.",
+    type: "enum",
+    defaultValue: "system",
+    options: ["system", "light", "dark"],
+    public: true,
+  },
+  "display.timestamp_timezone_policy": {
+    label: "Timestamp timezone policy",
+    description: "How browser pages should localize timestamps.",
+    type: "enum",
+    defaultValue: "browser",
+    options: ["browser", "utc"],
+    public: true,
+  },
+  "display.timestamp_format": {
+    label: "Timestamp format",
+    description: "Preferred timestamp rendering format for browser pages.",
+    type: "enum",
+    defaultValue: "YYYY-MM-DD HH:mm:ss.SSS",
+    options: ["YYYY-MM-DD HH:mm:ss.SSS", "YYYY-MM-DD\\nHH:mm:ss.SSS", "locale"],
+    public: true,
+  },
+};
+
+const LEGACY_CONFIG_KEYS = {
+  "alert.dedup_ttl_seconds": "config:alert_ttl",
+  "alert.notification_ttl_seconds": "config:noti_ttl",
+};
+
+function validateConfigValue(key, value) {
+  const entry = CONFIG_REGISTRY[key];
+  if (!entry) return { ok: false, message: "Unknown config key" };
+
+  if (entry.type === "integer") {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed)) return { ok: false, message: "Value must be an integer" };
+    if (parsed < entry.min || parsed > entry.max) {
+      return { ok: false, message: `Value must be between ${entry.min} and ${entry.max}` };
+    }
+    return { ok: true, value: parsed };
+  }
+
+  if (entry.type === "number") {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return { ok: false, message: "Value must be a number" };
+    if (parsed < entry.min || parsed > entry.max) {
+      return { ok: false, message: `Value must be between ${entry.min} and ${entry.max}` };
+    }
+    return { ok: true, value: parsed };
+  }
+
+  if (entry.type === "boolean") {
+    if (typeof value !== "boolean") return { ok: false, message: "Value must be true or false" };
+    return { ok: true, value };
+  }
+
+  if (entry.type === "enum") {
+    if (!entry.options.includes(value)) return { ok: false, message: "Value is not an allowed option" };
+    return { ok: true, value };
+  }
+
+  if (entry.type === "array") {
+    if (!Array.isArray(value)) return { ok: false, message: "Value must be an array" };
+    if (value.length === 0) return { ok: false, message: "At least one option must be selected" };
+    const unique = [...new Set(value)];
+    if (unique.length !== value.length) return { ok: false, message: "Duplicate options are not allowed" };
+    const invalid = value.find((item) => !entry.options.includes(item));
+    if (invalid) return { ok: false, message: `Unsupported option: ${invalid}` };
+    return { ok: true, value };
+  }
+
+  return { ok: false, message: "Unsupported config type" };
+}
+
+async function getConfigValue(key) {
+  const entry = CONFIG_REGISTRY[key];
+  if (!entry) throw new Error(`Unknown config key: ${key}`);
+
+  const raw = await redisClient.get(`config:${key}`);
+  if (raw) return JSON.parse(raw);
+
+  const legacyKey = LEGACY_CONFIG_KEYS[key];
+  if (legacyKey) {
+    const legacyRaw = await redisClient.get(legacyKey);
+    if (legacyRaw) return parseInt(legacyRaw, 10);
+  }
+
+  return entry.defaultValue;
+}
+
+async function setConfigValue(key, value) {
+  await redisClient.set(`config:${key}`, JSON.stringify(value));
+
+  const legacyKey = LEGACY_CONFIG_KEYS[key];
+  if (legacyKey) await redisClient.set(legacyKey, String(value));
+}
+
+async function getConfigSnapshot({ publicOnly = false } = {}) {
+  const entries = await Promise.all(
+    Object.entries(CONFIG_REGISTRY)
+      .filter(([, entry]) => !publicOnly || entry.public)
+      .map(async ([key, entry]) => [
+        key,
+        {
+          ...entry,
+          value: await getConfigValue(key),
+        },
+      ]),
+  );
+  return Object.fromEntries(entries);
+}
+
+async function requireSession(req, { adminOnly = false } = {}) {
+  const token = req.headers.get("authorization")?.replace("Bearer ", "");
+  if (!token) return { response: Response.json({ error: "No token" }, { status: 401 }) };
+
+  const sessionStr = await redisClient.get(`session:${token}`);
+  if (!sessionStr) return { response: Response.json({ error: "Invalid token" }, { status: 401 }) };
+
+  const session = JSON.parse(sessionStr);
+  if (adminOnly && !session.is_admin) {
+    return { response: Response.json({ error: "Forbidden. Admins only." }, { status: 403 }) };
+  }
+
+  return { session };
+}
+
 function quoteClickHouseString(value) {
   return `'${String(value).replace(/\\/g, "\\\\").replace(/'/g, "''")}'`;
 }
@@ -35,6 +313,14 @@ function getIntervalStr(period) {
   if (period === "14d") return "14 DAY";
   if (period === "28d") return "28 DAY";
   return "24 HOUR";
+}
+
+async function getConfiguredAnalyticsPeriod(requestedPeriod) {
+  const enabledPeriods = await getConfigValue("metrics.enabled_periods");
+  const defaultPeriod = await getConfigValue("metrics.default_period");
+  if (requestedPeriod && enabledPeriods.includes(requestedPeriod)) return requestedPeriod;
+  if (enabledPeriods.includes(defaultPeriod)) return defaultPeriod;
+  return enabledPeriods[0] || "24h";
 }
 
 (async () => {
@@ -274,9 +560,10 @@ bunServer = Bun.serve({
         const session = JSON.parse(sessionStr);
 
         const linkToken = crypto.randomBytes(16).toString("hex");
+        const linkTokenTtl = await getConfigValue("telegram.link_token_ttl_seconds");
         await redisClient.setEx(
           `link_token:${linkToken}`,
-          600,
+          linkTokenTtl,
           JSON.stringify({
             user_id: session.username,
             role: session.role || (session.is_admin ? "admin" : "engineer"),
@@ -285,7 +572,7 @@ bunServer = Bun.serve({
               : [],
           }),
         );
-        return Response.json({ token: linkToken });
+        return Response.json({ token: linkToken, expires_in: linkTokenTtl });
       } catch (error) {
         console.error("Error generating link token:", error);
         return Response.json(
@@ -380,11 +667,76 @@ bunServer = Bun.serve({
       }
     }
 
+    if (req.method === "GET" && url.pathname === "/api/config/all") {
+      try {
+        const auth = await requireSession(req, { adminOnly: true });
+        if (auth.response) return auth.response;
+        return Response.json({ config: await getConfigSnapshot() });
+      } catch (err) {
+        console.error("Error fetching runtime config:", err);
+        return Response.json({ error: "Internal server error" }, { status: 500 });
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/config/client") {
+      try {
+        const auth = await requireSession(req);
+        if (auth.response) return auth.response;
+        return Response.json({ config: await getConfigSnapshot({ publicOnly: true }) });
+      } catch (err) {
+        console.error("Error fetching client config:", err);
+        return Response.json({ error: "Internal server error" }, { status: 500 });
+      }
+    }
+
+    if (req.method === "PATCH" && url.pathname === "/api/config") {
+      try {
+        const auth = await requireSession(req, { adminOnly: true });
+        if (auth.response) return auth.response;
+
+        const body = await req.json();
+        const updates = Array.isArray(body.updates) ? body.updates : [];
+        if (updates.length === 0) {
+          return Response.json({ error: "No config updates provided" }, { status: 400 });
+        }
+
+        const validated = [];
+        const details = [];
+        for (const update of updates) {
+          const key = update?.key;
+          if (key === "retention.clickhouse_ttl_hours") {
+            details.push({
+              key,
+              message: "Use /api/config/clickhouse-ttl so ClickHouse table TTLs are altered atomically",
+            });
+            continue;
+          }
+          const result = validateConfigValue(key, update?.value);
+          if (!result.ok) details.push({ key, message: result.message });
+          else validated.push({ key, value: result.value });
+        }
+
+        if (details.length > 0) {
+          return Response.json({ error: "Invalid config update", details }, { status: 400 });
+        }
+
+        for (const update of validated) {
+          await setConfigValue(update.key, update.value);
+        }
+
+        return Response.json({
+          success: true,
+          config: await getConfigSnapshot(),
+        });
+      } catch (err) {
+        console.error("Error updating runtime config:", err);
+        return Response.json({ error: "Internal error" }, { status: 500 });
+      }
+    }
+
     if (req.method === "GET" && url.pathname === "/api/config/ttl") {
       try {
-        let ttl = await redisClient.get("config:alert_ttl");
-        ttl = ttl ? parseInt(ttl, 10) : 60;
-        return Response.json({ ttl });
+        return Response.json({ ttl: await getConfigValue("alert.dedup_ttl_seconds") });
       } catch (err) {
         console.error("Error fetching TTL from Redis:", err);
         return Response.json(
@@ -413,11 +765,11 @@ bunServer = Bun.serve({
 
         const body = await req.json();
         const { ttl } = body;
-        if (!ttl || isNaN(ttl) || ttl <= 0)
-          return Response.json({ error: "Invalid TTL value" }, { status: 400 });
+        const result = validateConfigValue("alert.dedup_ttl_seconds", ttl);
+        if (!result.ok) return Response.json({ error: result.message }, { status: 400 });
 
-        await redisClient.set("config:alert_ttl", parseInt(ttl, 10).toString());
-        return Response.json({ success: true, ttl: parseInt(ttl, 10) });
+        await setConfigValue("alert.dedup_ttl_seconds", result.value);
+        return Response.json({ success: true, ttl: result.value });
       } catch (err) {
         console.error(err);
         return Response.json({ error: "Internal error" }, { status: 500 });
@@ -426,9 +778,7 @@ bunServer = Bun.serve({
 
     if (req.method === "GET" && url.pathname === "/api/config/noti-ttl") {
       try {
-        let ttl = await redisClient.get("config:noti_ttl");
-        ttl = ttl ? parseInt(ttl, 10) : 86400; // default 24h
-        return Response.json({ ttl });
+        return Response.json({ ttl: await getConfigValue("alert.notification_ttl_seconds") });
       } catch (err) {
         console.error("Error fetching Noti TTL from Redis:", err);
         return Response.json(
@@ -457,11 +807,11 @@ bunServer = Bun.serve({
 
         const body = await req.json();
         const { ttl } = body;
-        if (!ttl || isNaN(ttl) || ttl <= 0)
-          return Response.json({ error: "Invalid TTL value" }, { status: 400 });
+        const result = validateConfigValue("alert.notification_ttl_seconds", ttl);
+        if (!result.ok) return Response.json({ error: result.message }, { status: 400 });
 
-        await redisClient.set("config:noti_ttl", parseInt(ttl, 10).toString());
-        return Response.json({ success: true, ttl: parseInt(ttl, 10) });
+        await setConfigValue("alert.notification_ttl_seconds", result.value);
+        return Response.json({ success: true, ttl: result.value });
       } catch (err) {
         console.error(err);
         return Response.json({ error: "Internal error" }, { status: 500 });
@@ -476,7 +826,7 @@ bunServer = Bun.serve({
         });
         const createTableStr = await chRes.text();
 
-        let hours = 168; // default 7 days
+        let hours = await getConfigValue("retention.clickhouse_ttl_hours");
         const matchHour = createTableStr.match(
           /TTL Timestamp \+ toIntervalHour\((\d+)\)/,
         );
@@ -520,13 +870,13 @@ bunServer = Bun.serve({
 
         const body = await req.json();
         const { ttl_hours } = body;
-        if (!ttl_hours || isNaN(ttl_hours) || ttl_hours <= 0)
-          return Response.json({ error: "Invalid TTL value" }, { status: 400 });
+        const result = validateConfigValue("retention.clickhouse_ttl_hours", ttl_hours);
+        if (!result.ok) return Response.json({ error: result.message }, { status: 400 });
 
         const queries = [
-          `ALTER TABLE logrider.logs MODIFY TTL Timestamp + toIntervalHour(${ttl_hours})`,
-          `ALTER TABLE logrider.log_tags MODIFY TTL Timestamp + toIntervalHour(${ttl_hours})`,
-          `ALTER TABLE logrider.logs_enriched MODIFY TTL Timestamp + toIntervalHour(${ttl_hours})`,
+          `ALTER TABLE logrider.logs MODIFY TTL Timestamp + toIntervalHour(${result.value})`,
+          `ALTER TABLE logrider.log_tags MODIFY TTL Timestamp + toIntervalHour(${result.value})`,
+          `ALTER TABLE logrider.logs_enriched MODIFY TTL Timestamp + toIntervalHour(${result.value})`,
         ];
 
         for (let q of queries) {
@@ -537,9 +887,10 @@ bunServer = Bun.serve({
           if (!res.ok) throw new Error(`ClickHouse error: ${await res.text()}`);
         }
 
+        await setConfigValue("retention.clickhouse_ttl_hours", result.value);
         return Response.json({
           success: true,
-          ttl_hours: parseInt(ttl_hours, 10),
+          ttl_hours: result.value,
         });
       } catch (err) {
         console.error(err);
@@ -559,7 +910,7 @@ bunServer = Bun.serve({
 
         const session = JSON.parse(sessionStr);
 
-        const period = url.searchParams.get("period") || "24h";
+        const period = await getConfiguredAnalyticsPeriod(url.searchParams.get("period"));
         const intervalStr = getIntervalStr(period);
 
         const query = `
@@ -618,7 +969,7 @@ bunServer = Bun.serve({
           return Response.json({ error: "Invalid token" }, { status: 401 });
 
         const session = JSON.parse(sessionStr);
-        const period = url.searchParams.get("period") || "24h";
+        const period = await getConfiguredAnalyticsPeriod(url.searchParams.get("period"));
         const intervalStr = getIntervalStr(period);
 
         let filterClause = "";
@@ -708,10 +1059,12 @@ bunServer = Bun.serve({
         const session = JSON.parse(sessionStr);
 
         let query;
+        const lookbackHours = await getConfigValue("query.historical_logs_lookback_hours");
+        const lookbackClause = `Timestamp >= now() - INTERVAL ${lookbackHours} HOUR`;
 
         // Admin users see all logs
         if (session.is_admin) {
-          query = `SELECT * FROM logrider.logs_enriched ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
+          query = `SELECT * FROM logrider.logs_enriched WHERE ${lookbackClause} ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
         } else {
           const apps =
             typeof session.allowed_apps === "string"
@@ -723,7 +1076,7 @@ bunServer = Bun.serve({
           // Sanitize to prevent SQL injection, then filter
           const safeApps = apps.map((app) => app.replace(/'/g, "''"));
           const inClause = safeApps.map((app) => `'${app}'`).join(",");
-          query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${inClause}) ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
+          query = `SELECT * FROM logrider.logs_enriched WHERE ${lookbackClause} AND Application_Name IN (${inClause}) ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
         }
 
         const chRes = await fetch(chBaseUrl, {

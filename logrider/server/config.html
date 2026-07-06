@@ -91,56 +91,255 @@
         .dropdown:hover .dropdown-content { display: block; }
     </style>
 </head>
-<body class="bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200 animate-fade-in">
+<body class="min-h-screen bg-aws-bg text-aws-text dark:bg-aws-bgDark dark:text-aws-textDark antialiased transition-colors duration-200 animate-fade-in">
     <!-- TOPBAR -->
 
-    <main class="max-w-[1000px] mx-auto px-4 py-8 space-y-6" id="app-content" style="display:none;">
-        <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark mb-6">Global Configuration</h1>
+    <main class="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 lg:px-8 space-y-6" id="app-content">
+        <section class="flex flex-col gap-2">
+            <h1 class="text-2xl font-bold text-aws-text dark:text-aws-textDark">Global Configuration</h1>
+            <p class="max-w-3xl text-sm text-aws-textMuted dark:text-aws-textMutedDark">
+                Runtime-safe controls for alert policy, Telegram delivery, query defaults, display behavior, metrics, and RBAC.
+            </p>
+        </section>
         
-        <!-- TTL Panel -->
+        <!-- Alert Policy Panel -->
         <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
-            <div class="p-5">
-                <label class="block text-sm font-bold mb-4 text-center">Redis Alert TTL</label>
-                <div class="flex items-center space-x-4 w-full">
-                    <div class="flex flex-col flex-grow items-center relative pb-6 w-full">
+            <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <h2 class="text-lg font-bold">Alert Policy</h2>
+                <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Controls that affect alert grouping, deduplication, and browser live-notification behavior.</p>
+            </div>
+            <div class="grid gap-5 p-5 lg:grid-cols-2">
+                <div>
+                    <label class="block text-sm font-bold mb-4">Alert deduplication TTL</label>
+                    <div class="flex items-center space-x-4 w-full">
+                        <div class="flex flex-col flex-grow items-center relative pb-6 w-full">
                         <input type="range" id="ttl-input" min="0" max="11" step="1" class="w-full transition-colors duration-300" style="accent-color: hsl(120, 80%, 50%);">
-                        <div class="flex justify-between w-full absolute top-6 px-1 text-[11px] text-aws-textMuted dark:text-aws-textMutedDark font-mono font-bold">
-                            <span>1s</span><span>10s</span><span>30s</span><span>1m</span><span>10m</span><span>30m</span>
-                            <span>1h</span><span>3h</span><span>6h</span><span>9h</span><span>12h</span><span>24h</span>
+                            <div class="flex justify-between w-full absolute top-6 px-1 text-[11px] text-aws-textMuted dark:text-aws-textMutedDark font-mono font-bold">
+                                <span>1s</span><span>10s</span><span>30s</span><span>1m</span><span>10m</span><span>30m</span>
+                                <span>1h</span><span>3h</span><span>6h</span><span>9h</span><span>12h</span><span>24h</span>
+                            </div>
                         </div>
                     </div>
-                    <button onclick="updateTTL()" class="shrink-0 px-5 py-2 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white relative -top-3">Save</button>
                 </div>
-                <p id="ttl-status" class="text-green-600 dark:text-green-400 text-sm font-medium hidden text-right"></p>
-            </div>
-            <div class="p-5 border-t border-aws-border dark:border-aws-borderDark">
-                <label class="block text-sm font-bold mb-4 text-center">Notifications TTL</label>
-                <div class="flex items-center space-x-4 w-full">
-                    <div class="flex flex-col flex-grow items-center relative pb-6 w-full">
-                        <input type="range" id="noti-ttl-input" min="0" max="11" step="1" class="w-full transition-colors duration-300" style="accent-color: hsl(120, 80%, 50%);">
-                        <div class="flex justify-between w-full absolute top-6 px-1 text-[11px] text-aws-textMuted dark:text-aws-textMutedDark font-mono font-bold">
-                            <span>1s</span><span>10s</span><span>30s</span><span>1m</span><span>10m</span><span>30m</span>
-                            <span>1h</span><span>3h</span><span>6h</span><span>9h</span><span>12h</span><span>24h</span>
+                <div>
+                    <label class="block text-sm font-bold mb-4">Notification TTL</label>
+                    <div class="flex items-center space-x-4 w-full">
+                        <div class="flex flex-col flex-grow items-center relative pb-6 w-full">
+                            <input type="range" id="noti-ttl-input" min="0" max="10" step="1" class="w-full transition-colors duration-300" style="accent-color: hsl(120, 80%, 50%);">
+                            <div class="flex justify-between w-full absolute top-6 px-1 text-[11px] text-aws-textMuted dark:text-aws-textMutedDark font-mono font-bold">
+                                <span>10s</span><span>30s</span><span>1m</span><span>5m</span><span>10m</span><span>30m</span>
+                                <span>1h</span><span>3h</span><span>6h</span><span>12h</span><span>24h</span>
+                            </div>
                         </div>
                     </div>
-                    <button onclick="updateNotiTTL()" class="shrink-0 px-5 py-2 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white relative -top-3">Save</button>
                 </div>
-                <p id="noti-ttl-status" class="text-green-600 dark:text-green-400 text-sm font-medium hidden text-right"></p>
+                <div>
+                    <label for="realert-threshold-input" class="mb-1 block text-sm font-bold">Re-alert threshold</label>
+                    <select id="realert-threshold-input" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="1">1 occurrence</option>
+                        <option value="5">5 occurrences</option>
+                        <option value="10">10 occurrences</option>
+                        <option value="25">25 occurrences</option>
+                        <option value="50">50 occurrences</option>
+                        <option value="100">100 occurrences</option>
+                        <option value="250">250 occurrences</option>
+                        <option value="500">500 occurrences</option>
+                        <option value="1000">1000 occurrences</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="grouping-strategy-select" class="mb-1 block text-sm font-bold">Grouping strategy</label>
+                    <select id="grouping-strategy-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="app_message">Application + message</option>
+                        <option value="app_level_message">Application + level + message</option>
+                        <option value="message_only">Message only</option>
+                    </select>
+                </div>
+                <div>
+                    <span class="mb-2 block text-sm font-bold">Enabled severities</span>
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <label class="inline-flex items-center gap-2"><input id="alert-severity-error" type="checkbox" value="ERROR"> ERROR</label>
+                        <label class="inline-flex items-center gap-2"><input id="alert-severity-critical" type="checkbox" value="CRITICAL"> CRITICAL</label>
+                    </div>
+                </div>
+                <div>
+                    <span class="mb-2 block text-sm font-bold">Browser popups</span>
+                    <label class="inline-flex items-center gap-2 text-sm"><input id="popup-default-enabled" type="checkbox"> Enabled by default</label>
+                </div>
+                <div>
+                    <label for="popup-duration-select" class="mb-1 block text-sm font-bold">Popup duration</label>
+                    <select id="popup-duration-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="3000">3 seconds</option>
+                        <option value="5000">5 seconds</option>
+                        <option value="8000">8 seconds</option>
+                        <option value="10000">10 seconds</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="ws-reconnect-select" class="mb-1 block text-sm font-bold">WebSocket reconnect interval</label>
+                    <select id="ws-reconnect-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="1000">1 second</option>
+                        <option value="3000">3 seconds</option>
+                        <option value="5000">5 seconds</option>
+                        <option value="10000">10 seconds</option>
+                    </select>
+                </div>
             </div>
-            
-            <div class="p-5 border-t border-aws-border dark:border-aws-borderDark">
-                <label class="block text-sm font-bold mb-4 text-center">Clickhouse TTL</label>
-                <div class="flex items-center space-x-4 w-full">
-                    <div class="flex flex-col flex-grow items-center relative pb-6 w-full">
+            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <p id="ttl-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
+                <p id="noti-ttl-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
+                <button onclick="saveAlertPolicy()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save alert policy</button>
+            </div>
+        </div>
+
+        <!-- Telegram Panel -->
+        <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+            <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <h2 class="text-lg font-bold">Telegram Notifications</h2>
+                <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Runtime controls for Telegram delivery. Bot tokens and other secrets are intentionally not exposed.</p>
+            </div>
+            <div class="grid gap-5 p-5 lg:grid-cols-2">
+                <label class="inline-flex items-center gap-2 text-sm font-medium"><input id="telegram-enabled" type="checkbox"> Telegram delivery enabled</label>
+                <div>
+                    <label for="telegram-link-ttl-select" class="mb-1 block text-sm font-bold">Link token expiry</label>
+                    <select id="telegram-link-ttl-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="300">5 minutes</option>
+                        <option value="600">10 minutes</option>
+                        <option value="900">15 minutes</option>
+                        <option value="1800">30 minutes</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <p id="telegram-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
+                <button onclick="saveTelegramConfig()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save Telegram settings</button>
+            </div>
+        </div>
+
+        <!-- Retention Panel -->
+        <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+            <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <h2 class="text-lg font-bold">Retention and Query Defaults</h2>
+                <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Data retention and browser query defaults that are safe to change at runtime.</p>
+            </div>
+            <div class="grid gap-5 p-5 lg:grid-cols-2">
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-bold mb-4">ClickHouse log retention TTL</label>
+                    <div class="flex items-center space-x-4 w-full">
+                        <div class="flex flex-col flex-grow items-center relative pb-6 w-full">
                         <input type="range" id="ch-ttl-input" min="0" max="8" step="1" class="w-full transition-colors duration-300" style="accent-color: hsl(120, 80%, 50%);">
-                        <div class="flex justify-between w-full absolute top-6 px-1 text-[11px] text-aws-textMuted dark:text-aws-textMutedDark font-mono font-bold">
-                            <span>1h</span><span>3h</span><span>6h</span><span>9h</span><span>12h</span>
-                            <span>1d</span><span>7d</span><span>14d</span><span>28d</span>
+                            <div class="flex justify-between w-full absolute top-6 px-1 text-[11px] text-aws-textMuted dark:text-aws-textMutedDark font-mono font-bold">
+                                <span>1h</span><span>3h</span><span>6h</span><span>9h</span><span>12h</span>
+                                <span>1d</span><span>7d</span><span>14d</span><span>28d</span>
+                            </div>
                         </div>
                     </div>
-                    <button onclick="updateChTTL()" class="shrink-0 px-5 py-2 rounded-full text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white relative -top-3">Save</button>
                 </div>
-                <p id="ch-ttl-status" class="text-green-600 dark:text-green-400 text-sm font-medium hidden text-right"></p>
+                <div>
+                    <label for="historical-lookback-select" class="mb-1 block text-sm font-bold">Historical logs lookback</label>
+                    <select id="historical-lookback-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="24">24 hours</option>
+                        <option value="72">72 hours</option>
+                        <option value="168">7 days</option>
+                        <option value="336">14 days</option>
+                        <option value="672">28 days</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="max-live-rows-select" class="mb-1 block text-sm font-bold">Dashboard max live rows</label>
+                    <select id="max-live-rows-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="100">100 rows</option>
+                        <option value="250">250 rows</option>
+                        <option value="500">500 rows</option>
+                        <option value="1000">1,000 rows</option>
+                        <option value="2000">2,000 rows</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <p id="ch-ttl-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
+                <button onclick="saveRetentionConfig()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save retention settings</button>
+            </div>
+        </div>
+
+        <!-- Metrics Panel -->
+        <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+            <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <h2 class="text-lg font-bold">Metrics</h2>
+                <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Defaults for analytics pages and error-rate highlighting.</p>
+            </div>
+            <div class="grid gap-5 p-5 lg:grid-cols-2">
+                <div>
+                    <label for="metrics-default-period" class="mb-1 block text-sm font-bold">Default metrics period</label>
+                    <select id="metrics-default-period" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="1h">Last 1 hour</option>
+                        <option value="24h">Last 24 hours</option>
+                        <option value="7d">Last 7 days</option>
+                        <option value="14d">Last 14 days</option>
+                        <option value="28d">Last 28 days</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="high-error-threshold-select" class="mb-1 block text-sm font-bold">High error-rate threshold</label>
+                    <select id="high-error-threshold-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="1">1%</option>
+                        <option value="5">5%</option>
+                        <option value="10">10%</option>
+                        <option value="20">20%</option>
+                        <option value="50">50%</option>
+                    </select>
+                </div>
+                <div class="lg:col-span-2">
+                    <span class="mb-2 block text-sm font-bold">Enabled metrics periods</span>
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <label class="inline-flex items-center gap-2"><input class="metrics-period-checkbox" type="checkbox" value="1h"> 1h</label>
+                        <label class="inline-flex items-center gap-2"><input class="metrics-period-checkbox" type="checkbox" value="24h"> 24h</label>
+                        <label class="inline-flex items-center gap-2"><input class="metrics-period-checkbox" type="checkbox" value="7d"> 7d</label>
+                        <label class="inline-flex items-center gap-2"><input class="metrics-period-checkbox" type="checkbox" value="14d"> 14d</label>
+                        <label class="inline-flex items-center gap-2"><input class="metrics-period-checkbox" type="checkbox" value="28d"> 28d</label>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <p id="metrics-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
+                <button onclick="saveMetricsConfig()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save metrics settings</button>
+            </div>
+        </div>
+
+        <!-- Display Panel -->
+        <div class="bg-aws-panel dark:bg-aws-panelDark border border-aws-border dark:border-aws-borderDark rounded-lg shadow-sm">
+            <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <h2 class="text-lg font-bold">Display Defaults</h2>
+                <p class="mt-1 text-sm text-aws-textMuted dark:text-aws-textMutedDark">Browser defaults used when a user has not already stored a local preference.</p>
+            </div>
+            <div class="grid gap-5 p-5 lg:grid-cols-3">
+                <div>
+                    <label for="display-theme-select" class="mb-1 block text-sm font-bold">Default theme</label>
+                    <select id="display-theme-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="system">System</option>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="display-timezone-select" class="mb-1 block text-sm font-bold">Timestamp timezone policy</label>
+                    <select id="display-timezone-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="browser">Browser timezone</option>
+                        <option value="utc">UTC</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="display-timestamp-format-select" class="mb-1 block text-sm font-bold">Timestamp format</label>
+                    <select id="display-timestamp-format-select" class="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-[#16191f]">
+                        <option value="YYYY-MM-DD HH:mm:ss.SSS">YYYY-MM-DD HH:mm:ss.SSS</option>
+                        <option value="YYYY-MM-DD\nHH:mm:ss.SSS">YYYY-MM-DD + time line</option>
+                        <option value="locale">Locale default</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 border-t border-aws-border px-5 py-4 dark:border-aws-borderDark">
+                <p id="display-status" class="hidden text-sm font-medium text-green-600 dark:text-green-400"></p>
+                <button onclick="saveDisplayConfig()" class="px-5 py-2 text-sm font-bold bg-aws-primary hover:bg-aws-primaryHover transition-colors shadow-sm text-white">Save display defaults</button>
             </div>
         </div>
 
@@ -190,12 +389,13 @@
         window.allApps = new Set();
         
         const alertTTLValues = [1, 10, 30, 60, 600, 1800, 3600, 10800, 21600, 32400, 43200, 86400];
+        const notificationTTLValues = [10, 30, 60, 300, 600, 1800, 3600, 10800, 21600, 43200, 86400];
         const chTTLValues = [1, 3, 6, 9, 12, 24, 168, 336, 672];
+        window.runtimeConfig = {};
 
         if (!token || role !== 'admin') {
             window.location.href = '/dashboard';
         } else {
-            document.getElementById('app-content').style.display = 'block';
             if (typeof syncTopbarUser === 'function') syncTopbarUser();
             loadData();
         }
@@ -205,15 +405,15 @@
         const lightIcon = document.getElementById('theme-toggle-light-icon');
         if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
-            lightIcon.classList.remove('hidden');
+            lightIcon?.classList.remove('hidden');
         } else {
             document.documentElement.classList.remove('dark');
-            darkIcon.classList.remove('hidden');
+            darkIcon?.classList.remove('hidden');
         }
 
-        themeToggleBtn.addEventListener('click', function() {
-            darkIcon.classList.toggle('hidden');
-            lightIcon.classList.toggle('hidden');
+        themeToggleBtn?.addEventListener('click', function() {
+            darkIcon?.classList.toggle('hidden');
+            lightIcon?.classList.toggle('hidden');
             document.documentElement.classList.toggle('dark');
             localStorage.setItem('color-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
             document.querySelectorAll('input[type="range"]').forEach(updateSliderColor);
@@ -240,7 +440,193 @@
             });
         });
 
+        function setSelectValue(id, value) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = String(value);
+        }
+
+        function setCheckboxValue(id, value) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.checked = Boolean(value);
+        }
+
+        function setCheckedValues(selector, values) {
+            const selected = new Set(values || []);
+            document.querySelectorAll(selector).forEach((checkbox) => {
+                checkbox.checked = selected.has(checkbox.value);
+            });
+        }
+
+        function checkedValues(selector) {
+            return [...document.querySelectorAll(selector)]
+                .filter((checkbox) => checkbox.checked)
+                .map((checkbox) => checkbox.value);
+        }
+
+        function configValue(key, fallback) {
+            return window.runtimeConfig?.[key]?.value ?? fallback;
+        }
+
+        function applyRuntimeConfig(config) {
+            window.runtimeConfig = config || {};
+
+            const alertIdx = alertTTLValues.indexOf(configValue('alert.dedup_ttl_seconds', 60));
+            if (alertIdx !== -1) {
+                const el = document.getElementById('ttl-input');
+                el.value = alertIdx;
+                el.dataset.original = alertIdx;
+                updateSliderColor(el);
+            }
+
+            const notiIdx = notificationTTLValues.indexOf(configValue('alert.notification_ttl_seconds', 86400));
+            if (notiIdx !== -1) {
+                const el = document.getElementById('noti-ttl-input');
+                el.value = notiIdx;
+                el.dataset.original = notiIdx;
+                updateSliderColor(el);
+            }
+
+            const chIdx = chTTLValues.indexOf(configValue('retention.clickhouse_ttl_hours', 168));
+            if (chIdx !== -1) {
+                const el = document.getElementById('ch-ttl-input');
+                el.value = chIdx;
+                el.dataset.original = chIdx;
+                updateSliderColor(el);
+            }
+
+            setSelectValue('realert-threshold-input', configValue('alert.realert_threshold', 100));
+            setSelectValue('grouping-strategy-select', configValue('alert.grouping_strategy', 'app_message'));
+            const severities = configValue('alert.enabled_severities', ['ERROR', 'CRITICAL']);
+            setCheckboxValue('alert-severity-error', severities.includes('ERROR'));
+            setCheckboxValue('alert-severity-critical', severities.includes('CRITICAL'));
+            setCheckboxValue('popup-default-enabled', configValue('alert.popup_default_enabled', true));
+            setSelectValue('popup-duration-select', configValue('alert.popup_duration_ms', 5000));
+            setSelectValue('ws-reconnect-select', configValue('alert.websocket_reconnect_interval_ms', 3000));
+
+            setCheckboxValue('telegram-enabled', configValue('telegram.enabled', true));
+            setSelectValue('telegram-link-ttl-select', configValue('telegram.link_token_ttl_seconds', 600));
+
+            setSelectValue('historical-lookback-select', configValue('query.historical_logs_lookback_hours', 168));
+            setSelectValue('max-live-rows-select', configValue('dashboard.max_live_rows', 500));
+
+            setSelectValue('metrics-default-period', configValue('metrics.default_period', '7d'));
+            setCheckedValues('.metrics-period-checkbox', configValue('metrics.enabled_periods', ['1h', '24h', '7d', '14d', '28d']));
+            setSelectValue('high-error-threshold-select', configValue('metrics.high_error_rate_threshold_percent', 10));
+
+            setSelectValue('display-theme-select', configValue('display.default_theme', 'system'));
+            setSelectValue('display-timezone-select', configValue('display.timestamp_timezone_policy', 'browser'));
+            setSelectValue('display-timestamp-format-select', configValue('display.timestamp_format', 'YYYY-MM-DD HH:mm:ss.SSS'));
+        }
+
+        async function loadRuntimeConfig() {
+            const res = await fetch('/api/config/all', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (!res.ok) throw new Error('Failed to fetch runtime config');
+            const data = await res.json();
+            applyRuntimeConfig(data.config || {});
+        }
+
+        function showConfigStatus(id, message) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerText = message;
+            el.classList.remove('hidden', 'text-red-600', 'dark:text-red-400');
+            el.classList.add('text-green-600', 'dark:text-green-400');
+            setTimeout(() => el.classList.add('hidden'), 2500);
+        }
+
+        function showConfigError(id, message) {
+            const el = document.getElementById(id);
+            if (!el) {
+                alert(message);
+                return;
+            }
+            el.innerText = message;
+            el.classList.remove('hidden', 'text-green-600', 'dark:text-green-400');
+            el.classList.add('text-red-600', 'dark:text-red-400');
+        }
+
+        async function patchRuntimeConfig(updates, statusId) {
+            const res = await fetch('/api/config', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ updates })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const detail = Array.isArray(data.details) && data.details.length
+                    ? data.details.map((item) => `${item.key}: ${item.message}`).join('; ')
+                    : data.error || 'Config update failed';
+                showConfigError(statusId, detail);
+                throw new Error(detail);
+            }
+            applyRuntimeConfig(data.config || window.runtimeConfig);
+            showConfigStatus(statusId, 'Saved.');
+            return data;
+        }
+
+        async function saveAlertPolicy() {
+            const severities = [
+                document.getElementById('alert-severity-error').checked ? 'ERROR' : null,
+                document.getElementById('alert-severity-critical').checked ? 'CRITICAL' : null,
+            ].filter(Boolean);
+
+            await patchRuntimeConfig([
+                { key: 'alert.dedup_ttl_seconds', value: alertTTLValues[parseInt(document.getElementById('ttl-input').value, 10)] },
+                { key: 'alert.notification_ttl_seconds', value: notificationTTLValues[parseInt(document.getElementById('noti-ttl-input').value, 10)] },
+                { key: 'alert.realert_threshold', value: parseInt(document.getElementById('realert-threshold-input').value, 10) },
+                { key: 'alert.enabled_severities', value: severities },
+                { key: 'alert.grouping_strategy', value: document.getElementById('grouping-strategy-select').value },
+                { key: 'alert.popup_default_enabled', value: document.getElementById('popup-default-enabled').checked },
+                { key: 'alert.popup_duration_ms', value: parseInt(document.getElementById('popup-duration-select').value, 10) },
+                { key: 'alert.websocket_reconnect_interval_ms', value: parseInt(document.getElementById('ws-reconnect-select').value, 10) },
+            ], 'ttl-status');
+        }
+
+        async function saveTelegramConfig() {
+            await patchRuntimeConfig([
+                { key: 'telegram.enabled', value: document.getElementById('telegram-enabled').checked },
+                { key: 'telegram.link_token_ttl_seconds', value: parseInt(document.getElementById('telegram-link-ttl-select').value, 10) },
+            ], 'telegram-status');
+        }
+
+        async function saveRetentionConfig() {
+            try {
+                await updateChTTL();
+                await patchRuntimeConfig([
+                    { key: 'query.historical_logs_lookback_hours', value: parseInt(document.getElementById('historical-lookback-select').value, 10) },
+                    { key: 'dashboard.max_live_rows', value: parseInt(document.getElementById('max-live-rows-select').value, 10) },
+                ], 'ch-ttl-status');
+            } catch (error) {
+                showConfigError('ch-ttl-status', error.message || 'Retention update failed');
+            }
+        }
+
+        async function saveMetricsConfig() {
+            await patchRuntimeConfig([
+                { key: 'metrics.default_period', value: document.getElementById('metrics-default-period').value },
+                { key: 'metrics.enabled_periods', value: checkedValues('.metrics-period-checkbox') },
+                { key: 'metrics.high_error_rate_threshold_percent', value: Number(document.getElementById('high-error-threshold-select').value) },
+            ], 'metrics-status');
+        }
+
+        async function saveDisplayConfig() {
+            await patchRuntimeConfig([
+                { key: 'display.default_theme', value: document.getElementById('display-theme-select').value },
+                { key: 'display.timestamp_timezone_policy', value: document.getElementById('display-timezone-select').value },
+                { key: 'display.timestamp_format', value: document.getElementById('display-timestamp-format-select').value },
+            ], 'display-status');
+        }
+
         async function loadData() {
+            try {
+                await loadRuntimeConfig();
+            } catch (error) {
+                console.error('Runtime config load failed:', error);
+                applyRuntimeConfig({});
+            }
+
             const resTTL = await fetch('/api/config/ttl');
             if (resTTL.ok) {
                 const data = await resTTL.json();
@@ -256,7 +642,7 @@
             const resNotiTTL = await fetch('/api/config/noti-ttl');
             if (resNotiTTL.ok) {
                 const data = await resNotiTTL.json();
-                const idx = alertTTLValues.indexOf(data.ttl);
+                const idx = notificationTTLValues.indexOf(data.ttl);
                 if (idx !== -1) {
                     const el = document.getElementById('noti-ttl-input');
                     el.value = idx;
@@ -319,7 +705,7 @@
 
         async function updateNotiTTL() {
             const idx = parseInt(document.getElementById('noti-ttl-input').value, 10);
-            const val = alertTTLValues[idx];
+            const val = notificationTTLValues[idx];
             
             const res = await fetch('/api/config/noti-ttl', {
                 method: 'POST',
@@ -349,9 +735,16 @@
                 const el = document.getElementById('ch-ttl-input');
                 el.dataset.original = el.value;
                 updateSliderColor(el);
+                window.runtimeConfig['retention.clickhouse_ttl_hours'] = {
+                    ...(window.runtimeConfig['retention.clickhouse_ttl_hours'] || {}),
+                    value: ttl
+                };
                 document.getElementById('ch-ttl-status').innerText = 'ClickHouse TTL Saved!';
                 document.getElementById('ch-ttl-status').classList.remove('hidden');
                 setTimeout(() => document.getElementById('ch-ttl-status').classList.add('hidden'), 2000);
+            } else {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'ClickHouse TTL update failed');
             }
         }
 
