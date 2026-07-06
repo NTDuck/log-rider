@@ -283,6 +283,7 @@
             });
 
             if (sortedApps.length) renderDrilldown(sortedApps[0].Application_Name);
+            else document.getElementById('drilldown-panel').innerHTML = '<p>No application selected.</p>';
         }
 
         function renderDrilldown(appName) {

@@ -130,6 +130,7 @@
                                     <option value="message">Message</option>
                                     <option value="trace_id">Trace ID</option>
                                     <option value="application">Application</option>
+                                    <option value="tags">Tags</option>
                                 </select>
                                 <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 shrink-0"></div>
                                 <input id="search-query" oninput="applyFilters()" type="text" placeholder="Search logs..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
@@ -378,6 +379,7 @@
                     if (!query) return true;
                     if (searchCol === 'application') return log.Application_Name.toLowerCase().includes(query);
                     if (searchCol === 'trace_id') return log.Trace_ID.toLowerCase().includes(query);
+                    if (searchCol === 'tags') return (log.Tags || []).some((tag) => String(tag).toLowerCase().includes(query));
                     return log.Message.toLowerCase().includes(query);
                 });
         }

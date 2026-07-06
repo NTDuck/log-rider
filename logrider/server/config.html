@@ -416,7 +416,7 @@
                     </tbody>
                 </table>
                 <div class="px-4 pb-4">
-                    <button onclick="showAddRow()" class="w-11 h-11 flex items-center justify-center rounded-full bg-aws-primary hover:bg-aws-primaryHover text-2xl leading-none text-white mx-auto shadow-sm transition-all animate-fade-in" aria-label="Add user">+</button>
+                    <button onclick="showAddRow()" class="w-7 h-7 flex items-center justify-center rounded-full bg-aws-primary hover:bg-aws-primaryHover text-sm leading-none text-white mx-auto shadow-sm transition-all animate-fade-in" aria-label="Add user">+</button>
                 </div>
             </div>
         </div>
@@ -856,8 +856,8 @@
                         `).join('');
                     }
                     appsHtml += `
-                        <button onclick="showAppInput('${u.username}', this)" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-aws-primary text-white shadow-sm transition-all hover:bg-aws-primaryHover active:scale-95" aria-label="Add application">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                        <button onclick="showAppInput('${u.username}', this)" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-aws-primary text-white shadow-sm transition-all hover:bg-aws-primaryHover active:scale-95" aria-label="Add application">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
                         </button>
                     `;
                 }
@@ -993,8 +993,8 @@
                         `).join('');
                     }
                     appsHtml += `
-                        <button onclick="addDummyApp('${username}')" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold border border-aws-link text-aws-link hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all active:scale-95" aria-label="Add application">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                        <button onclick="addDummyApp('${username}')" class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold border border-aws-link text-aws-link hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all active:scale-95" aria-label="Add application">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
                         </button>
                     `;
 

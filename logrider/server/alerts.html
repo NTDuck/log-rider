@@ -107,9 +107,14 @@
                 <div class="border-b border-aws-border px-5 py-4 dark:border-aws-borderDark">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
                         <div class="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(300px,1fr)_180px_180px]">
-                            <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm w-full xl:max-w-md">
+                            <div class="flex items-center space-x-2 bg-white dark:bg-[#16191f] border border-gray-300 dark:border-gray-600 p-1.5 rounded shadow-sm w-full">
                                 <svg class="w-4 h-4 text-gray-400 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                                <input id="search-query" type="text" oninput="renderAlerts()" placeholder="Search by application or message..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
+                                <select id="search-col" onchange="renderAlerts()" class="bg-transparent text-sm font-bold text-aws-text dark:text-aws-textDark focus:outline-none cursor-pointer">
+                                    <option value="application">Application</option>
+                                    <option value="message">Message</option>
+                                </select>
+                                <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 shrink-0"></div>
+                                <input id="search-query" type="text" oninput="renderAlerts()" placeholder="Search alerts..." class="flex-grow px-2 text-sm bg-transparent border-none focus:outline-none text-aws-text dark:text-aws-textDark w-full">
                             </div>
                             <select id="application-filter" onchange="renderAlerts()" class="rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-aws-primary focus:outline-none dark:border-gray-600 dark:bg-[#16191f] text-aws-text dark:text-aws-textDark cursor-pointer">
                                 <option value="">All Applications</option>
@@ -248,6 +253,7 @@
 
         function getVisibleAlerts() {
             const query = document.getElementById('search-query').value.trim().toLowerCase();
+            const searchCol = document.getElementById('search-col').value;
             const app = applicationFilter.value;
             const level = document.getElementById('level-filter').value;
 
@@ -257,8 +263,8 @@
                     if (app && alert.Application_Name !== app) return false;
                     if (level && alert.Log_Level !== level) return false;
                     if (!query) return true;
-                    return alert.Application_Name.toLowerCase().includes(query)
-                        || alert.Message.toLowerCase().includes(query);
+                    if (searchCol === 'message') return alert.Message.toLowerCase().includes(query);
+                    return alert.Application_Name.toLowerCase().includes(query);
                 });
         }
 

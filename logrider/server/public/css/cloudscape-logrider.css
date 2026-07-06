@@ -225,9 +225,10 @@ textarea {
 input[type="checkbox"] {
   appearance: none;
   align-items: center;
-  background: var(--cs-color-background-container-content) !important;
-  border: 1px solid var(--cs-color-border-input-default) !important;
-  border-radius: 4px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: inset 0 0 0 1px var(--cs-color-border-input-default);
   color: var(--cs-color-background-button-primary-default);
   cursor: pointer;
   display: inline-grid;
@@ -251,8 +252,9 @@ input[type="checkbox"]::before {
 }
 
 input[type="checkbox"]:checked {
-  background: rgba(9, 114, 211, 0.12) !important;
-  border-color: var(--cs-color-background-button-primary-default) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: inset 0 0 0 1px var(--cs-color-background-button-primary-default);
 }
 
 input[type="checkbox"]:checked::before {
@@ -275,6 +277,7 @@ select.lr-native-select {
   display: inline-block;
   min-width: 120px;
   position: relative;
+  align-self: center;
   vertical-align: middle;
 }
 
