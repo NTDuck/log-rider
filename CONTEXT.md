@@ -31,21 +31,19 @@ Recent repo work has already corrected several operational gaps that older notes
 
 The implementation currently uses this flow:
 
-1. External log producers post Kafka REST payloads to the Redpanda Pandaproxy topic `logs-ingested`.
+1. External producer -> ingest-worker /v1/logs or gRPC -> logs-ingested.
 2. `pipelines/unified.yaml` consumes `logs-ingested`, unwraps optional `value`, assigns `Trace_ID` if missing, broadcasts an `Ingested` status to Redis `ws-events`, publishes the log to `logs-normalized`, and routes `ERROR` / `CRITICAL` logs to `alerts-ingested`.
 3. `workers/classifier/main.py` consumes `logs-normalized`, classifies messages, publishes tag/status events to Redis `ws-events`, and produces tag records to `logs-classified`.
 4. `pipelines/persist.yaml` consumes `logs-persist`, broadcasts `Persisted` status, and inserts batches into ClickHouse `logrider.logs_enriched`.
 5. `pipelines/tags.yaml` consumes `logs-classified` and writes tag rows into ClickHouse `logrider.log_tags`.
-6. `workers/alert/index.js` consumes `alerts-ingested`, deduplicates by application and message hash in Redis, publishes alert events to Redis `alerts-stream`, stores recent notification state in Redis, and pushes Telegram jobs to `telegram_outbound`.
-7. `integrations/telegram/main.go` links Telegram chats to LogRider users and consumes `telegram_outbound`.
-8. `server/index.js` serves pages, REST APIs, and WebSocket fan-out from Redis pub/sub channels.
+6. `workers/alert/index.js` consumes `alerts-ingested`, deduplicates by application and message hash in Redis, updates `incident:*` state, publishes alert events to Redis `alerts-stream`, and adds to `telegram:dirty_incidents`.
+7. `integrations/telegram/main.go` uses `BZPOPMIN telegram:dirty_incidents` to send/edit Telegram messages and update notification state.
+8. `server/index.js` serves pages, REST APIs, config API, and WebSocket fan-out from Redis pub/sub channels.
 
 ## Important Mismatches To Keep In Mind
 
-- There is no dedicated authenticated ingestion API in the current code. The demo scripts target Pandaproxy directly, while Compose no longer exposes Pandaproxy to the host.
 - Processing status is not persisted as `Raw -> Normalized -> Stored`; UI status events are transient Redis/WebSocket messages named `Ingested`, `Persisted`, and classification-related variants.
-- The live WebSocket stream currently has a backend RBAC leak because non-admin users subscribe to the global log topic.
-- Alert deduplication is real Redis Lua state, but it sends notifications on first occurrence and again at thresholds 10, 50, and 100, so it does not satisfy the "100 times within 1 minute results in exactly one notification" requirement.
+- The ClickHouse schema uses native types for level, timestamp, and trace IDs, but hot tables are ordered by `(Timestamp, Trace_ID)`, not by the common application/level filters.
 - The ClickHouse schema uses native types for level, timestamp, and trace IDs, but hot tables are ordered by `(Timestamp, Trace_ID)`, not by the common application/level filters.
 - Configuration is only partially centralized in `.env.example`; many ports, topic names, defaults, image tags, credentials, and demo users remain hardcoded.
 - In the current runtime, the classifier/tag path still needs sceptical verification after restarts. The code is wired for `logs-normalized -> logs-classified -> log_tags`, but a fresh stack may spend significant time loading the model before any tags appear.

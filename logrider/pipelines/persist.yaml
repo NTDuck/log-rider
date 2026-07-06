@@ -16,33 +16,34 @@ buffer:
     #   count: 500
     #   period: "1s"
 
-output:
-  broker:
-    pattern: fan_out
-    outputs:
-      # Broadcast "Persisted" status to dashboard (each individual message, before archive)
-      - redis_pubsub:
-          url: redis://redis:6379
-          channel: ws-events
+pipeline:
+  processors:
+    - branch:
+        request_map: 'root = this'
         processors:
-          - mapping: |
-              root = this
-              root.Status = "Persisted"
-
-      # Write the batch to ClickHouse
-      - fallback:
-          - http_client:
-              # url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider.logs_enriched%20FORMAT%20JSONEachRow&user=${CLICKHOUSE_USER:default}&password=${CLICKHOUSE_PASSWORD:password}"
+          - archive:
+              format: lines
+          - http:
               url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider.logs_enriched%20FORMAT%20JSONEachRow&async_insert=1&wait_for_async_insert=1&user=${CLICKHOUSE_USER:default}&password=${CLICKHOUSE_PASSWORD:password}"
               verb: POST
               headers:
                 Content-Type: application/x-ndjson
-              max_in_flight: 4
-              # max_in_flight: 1
-            processors:
-              - archive:
-                  format: lines
-          - kafka:
-              addresses:
-                - redpanda:29092
-              topic: dlq-clickhouse
+        result_map: 'root = this'
+
+output:
+  switch:
+    cases:
+      - check: errored()
+        output:
+          kafka:
+            addresses:
+              - redpanda:29092
+            topic: dlq-clickhouse
+      - output:
+          redis_pubsub:
+            url: redis://redis:6379
+            channel: ws-events
+          processors:
+            - mapping: |
+                root = this
+                root.Status = "Persisted"

@@ -171,6 +171,17 @@ async function startHttpServer() {
   console.log(`HTTP ingest listening on :${HTTP_PORT}`);
 }
 
+function checkGrpcAuth(call: any): boolean {
+  if (!INGEST_API_KEY) return true;
+  const keys = call.metadata.get("x-logrider-ingest-key");
+  const bearerList = call.metadata.get("authorization");
+  const bearer = bearerList
+    .map(String)
+    .find((v: string) => v.toLowerCase().startsWith("bearer "))
+    ?.replace(/^Bearer\s+/i, "");
+  return keys.includes(INGEST_API_KEY) || bearer === INGEST_API_KEY;
+}
+
 function startGrpcServer() {
   const protoPath = path.resolve("./proto/log.proto");
 
@@ -190,6 +201,14 @@ function startGrpcServer() {
   server.addService(logrider.IngestService.service, {
     IngestLogs: async (call: any, callback: any) => {
       try {
+        if (!checkGrpcAuth(call)) {
+          callback({
+            code: grpc.status.UNAUTHENTICATED,
+            details: "Unauthorized",
+          });
+          return;
+        }
+
         const processed = await ingestRecords(call.request.records || []);
 
         callback(null, {

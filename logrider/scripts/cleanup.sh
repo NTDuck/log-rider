@@ -61,7 +61,7 @@ echo "All specified tables have been cleared."
 
 # Flush Redis via the Docker Compose redis service (works in any environment)
 echo "Cleaning up Redis (test data only)..."
-if docker compose -f "$COMPOSE_FILE" exec -T redis sh -c "redis-cli --scan --pattern 'dedup:*' | xargs -r redis-cli DEL && redis-cli DEL notifications:data notifications:index telegram_outbound" > /dev/null 2>&1; then
+if docker compose -f "$COMPOSE_FILE" exec -T redis sh -c "redis-cli --scan --pattern 'incident:*' | xargs -r redis-cli DEL && redis-cli DEL notifications:data notifications:index telegram:dirty_incidents" > /dev/null 2>&1; then
   echo "Redis test data flushed (sessions preserved)."
 else
   echo "Could not flush Redis via docker compose exec. Is the stack running?"

@@ -1,21 +1,28 @@
-import json, os, uuid, random, datetime, csv
+import json, os, uuid, datetime, csv
 
 csv_path = os.path.join(os.environ["PROJECT_DIR"], "data", "Linux_2k.log_structured.csv")
 with open(csv_path, "r") as f:
     rows = list(csv.DictReader(f))
 
-levels = ["INFO", "WARN", "ERROR", "CRITICAL"]
+def map_level(content):
+    content_lower = content.lower()
+    if "critical" in content_lower or "fatal" in content_lower:
+        return "CRITICAL"
+    if "error" in content_lower or "fail" in content_lower or "denied" in content_lower:
+        return "ERROR"
+    if "warn" in content_lower:
+        return "WARN"
+    return "INFO"
 
 records = []
-for _ in range(1000):
-    row = random.choice(rows)
+for i, row in enumerate(rows[:1000]):
     records.append({
         "value": {
             "Application_Name": row["Component"],
-            "Log_Level": random.choice(levels),
+            "Log_Level": map_level(row["Content"]),
             "Message": row["Content"],
             "Timestamp": datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
-            "Trace_ID": str(uuid.uuid4()),
+            "Trace_ID": f"trace-{i}",
         }
     })
 

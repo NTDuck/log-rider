@@ -352,9 +352,9 @@ async function getConfiguredAnalyticsPeriod(requestedPeriod) {
     // Ensure default users exist
     const { rows } = await pgClient.query("SELECT count(*) FROM users");
     if (parseInt(rows[0].count) === 0) {
-      const adminHash = await Bun.password.hash("admin123");
-      const eng1Hash = await Bun.password.hash("eng123");
-      const eng2Hash = await Bun.password.hash("eng123");
+      const adminHash = await Bun.password.hash("password");
+      const eng1Hash = await Bun.password.hash("password");
+      const eng2Hash = await Bun.password.hash("password");
 
       await pgClient.query(
         `INSERT INTO users (username, password_hash, role, allowed_apps) VALUES
@@ -1176,39 +1176,34 @@ bunServer = Bun.serve({
         let ttlStr = await redisClient.get("config:noti_ttl");
         let ttl = ttlStr ? parseInt(ttlStr, 10) : 86400; // Default 24 hours
 
-        let query = "";
+        let alerts = [];
+        const keys = await redisClient.keys('incident:*');
         
-        if (session.is_admin) {
-            query = `SELECT * FROM logrider.logs_enriched WHERE (Log_Level = 'ERROR' OR Log_Level = 'CRITICAL') AND Timestamp >= now() - INTERVAL ${ttl} SECOND ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
-        } else {
-            const apps = typeof session.allowed_apps === "string" ? session.allowed_apps.split(",").map((a) => a.trim()) : session.allowed_apps || [];
+        let apps = [];
+        if (!session.is_admin) {
+            apps = typeof session.allowed_apps === "string" ? session.allowed_apps.split(",").map((a) => a.trim()) : session.allowed_apps || [];
             if (apps.length === 0) return Response.json({ alerts: [] });
-            
-            const safeApps = apps.map((app) => app.replace(/'/g, "''"));
-            const inClause = safeApps.map((app) => `'${app}'`).join(",");
-            query = `SELECT * FROM logrider.logs_enriched WHERE Application_Name IN (${inClause}) AND (Log_Level = 'ERROR' OR Log_Level = 'CRITICAL') AND Timestamp >= now() - INTERVAL ${ttl} SECOND ORDER BY Timestamp DESC LIMIT 1000 FORMAT JSON`;
         }
-
-        const chRes = await fetch(chBaseUrl, {
-            method: "POST",
-            body: query,
-        });
-
-        if (!chRes.ok) {
-            throw new Error(`ClickHouse error: ${await chRes.text()}`);
-        }
-
-        const chData = await chRes.json();
-        const rows = chData.data || [];
         
-        let alerts = rows.map((row) => ({
-          Trace_ID: row.Trace_ID,
-          Application_Name: row.Application_Name,
-          Log_Level: row.Log_Level,
-          Message: row.Message,
-          Timestamp: row.Timestamp,
-          alert_count: 1
-        }));
+        for (const key of keys) {
+            const incident = await redisClient.hGetAll(key);
+            if (!session.is_admin && !apps.includes(incident.app)) {
+                continue;
+            }
+            if (!incident.app) continue;
+            
+            alerts.push({
+                Application_Name: incident.app,
+                Log_Level: incident.severity,
+                Message: incident.message,
+                alert_count: parseInt(incident.count || "1", 10),
+                first_seen: parseInt(incident.first_seen || "0", 10),
+                Timestamp: parseInt(incident.last_seen || "0", 10) * 1000,
+                status: incident.status
+            });
+        }
+        alerts.sort((a, b) => b.Timestamp - a.Timestamp);
+        alerts = alerts.slice(0, 1000);
 
         return Response.json({ alerts });
       } catch (err) {
@@ -1257,18 +1252,14 @@ bunServer = Bun.serve({
     open(ws) {
       wsClients.add(ws);
       console.log(`Client connected to WebSocket: ${ws.data.username}`);
-      // Admin users get the global streams.
       if (ws.data.is_admin) {
         ws.subscribe("alerts-stream:global");
         ws.subscribe("ws-frontend:global");
-      } else if (ws.data.allowed_apps) {
-        // Non-admin users should still receive global alerts
-        // (e.g., system-wide notifications) as well as their
-        // app-specific streams.
-        ws.subscribe("alerts-stream:global");
-        const apps = typeof ws.data.allowed_apps === 'string'
-            ? ws.data.allowed_apps.split(',').map(a => a.trim())
-            : ws.data.allowed_apps;
+      } else {
+        const apps = Array.isArray(ws.data.allowed_apps)
+          ? ws.data.allowed_apps
+          : String(ws.data.allowed_apps || "").split(",").map(a => a.trim()).filter(Boolean);
+
         for (const app of apps) {
           ws.subscribe(`alerts-stream:${app}`);
           ws.subscribe(`ws-frontend:${app}`);
@@ -1282,8 +1273,12 @@ bunServer = Bun.serve({
       if (ws.data.is_admin) {
         ws.unsubscribe("alerts-stream:global");
         ws.unsubscribe("ws-frontend:global");
-      } else if (ws.data.allowed_apps) {
-        for (const app of ws.data.allowed_apps) {
+      } else {
+        const apps = Array.isArray(ws.data.allowed_apps)
+          ? ws.data.allowed_apps
+          : String(ws.data.allowed_apps || "").split(",").map(a => a.trim()).filter(Boolean);
+
+        for (const app of apps) {
           ws.unsubscribe(`alerts-stream:${app}`);
           ws.unsubscribe(`ws-frontend:${app}`);
         }

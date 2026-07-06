@@ -201,8 +201,6 @@ func handleStatus(bot *tgbotapi.BotAPI, rdb *redis.Client, chatID int64) {
 }
 
 func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
-	minEditInterval := int64(5) // seconds
-
 	for {
 		now := time.Now().Unix()
 		// BZPOPMIN telegram:dirty_incidents 0
@@ -223,6 +221,23 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 				rdb.ZAdd(ctx, "telegram:dirty_incidents", redis.Z{Score: float64(score), Member: incKey})
 				time.Sleep(1 * time.Second)
 				continue
+			}
+		}
+
+		minEditInterval := int64(5) // seconds
+		minEditIntervalStr, _ := rdb.Get(ctx, "config:telegram.min_edit_interval_seconds").Result()
+		if minEditIntervalStr != "" {
+			parsedInterval, err := strconv.ParseInt(strings.Trim(minEditIntervalStr, "\""), 10, 64)
+			if err == nil {
+				minEditInterval = parsedInterval
+			}
+		}
+
+		telegramEnabledStr, _ := rdb.Get(ctx, "config:telegram.enabled").Result()
+		telegramEnabled := true
+		if telegramEnabledStr != "" {
+			if telegramEnabledStr == "false" || telegramEnabledStr == "\"false\"" {
+				telegramEnabled = false
 			}
 		}
 
@@ -253,6 +268,10 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 		lastSeen, _ := strconv.ParseInt(lastSeenStr, 10, 64)
 		firstSeenTime := time.Unix(firstSeen, 0).Format("15:04:05")
 		lastSeenTime := time.Unix(lastSeen, 0).Format("15:04:05")
+		severity := inc["severity"]
+		if severity == "" {
+			severity = "CRITICAL"
+		}
 
 		// Extract app from incident key: incident:{app}:{hash}
 		parts := strings.Split(incKey, ":")
@@ -269,12 +288,20 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 			telegramMsgIDs = make(map[string]int)
 		}
 
+		realertThresholdStr, _ := rdb.Get(ctx, "config:alert.realert_threshold").Result()
+		realertThreshold := 100
+		if realertThresholdStr != "" {
+			if rt, err := strconv.Atoi(strings.Trim(realertThresholdStr, "\"")); err == nil {
+				realertThreshold = rt
+			}
+		}
+
 		// Should we notify?
 		needsUpdate := false
 		if lastNotified == 0 {
 			needsUpdate = true
 		} else if count > lastNotified {
-			if now-lastEditAt >= minEditInterval {
+			if count-lastNotified >= realertThreshold || now-lastEditAt >= minEditInterval {
 				needsUpdate = true
 			} else {
 				// Requeue for later
@@ -298,28 +325,37 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 			allChats[e] = true
 		}
 
-		text := fmt.Sprintf("🚨 CRITICAL ERROR\nApp: %s\nMessage: %s\nCount: %d\nFirst seen: %s\nLast seen: %s\nStatus: Active", appID, messageStr, count, firstSeenTime, lastSeenTime)
+		text := fmt.Sprintf("🚨 %s\nApp: %s\nMessage: %s\nCount: %d\nFirst seen: %s\nLast seen: %s\nStatus: Active", severity, appID, messageStr, count, firstSeenTime, lastSeenTime)
 
 		updatedMsgIDs := false
-		for chatIDStr := range allChats {
-			chatID, _ := strconv.ParseInt(chatIDStr, 10, 64)
-			
-			msgID, exists := telegramMsgIDs[chatIDStr]
-			if !exists {
-				// Send new message
-				msg := tgbotapi.NewMessage(chatID, text)
-				sent, err := bot.Send(msg)
-				if err == nil {
-					telegramMsgIDs[chatIDStr] = sent.MessageID
-					updatedMsgIDs = true
+		if telegramEnabled {
+			for chatIDStr := range allChats {
+				chatID, _ := strconv.ParseInt(chatIDStr, 10, 64)
+				
+				// Per-chat rate limiting using Redis
+				rateLimitKey := fmt.Sprintf("telegram:rate_limit:%s", chatIDStr)
+				ok, _ := rdb.SetNX(ctx, rateLimitKey, "1", 1*time.Second).Result()
+				if !ok {
+					continue // Skip if sent too recently
 				}
-			} else {
-				// Edit existing message
-				editMsg := tgbotapi.NewEditMessageText(chatID, msgID, text)
-				_, err := bot.Send(editMsg)
-				if err != nil {
-					log.Printf("Failed to edit message: %v", err)
-					// if message not found, we could resend, but let's just ignore for now
+				
+				msgID, exists := telegramMsgIDs[chatIDStr]
+				if !exists {
+					// Send new message
+					msg := tgbotapi.NewMessage(chatID, text)
+					sent, err := bot.Send(msg)
+					if err == nil {
+						telegramMsgIDs[chatIDStr] = sent.MessageID
+						updatedMsgIDs = true
+					}
+				} else {
+					// Edit existing message
+					editMsg := tgbotapi.NewEditMessageText(chatID, msgID, text)
+					_, err := bot.Send(editMsg)
+					if err != nil {
+						log.Printf("Failed to edit message: %v", err)
+						// if message not found, we could resend, but let's just ignore for now
+					}
 				}
 			}
 		}

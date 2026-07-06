@@ -19,23 +19,42 @@ export let options = {
   },
 };
 
+import { SharedArray } from 'k6/data';
+
 const BATCH_SIZE = parseInt(__ENV.BATCH_SIZE || '10', 10);
 const PROTOCOL = __ENV.PROTOCOL || 'http';
 const SCENARIO_NAME = __ENV.SCENARIO_NAME || 'manual';
 const HTTP_URL = __ENV.TARGET_URL || 'http://localhost:8085/v1/logs';
 const GRPC_URL = __ENV.GRPC_URL || '127.0.0.1:50051';
 
+const logsData = new SharedArray('logs', function() {
+  return JSON.parse(open('../../data/k6_logs.json'));
+});
+
 export default function () {
   let records = [];
-  for (let i = 0; i < BATCH_SIZE; i++) {
-    const isAlertDedup = SCENARIO_NAME === 'alert-dedup';
-    records.push({
-      Application_Name: isAlertDedup ? "benchmark-alert-app" : "benchmark-app",
-      Log_Level: isAlertDedup ? "ERROR" : "INFO",
-      Message: isAlertDedup ? "repeated benchmark database timeout" : "benchmark message",
-      Timestamp: new Date().toISOString(),
-      Trace_ID: "trace-" + Math.random()
-    });
+  
+  if (SCENARIO_NAME === 'alert-dedup') {
+    for (let i = 0; i < BATCH_SIZE; i++) {
+      records.push({
+        Application_Name: "benchmark-alert-app",
+        Log_Level: "ERROR",
+        Message: "repeated benchmark database timeout",
+        Timestamp: new Date().toISOString(),
+        Trace_ID: "trace-" + Math.random()
+      });
+    }
+  } else {
+    for (let i = 0; i < BATCH_SIZE; i++) {
+      const log = logsData[Math.floor(Math.random() * logsData.length)].value;
+      records.push({
+        Application_Name: log.Application_Name,
+        Log_Level: log.Log_Level,
+        Message: log.Message,
+        Timestamp: new Date().toISOString(),
+        Trace_ID: "trace-" + Math.random()
+      });
+    }
   }
 
   if (PROTOCOL === 'grpc') {

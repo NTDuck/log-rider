@@ -169,13 +169,30 @@
             if (typeof syncTopbarUser === 'function') syncTopbarUser();
         }
 
-        function parseUtcDate(value) {
+        let TIMEZONE_POLICY = 'browser';
+        let TIMESTAMP_FORMAT = 'YYYY-MM-DD HH:mm:ss.SSS';
+
+        function formatTimestamp(value) {
             let str = String(value);
             if (!str.endsWith('Z') && str.length > 10) {
                 str = str.replace(' ', 'T');
                 if (!str.endsWith('Z')) str += 'Z';
             }
-            return new Date(str);
+            const date = new Date(str);
+            if (Number.isNaN(date.getTime())) return str;
+            
+            const isUTC = TIMEZONE_POLICY === 'utc';
+            
+            if (TIMESTAMP_FORMAT === 'locale') {
+                return date.toLocaleString(undefined, { timeZone: isUTC ? 'UTC' : undefined, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            }
+            
+            const month = String((isUTC ? date.getUTCMonth() : date.getMonth()) + 1).padStart(2, '0');
+            const day = String(isUTC ? date.getUTCDate() : date.getDate()).padStart(2, '0');
+            const hours = String(isUTC ? date.getUTCHours() : date.getHours()).padStart(2, '0');
+            const minutes = String(isUTC ? date.getUTCMinutes() : date.getMinutes()).padStart(2, '0');
+            
+            return `${month}-${day} ${hours}:${minutes}`;
         }
 
         function getWindowHours(period) {
@@ -197,7 +214,7 @@
 
         function renderCharts() {
             const colors = chartColors();
-            const hourLabels = [...new Set(healthRows.map((row) => parseUtcDate(row.hour).toLocaleString('en-CA', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })))];
+            const hourLabels = [...new Set(healthRows.map((row) => formatTimestamp(row.hour)))];
             const apps = [...new Set(healthRows.map((row) => row.Application_Name))];
             const palette = ['#0972d3', '#e11d48', '#7c3aed', '#059669', '#ea580c', '#0f766e', '#1d4ed8'];
 
@@ -208,7 +225,7 @@
                     data: hourLabels.map((label) => {
                         const match = healthRows.find((row) =>
                             row.Application_Name === app &&
-                            parseUtcDate(row.hour).toLocaleString('en-CA', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) === label
+                            formatTimestamp(row.hour) === label
                         );
                         return match ? Number(match.error_rate || 0) : 0;
                     }),
@@ -347,6 +364,18 @@
         }
 
         async function showMetrics() {
+            try {
+                const configRes = await fetch('/api/config/client', {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('logrider_token')}` }
+                });
+                if (configRes.ok) {
+                    const { config } = await configRes.json();
+                    if (config['display.timestamp_timezone_policy']?.value) TIMEZONE_POLICY = config['display.timestamp_timezone_policy'].value;
+                    if (config['display.timestamp_format']?.value) TIMESTAMP_FORMAT = config['display.timestamp_format'].value;
+                }
+            } catch (error) {
+                console.error('Failed to fetch config:', error);
+            }
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('metrics-screen').classList.remove('hidden');
             setTopbar();

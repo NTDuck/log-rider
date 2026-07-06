@@ -154,6 +154,8 @@
 
     <script>
         const alertsBySignature = new Map();
+        let TIMEZONE_POLICY = 'browser';
+        let TIMESTAMP_FORMAT = 'YYYY-MM-DD HH:mm:ss.SSS';
         let ws;
 
         const loginScreen = document.getElementById('login-screen');
@@ -201,15 +203,26 @@
             }
             const date = new Date(str);
             if (Number.isNaN(date.getTime())) return escapeHtml(String(value || '-'));
-            return escapeHtml(date.toLocaleString('en-CA', {
-                hour12: false,
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            }).replace(',', ''));
+            
+            const isUTC = TIMEZONE_POLICY === 'utc';
+            
+            if (TIMESTAMP_FORMAT === 'locale') {
+                return escapeHtml(date.toLocaleString(undefined, { timeZone: isUTC ? 'UTC' : undefined }));
+            }
+            
+            const year = isUTC ? date.getUTCFullYear() : date.getFullYear();
+            const month = String((isUTC ? date.getUTCMonth() : date.getMonth()) + 1).padStart(2, '0');
+            const day = String(isUTC ? date.getUTCDate() : date.getDate()).padStart(2, '0');
+            const hours = String(isUTC ? date.getUTCHours() : date.getHours()).padStart(2, '0');
+            const minutes = String(isUTC ? date.getUTCMinutes() : date.getMinutes()).padStart(2, '0');
+            const seconds = String(isUTC ? date.getUTCSeconds() : date.getSeconds()).padStart(2, '0');
+            const ms = String(isUTC ? date.getUTCMilliseconds() : date.getMilliseconds()).padStart(3, '0');
+            
+            if (TIMESTAMP_FORMAT === 'YYYY-MM-DD\\nHH:mm:ss.SSS') {
+                return escapeHtml(`${year}-${month}-${day}`).concat('<br>', escapeHtml(`${hours}:${minutes}:${seconds}.${ms}`));
+            }
+            
+            return escapeHtml(`${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`);
         }
 
         function alertSignature(log) {

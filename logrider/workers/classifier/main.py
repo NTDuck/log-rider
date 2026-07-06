@@ -111,40 +111,85 @@ while True:
             if 'Trace_ID' in log:
                 logs.append(log)
                 raw_msgs.append(msg)
+            else:
+                dlq_record = {
+                    "topic": msg.topic(),
+                    "partition": msg.partition(),
+                    "offset": msg.offset(),
+                    "reason": "Missing Trace_ID",
+                    "raw_value": payload
+                }
+                producer.produce('dlq-logs', json.dumps(dlq_record).encode('utf-8'))
         except Exception as e:
             print(f"Parse error: {e}")
+            dlq_record = {
+                "topic": msg.topic(),
+                "partition": msg.partition(),
+                "offset": msg.offset(),
+                "reason": f"Parse error: {str(e)}",
+                "raw_value": msg.value().decode('utf-8', errors='replace') if msg.value() else ""
+            }
+            producer.produce('dlq-logs', json.dumps(dlq_record).encode('utf-8'))
 
     if not logs:
+        producer.flush()
+        consumer.commit(asynchronous=False)
         continue
 
     messages = [log.get('Message', '') or '' for log in logs]
 
-    try:
-        predicted_tags = classify_messages(messages)
+    max_retries = 3
+    retries = 0
+    success = False
 
-        for idx, log in enumerate(logs):
-            tags = predicted_tags[idx]
+    while retries < max_retries and not success:
+        try:
+            predicted_tags = classify_messages(messages)
 
-            classified_ws = {
-                'type': 'TAGS',
-                'Trace_ID': log['Trace_ID'],
-                'Application_Name': log.get('Application_Name', 'unknown'),
-                'Tags': tags,
-                'status': 'Classified'
-            }
-            redis_client.publish('ws-events', json.dumps(classified_ws))
+            for idx, log in enumerate(logs):
+                tags = predicted_tags[idx]
 
-            tag_record = {
-                'Trace_ID': log['Trace_ID'],
-                'Application_Name': log.get('Application_Name', 'unknown'),
-                'Tags': tags,
-                'Timestamp': log.get('Timestamp')
-            }
-            producer.produce('logs-classified', json.dumps(tag_record).encode('utf-8'))
+                classified_ws = {
+                    'type': 'TAGS',
+                    'Trace_ID': log['Trace_ID'],
+                    'Application_Name': log.get('Application_Name', 'unknown'),
+                    'Tags': tags,
+                    'status': 'Classified'
+                }
+                redis_client.publish('ws-events', json.dumps(classified_ws))
 
-        producer.flush()
-        consumer.commit(asynchronous=False)
-        print(f"[DEBUG] Classified batch of {len(logs)} messages")
+                tag_record = {
+                    'Trace_ID': log['Trace_ID'],
+                    'Application_Name': log.get('Application_Name', 'unknown'),
+                    'Tags': tags,
+                    'Timestamp': log.get('Timestamp')
+                }
+                producer.produce('logs-classified', json.dumps(tag_record).encode('utf-8'))
 
-    except Exception as e:
-        print(f"Inference error: {e}")
+            producer.flush()
+            consumer.commit(asynchronous=False)
+            print(f"[DEBUG] Classified batch of {len(logs)} messages")
+            success = True
+
+            # Emit health metric
+            redis_client.hset('metrics:classifier', 'health', 'OK')
+            redis_client.hincrby('metrics:classifier', 'processed', len(logs))
+
+        except Exception as e:
+            retries += 1
+            print(f"Inference error (attempt {retries}/{max_retries}): {e}")
+            if retries >= max_retries:
+                print("Max retries reached, sending batch to DLQ")
+                for msg in raw_msgs:
+                    dlq_record = {
+                        "topic": msg.topic(),
+                        "partition": msg.partition(),
+                        "offset": msg.offset(),
+                        "reason": f"Inference error: {str(e)}",
+                        "raw_value": msg.value().decode('utf-8', errors='replace') if msg.value() else ""
+                    }
+                    producer.produce('dlq-logs', json.dumps(dlq_record).encode('utf-8'))
+                
+                producer.flush()
+                consumer.commit(asynchronous=False)
+                redis_client.hset('metrics:classifier', 'health', 'ERROR')

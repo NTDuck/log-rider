@@ -53,10 +53,7 @@ output:
               root = this
               root.Tags = []
 
-      # Step 5: Route errors/criticals to alert pipeline
+      # Step 5: Route to alert pipeline, worker will filter by config
       - kafka:
           addresses: [ "redpanda:29092" ]
           topic: alerts-ingested
-        processors:
-          - mapping: |
-              root = if this.Log_Level == "ERROR" || this.Log_Level == "CRITICAL" { this } else { deleted() }
