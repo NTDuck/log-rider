@@ -3,8 +3,8 @@
   "title": "StatusEvent",
   "type": "object",
   "properties": {
-    "Trace_ID": { "type": "string" },
-    "Status": { "type": "string" }
+    "trace_id": { "type": "string" },
+    "status": { "type": "string" }
   },
-  "required": ["Trace_ID", "Status"]
+  "required": ["trace_id", "status"]
 }

@@ -3,9 +3,9 @@
   "title": "LogRecord",
   "type": "object",
   "properties": {
-    "Trace_ID": { "type": "string" },
-    "Application_Name": { "type": "string" },
-    "Message": { "type": "string" }
+    "trace_id": { "type": "string" },
+    "application_name": { "type": "string" },
+    "message": { "type": "string" }
   },
-  "required": ["Application_Name", "Message"]
+  "required": ["application_name", "message"]
 }

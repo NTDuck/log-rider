@@ -3,9 +3,9 @@
   "title": "AlertEvent",
   "type": "object",
   "properties": {
-    "Application_Name": { "type": "string" },
-    "Message": { "type": "string" },
-    "Severity": { "type": "string" }
+    "application_name": { "type": "string" },
+    "message": { "type": "string" },
+    "severity": { "type": "string" }
   },
-  "required": ["Application_Name", "Message"]
+  "required": ["application_name", "message"]
 }

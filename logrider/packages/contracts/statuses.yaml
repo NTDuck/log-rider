@@ -1,5 +1,5 @@
 statuses:
-  ingested: Ingested
-  normalized: Normalized
-  persisted: Persisted
-  classified: Classified
+  received: received
+  normalized: normalized
+  persisted: persisted
+  tags_assigned: tags_assigned

@@ -3,8 +3,8 @@ input:
     addresses:
       - redpanda:29092
     topics:
-      - alerts-ingested
-    consumer_group: "alerts_forwarder"
+      - logrider.alerts.candidate-detected.v1
+    consumer_group: "logrider.realtime.alert-forwarder.v1"
 
 pipeline:
   processors:
@@ -15,4 +15,4 @@ pipeline:
 output:
   redis_pubsub:
     url: redis://redis:6379
-    channel: alerts-stream
+    channel: logrider:realtime:alert-events

@@ -3,8 +3,8 @@ input:
     addresses:
       - redpanda:29092
     topics:
-      - logs-persist
-    consumer_group: "logrider_persist"
+      - logrider.logs.persistence-requested.v1
+    consumer_group: "logrider.persistence.log-events-writer.v1"
 
 buffer:
   memory:
@@ -24,7 +24,7 @@ pipeline:
           - archive:
               format: lines
           - http:
-              url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider.logs_enriched%20FORMAT%20JSONEachRow&async_insert=1&wait_for_async_insert=1&user=${CLICKHOUSE_USER:default}&password=${CLICKHOUSE_PASSWORD:password}"
+              url: "http://clickhouse:8123/?query=INSERT%20INTO%20logrider_analytics.log_events%20FORMAT%20JSONEachRow&async_insert=1&wait_for_async_insert=1&user=${CLICKHOUSE_USER:default}&password=${CLICKHOUSE_PASSWORD:password}"
               verb: POST
               headers:
                 Content-Type: application/x-ndjson
@@ -38,12 +38,12 @@ output:
           kafka:
             addresses:
               - redpanda:29092
-            topic: dlq-clickhouse
+            topic: logrider.dlq.log-persistence-failed.v1
       - output:
           redis_pubsub:
             url: redis://redis:6379
-            channel: ws-events
+            channel: logrider:realtime:log-events
           processors:
             - mapping: |
                 root = this
-                root.Status = "Persisted"
+                root.status = "persisted"

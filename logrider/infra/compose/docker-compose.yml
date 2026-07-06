@@ -51,7 +51,7 @@ services:
     environment:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password}
-      CLICKHOUSE_DB: logrider
+      CLICKHOUSE_DB: logrider_analytics
     # ClickHouse ports removed to prevent exposure
     volumes:
       - clickhouse_data:/var/lib/clickhouse
@@ -87,7 +87,7 @@ services:
       timeout: 5s
       retries: 5
 
-  benthos-pipeline:
+  stream-router:
     image: jeffail/benthos:4
     mem_limit: 256m
     volumes:
@@ -101,7 +101,7 @@ services:
         condition: service_healthy
     command: -c /benthos.yaml
 
-  benthos-persist:
+  log-event-writer:
     image: jeffail/benthos:4
     mem_limit: 256m
     volumes:
@@ -115,7 +115,7 @@ services:
         condition: service_healthy
     command: -c /benthos.yaml
 
-  ingest-worker:
+  ingest-api:
     build: ../../apps/ingest-api
     mem_limit: 256m
     ports:
@@ -132,7 +132,7 @@ services:
       redpanda:
         condition: service_healthy
 
-  benthos-tags:
+  log-tag-writer:
     image: jeffail/benthos:4
     mem_limit: 256m
     volumes:
@@ -146,7 +146,7 @@ services:
         condition: service_healthy
     command: -c /benthos.yaml
 
-  alert-worker:
+  alert-dedup-worker:
     build: ../../apps/alert-worker
     mem_limit: 256m
     depends_on:
@@ -158,7 +158,7 @@ services:
       REDIS_URL: redis://redis:6379
       REDPANDA_BROKERS: redpanda:29092
 
-  classifier-worker:
+  log-tagger:
     build:
       context: ../../apps/classifier-worker
       dockerfile: Dockerfile
@@ -179,7 +179,7 @@ services:
       redis:
         condition: service_healthy
 
-  classifier-worker-lite:
+  log-tagger-lite:
     build:
       context: ../../apps/classifier-worker
       dockerfile: Dockerfile
@@ -205,7 +205,7 @@ services:
       REDIS_URL: redis://redis:6379
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
 
-  web-server:
+  web:
     build: ../../apps/web
     mem_limit: 512m
     ports:
@@ -228,7 +228,7 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password}
       POSTGRES_URI: postgres://${POSTGRES_USER:-logrider}:${POSTGRES_PASSWORD:-password}@postgres:5432/logrider
 
-  benthos-alerts-forwarder:
+  alert-realtime-forwarder:
     image: jeffail/benthos:4
     mem_limit: 128m
     volumes:

@@ -1,8 +1,8 @@
 topics:
-  logs_ingested: logs-ingested
-  logs_normalized: logs-normalized
-  logs_persist: logs-persist
-  logs_classified: logs-classified
-  alerts_ingested: alerts-ingested
-  dlq_logs: dlq-logs
-  dlq_clickhouse: dlq-clickhouse
+  logs_received: logrider.logs.received.v1
+  logs_normalized: logrider.logs.normalized.v1
+  logs_persistence_requested: logrider.logs.persistence-requested.v1
+  logs_tags_assigned: logrider.logs.tags-assigned.v1
+  alerts_candidate_detected: logrider.alerts.candidate-detected.v1
+  dlq_log_persistence_failed: logrider.dlq.log-persistence-failed.v1
+  dlq_log_tags_write_failed: logrider.dlq.log-tags-write-failed.v1

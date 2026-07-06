@@ -3,8 +3,8 @@ input:
     addresses:
       - redpanda:29092
     topics:
-      - logs-ingested
-    consumer_group: "logrider_unified"
+      - logrider.logs.received.v1
+    consumer_group: "logrider.router.unified.v1"
 
 pipeline:
   processors:
@@ -15,7 +15,7 @@ pipeline:
     # 2. Normalize and enrich the data struct
     - mapping: |
         root = this
-        root.Trace_ID = this.Trace_ID | uuid_v4()
+        root.trace_id = this.Trace_ID | this.trace_id | uuid_v4()
 
 output:
   broker:
@@ -24,36 +24,36 @@ output:
       # Step 1: Broadcast "Ingested" immediately so dashboard shows the log first
       - redis_pubsub:
           url: redis://redis:6379
-          channel: ws-events
+          channel: logrider:realtime:log-events
         processors:
           - mapping: |
               root = this
-              root.Status = "Ingested"
+              root.status = "received"
 
       # Step 2: Route to classifier for asynchronous tag enrichment
       - kafka:
           addresses: [ "redpanda:29092" ]
-          topic: logs-normalized
+          topic: logrider.logs.normalized.v1
 
       # Step 3: Broadcast "Normalized" after the log has entered the normalized topic
       - redis_pubsub:
           url: redis://redis:6379
-          channel: ws-events
+          channel: logrider:realtime:log-events
         processors:
           - mapping: |
               root = this
-              root.Status = "Normalized"
+              root.status = "normalized"
 
       # Step 4: Route to persistence immediately so dashboard history is not gated by ML startup
       - kafka:
           addresses: [ "redpanda:29092" ]
-          topic: logs-persist
+          topic: logrider.logs.persistence-requested.v1
         processors:
           - mapping: |
               root = this
-              root.Tags = []
+              root.tags = []
 
       # Step 5: Route to alert pipeline, worker will filter by config
       - kafka:
           addresses: [ "redpanda:29092" ]
-          topic: alerts-ingested
+          topic: logrider.alerts.candidate-detected.v1
