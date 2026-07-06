@@ -56,7 +56,7 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - >-
-        ../clickhouse/migrations/001_init.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql
+        ./infra/clickhouse/migrations/001_init.sql:/docker-entrypoint-initdb.d/init-clickhouse.sql
     healthcheck:
       test:
         - CMD
@@ -78,7 +78,7 @@ services:
     # Postgres ports removed to prevent exposure
     volumes:
       - >-
-        ../postgres/migrations/001_users.sql:/docker-entrypoint-initdb.d/init-postgres.sql
+        ./infra/postgres/migrations/001_users.sql:/docker-entrypoint-initdb.d/init-postgres.sql
     healthcheck:
       test:
         - CMD-SHELL
@@ -91,7 +91,7 @@ services:
     image: jeffail/benthos:4
     mem_limit: 256m
     volumes:
-      - ../../pipelines/benthos/router/unified.yaml:/benthos.yaml
+      - ./pipelines/benthos/router/unified.yaml:/benthos.yaml
     depends_on:
       redpanda:
         condition: service_healthy
@@ -102,7 +102,7 @@ services:
     command: -c /benthos.yaml
 
   log-event-writer:
-    build: ../../apps/log-event-writer
+    build: ./apps/log-event-writer
     deploy:
       replicas: 8
     mem_limit: 256m
@@ -123,7 +123,7 @@ services:
         condition: service_healthy
 
   ingest-api:
-    build: ../../apps/ingest-api
+    build: ./apps/ingest-api
     mem_limit: 256m
     ports:
       - "8085:8080"
@@ -143,7 +143,7 @@ services:
     image: jeffail/benthos:4
     mem_limit: 256m
     volumes:
-      - ../../pipelines/benthos/persistence/tags-to-clickhouse.yaml:/benthos.yaml
+      - ./pipelines/benthos/persistence/tags-to-clickhouse.yaml:/benthos.yaml
     depends_on:
       redpanda:
         condition: service_healthy
@@ -154,7 +154,7 @@ services:
     command: -c /benthos.yaml
 
   alert-dedup-worker:
-    build: ../../apps/alert-worker
+    build: ./apps/alert-worker
     mem_limit: 256m
     depends_on:
       redis:
@@ -167,7 +167,7 @@ services:
 
   log-tagger:
     build:
-      context: ../../apps/classifier-worker
+      context: ./apps/classifier-worker
       dockerfile: Dockerfile
     profiles: ["ml"]
     mem_limit: 2g
@@ -188,7 +188,7 @@ services:
 
   log-tagger-lite:
     build:
-      context: ../../apps/classifier-worker
+      context: ./apps/classifier-worker
       dockerfile: Dockerfile
     mem_limit: 384m
     memswap_limit: 384m
@@ -203,7 +203,7 @@ services:
         condition: service_healthy
 
   telegram-bot:
-    build: ../../apps/telegram-bot
+    build: ./apps/telegram-bot
     mem_limit: 128m
     depends_on:
       redis:
@@ -213,7 +213,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
 
   web:
-    build: ../../apps/web
+    build: ./apps/web
     mem_limit: 512m
     ports:
       - "${WEB_PORT:?WEB_PORT is required}:${WEB_PORT:?WEB_PORT is required}"
@@ -239,7 +239,7 @@ services:
     image: jeffail/benthos:4
     mem_limit: 128m
     volumes:
-      - ../../pipelines/benthos/alerts/alerts-forwarder.yaml:/benthos.yaml
+      - ./pipelines/benthos/alerts/alerts-forwarder.yaml:/benthos.yaml
     depends_on:
       redpanda:
         condition: service_healthy

@@ -101,7 +101,7 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/NTDuck/log-rider.git
-cd log-rider/logrider
+cd log-rider
 ```
 
 Create your local environment file:

@@ -4,7 +4,7 @@
 
 This repository contains LogRider, a log collection and application error monitoring system. The original requirement is to ingest high-volume application logs, buffer them through a message queue, normalize and persist them, alert on `ERROR` / `CRITICAL` events with Redis-backed deduplication, and provide a real-time dashboard with role-based visibility.
 
-The implementation lives in `logrider/`. The historical planning material lives in `specs/`, but most specs are stale relative to the current code. Treat `specs/06-evaluation/` as the current audit trail and treat implementation files as the source of truth.
+The implementation lives in the root directory. The historical planning material lives in `specs/`, but most specs are stale relative to the current code. Treat `specs/06-evaluation/` as the current audit trail and treat implementation files as the source of truth.
 
 ## Current Implementation Snapshot
 
@@ -50,7 +50,7 @@ The implementation currently uses this flow:
 
 ## Operational Entry Points
 
-From `logrider/`:
+From the root directory:
 
 - `docker compose up -d` starts the stack.
 - `docker compose ps` checks service status.
@@ -61,6 +61,6 @@ From `logrider/`:
 
 ## Documentation State
 
-The root `README.md` is only a repository placeholder. The application documentation is `logrider/README.md`.
+The root `README.md` is the application documentation.
 
 The most current audit should be the latest file in `specs/06-evaluation/`, keyed by the evaluated commit hash.
