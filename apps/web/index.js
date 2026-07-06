@@ -367,7 +367,7 @@ async function getConfiguredAnalyticsPeriod(requestedPeriod) {
       await pgClient.query(
         `INSERT INTO users (username, password_hash, role, allowed_apps) VALUES
                 ('Ayin', $1, 'admin', '*'),
-                ('Benjamin', $2, 'engineer', 'su(pam_unix),logrotate,syslogd 1.4.1'),
+                ('Benjamin', $2, 'engineer', 'su(pam_unix),logrotate,syslogd 1.4.1,benchmark-alert-app'),
                 ('Carmen', $3, 'engineer', 'ftpd,snmpd,cups,sshd(pam_unix)')
             `,
         [adminHash, eng1Hash, eng2Hash],
@@ -914,8 +914,8 @@ bunServer = Bun.serve({
         const logTagsTable = requiredEnv("CLICKHOUSE_TABLE_LOG_EVENT_TAGS");
 
         const queries = [
-          `ALTER TABLE ${db}.${logEventsTable} MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
-          `ALTER TABLE ${db}.${logTagsTable} MODIFY TTL event_timestamp + toIntervalHour(${result.value})`,
+          `ALTER TABLE ${db}.${logEventsTable} MODIFY TTL toDateTime(event_timestamp) + toIntervalHour(${result.value})`,
+          `ALTER TABLE ${db}.${logTagsTable} MODIFY TTL toDateTime(event_timestamp) + toIntervalHour(${result.value})`,
         ];
 
         for (let q of queries) {
@@ -1134,12 +1134,12 @@ bunServer = Bun.serve({
         const rows = chData.data || [];
 
         const logs = rows.map((row) => ({
-          Trace_ID: row.trace_id,
-          Application_Name: row.application_name,
-          Log_Level: row.severity,
-          Message: row.message,
-          Timestamp: row.event_timestamp,
-          Tags: row.tags || [],
+          trace_id: row.trace_id,
+          application_name: row.application_name,
+          severity: row.severity,
+          message: row.message,
+          event_timestamp: row.event_timestamp,
+          tags: row.tags || [],
         }));
 
         return Response.json({ logs });

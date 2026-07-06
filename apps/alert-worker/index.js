@@ -86,7 +86,14 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
                     const now = Math.floor(Date.now() / 1000);
 
                     for (let message of batch.messages) {
-                        const log = JSON.parse(message.value.toString());
+                        const rawLog = JSON.parse(message.value.toString());
+                        const log = {
+                            ...rawLog,
+                            application_name: rawLog.application_name || rawLog.Application_Name,
+                            severity: rawLog.severity || rawLog.Log_Level,
+                            message: rawLog.message || rawLog.Message,
+                            trace_id: rawLog.trace_id || rawLog.Trace_ID,
+                        };
                         
                         if (!enabledSeverities.includes(log.severity)) {
                             resolveOffset(message.offset);

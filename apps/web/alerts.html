@@ -196,12 +196,17 @@
         }
 
         function formatTimestamp(value) {
-            let str = String(value);
-            if (!str.endsWith('Z') && str.length > 10) {
-                str = str.replace(' ', 'T');
-                if (!str.endsWith('Z')) str += 'Z';
+            let date;
+            if (typeof value === 'number') {
+                date = new Date(value);
+            } else {
+                let str = String(value);
+                if (!str.endsWith('Z') && str.length > 10 && str.includes(' ')) {
+                    str = str.replace(' ', 'T');
+                    if (!str.endsWith('Z')) str += 'Z';
+                }
+                date = new Date(str);
             }
-            const date = new Date(str);
             if (Number.isNaN(date.getTime())) return escapeHtml(String(value || '-'));
             
             const isUTC = TIMEZONE_POLICY === 'utc';
@@ -226,7 +231,7 @@
         }
 
         function alertSignature(log) {
-            return `${log.application_name || 'unknown'}|${log.message || ''}`;
+            return `${log.application_name || log.Application_Name || 'unknown'}|${log.message || log.Message || ''}`;
         }
 
         function ensureApplicationOption(appName) {
@@ -240,17 +245,17 @@
         function upsertAlert(log) {
             const signature = alertSignature(log);
             const existing = alertsBySignature.get(signature);
-            let ts = log.event_timestamp;
+            let ts = log.event_timestamp || log.Timestamp;
             if (ts && typeof ts === 'string' && ts.includes(' ') && !ts.includes('T')) {
                 ts = ts.replace(' ', 'T');
                 if (!ts.endsWith('Z')) ts += 'Z';
             }
             const next = {
-                application_name: log.application_name || 'unknown',
-                severity: (log.severity || 'ERROR').toUpperCase(),
-                message: log.message || '',
+                application_name: log.application_name || log.Application_Name || 'unknown',
+                severity: (log.severity || log.Log_Level || 'ERROR').toUpperCase(),
+                message: log.message || log.Message || '',
                 event_timestamp: ts,
-                alert_count: Number(log.alert_count || log.count || 1),
+                alert_count: Number(log.alert_count ?? log.count ?? 1),
             };
 
             if (existing) {
@@ -355,8 +360,12 @@
                     return;
                 }
 
-                const log = data.type === 'ALERT' ? { ...data.log, alert_count: data.count || 1 } : data;
-                if (!log?.severity || (log.severity !== 'ERROR' && log.severity !== 'CRITICAL')) return;
+                const log =
+                  data.type === 'ALERT' || data.type === 'INCIDENT_UPDATE' || data.type === 'ALERT_STREAM'
+                    ? { ...(data.log || {}), alert_count: data.count || data.log?.count || 1 }
+                    : data;
+                const severity = log?.severity || log?.Log_Level;
+                if (!severity || (severity !== 'ERROR' && severity !== 'CRITICAL')) return;
                 upsertAlert(log);
                 renderAlerts();
             };

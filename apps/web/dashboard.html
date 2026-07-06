@@ -243,12 +243,17 @@
         }
 
         function formatTimestamp(value) {
-            let str = String(value);
-            if (!str.endsWith('Z') && str.length > 10) {
-                str = str.replace(' ', 'T');
-                if (!str.endsWith('Z')) str += 'Z';
+            let date;
+            if (typeof value === 'number') {
+                date = new Date(value);
+            } else {
+                let str = String(value);
+                if (!str.endsWith('Z') && str.length > 10 && str.includes(' ')) {
+                    str = str.replace(' ', 'T');
+                    if (!str.endsWith('Z')) str += 'Z';
+                }
+                date = new Date(str);
             }
-            const date = new Date(str);
             if (Number.isNaN(date.getTime())) return escapeHtml(String(value || '-'));
             
             const isUTC = TIMEZONE_POLICY === 'utc';
@@ -287,19 +292,19 @@
         }
 
         function normalizeHistoricalLog(log) {
-            let ts = log.event_timestamp;
+            let ts = log.event_timestamp || log.Timestamp;
             if (ts && typeof ts === 'string' && ts.includes(' ') && !ts.includes('T')) {
                 ts = ts.replace(' ', 'T');
                 if (!ts.endsWith('Z')) ts += 'Z';
             }
             return {
-                trace_id: log.trace_id,
-                application_name: log.application_name || '-',
-                severity: (log.severity || 'INFO').toUpperCase(),
-                message: log.message || '',
+                trace_id: log.trace_id || log.Trace_ID,
+                application_name: log.application_name || log.Application_Name || '-',
+                severity: (log.severity || log.Log_Level || 'INFO').toUpperCase(),
+                message: log.message || log.Message || '',
                 event_timestamp: ts,
-                tags: Array.isArray(log.tags) ? log.tags : [],
-                Status: Array.isArray(log.tags) && log.tags.length > 0 ? 'Classified' : 'Persisted',
+                tags: Array.isArray(log.tags) ? log.tags : Array.isArray(log.Tags) ? log.Tags : [],
+                Status: Array.isArray(log.tags || log.Tags) && (log.tags || log.Tags).length > 0 ? 'Classified' : 'Persisted',
                 pendingClassified: false,
                 pendingTags: [],
             };
@@ -314,25 +319,32 @@
         }
 
         function upsertLog(log) {
-            if (!log?.trace_id) return null;
-            const existing = logsByTraceId.get(log.trace_id);
+            if (!log) return null;
+            const tId = log.trace_id || log.Trace_ID;
+            if (!tId) return null;
+            const existing = logsByTraceId.get(tId);
             const next = existing ? { ...existing } : {
-                trace_id: log.trace_id,
-                application_name: log.application_name || '-',
-                severity: (log.severity || 'INFO').toUpperCase(),
-                message: log.message || '',
-                event_timestamp: log.event_timestamp,
+                trace_id: tId,
+                application_name: log.application_name || log.Application_Name || '-',
+                severity: (log.severity || log.Log_Level || 'INFO').toUpperCase(),
+                message: log.message || log.Message || '',
+                event_timestamp: log.event_timestamp || log.Timestamp,
                 tags: [],
                 Status: 'Ingested',
                 pendingClassified: false,
                 pendingTags: [],
             };
 
-            if (log.application_name) next.application_name = log.application_name;
-            if (log.severity) next.severity = log.severity.toUpperCase();
-            if (log.message) next.message = log.message;
-            if (log.event_timestamp) next.event_timestamp = log.event_timestamp;
-            if (Array.isArray(log.tags) && log.tags.length > 0) next.tags = log.tags;
+            const app = log.application_name || log.Application_Name;
+            const sev = log.severity || log.Log_Level;
+            const msg = log.message || log.Message;
+            const ts = log.event_timestamp || log.Timestamp;
+
+            if (app) next.application_name = app;
+            if (sev) next.severity = sev.toUpperCase();
+            if (msg) next.message = msg;
+            if (ts) next.event_timestamp = ts;
+            if (Array.isArray(log.tags || log.Tags) && (log.tags || log.Tags).length > 0) next.tags = (log.tags || log.Tags);
             if (log.Status) {
                 const nextRank = STATUS_RANK[log.Status] || 0;
                 const currentRank = STATUS_RANK[next.Status] || 0;
@@ -529,21 +541,21 @@
                 if (data.type === 'TAGS') {
                     globalSummary.classified++;
                     const record = upsertLog({
-                        trace_id: data.trace_id || data.trace_id,
-                        application_name: data.application_name || data.application_name,
-                        tags: data.tags || data.tags || []
+                        trace_id: data.trace_id || data.Trace_ID,
+                        application_name: data.application_name || data.Application_Name,
+                        tags: data.tags || data.Tags || []
                     });
                     if (!record) return;
-                    applyStatusTransition(record.trace_id, 'Classified', data.tags || data.tags || []);
+                    applyStatusTransition(record.trace_id, 'Classified', data.tags || data.Tags || []);
                     scheduleRender();
                     return;
                 }
 
-                if ((data.trace_id || data.trace_id) && (data.Status === 'Normalized' || data.status === 'normalized')) {
+                if ((data.trace_id || data.Trace_ID) && (data.Status === 'Normalized' || data.status === 'normalized')) {
                     globalSummary.normalized++;
                     const record = upsertLog({
-                        trace_id: data.trace_id || data.trace_id,
-                        application_name: data.application_name || data.application_name
+                        trace_id: data.trace_id || data.Trace_ID,
+                        application_name: data.application_name || data.Application_Name
                     });
                     if (!record) return;
                     applyStatusTransition(record.trace_id, 'Normalized');
@@ -551,14 +563,14 @@
                     return;
                 }
 
-                if ((data.trace_id || data.trace_id) && (data.Status === 'Persisted' || data.status === 'persisted')) {
+                if ((data.trace_id || data.Trace_ID) && (data.Status === 'Persisted' || data.status === 'persisted')) {
                     globalSummary.persisted++;
                     const record = upsertLog({
-                        trace_id: data.trace_id || data.trace_id,
-                        application_name: data.application_name || data.application_name,
-                        severity: data.severity || data.severity,
-                        message: data.message || data.message,
-                        event_timestamp: data.event_timestamp || data.event_timestamp
+                        trace_id: data.trace_id || data.Trace_ID,
+                        application_name: data.application_name || data.Application_Name,
+                        severity: data.severity || data.Log_Level,
+                        message: data.message || data.Message,
+                        event_timestamp: data.event_timestamp || data.Timestamp
                     });
                     if (!record) return;
                     applyStatusTransition(record.trace_id, 'Persisted');
@@ -566,14 +578,14 @@
                     return;
                 }
 
-                if ((data.application_name || data.application_name) && (data.severity || data.severity)) {
+                if ((data.application_name || data.Application_Name) && (data.severity || data.Log_Level)) {
                     globalSummary.total++;
                     const record = upsertLog({
-                        trace_id: data.trace_id || data.trace_id,
-                        application_name: data.application_name || data.application_name,
-                        severity: data.severity || data.severity,
-                        message: data.message || data.message,
-                        event_timestamp: data.event_timestamp || data.event_timestamp,
+                        trace_id: data.trace_id || data.Trace_ID,
+                        application_name: data.application_name || data.Application_Name,
+                        severity: data.severity || data.Log_Level,
+                        message: data.message || data.Message,
+                        event_timestamp: data.event_timestamp || data.Timestamp,
                         Status: 'Ingested'
                     });
                     if (!record) return;

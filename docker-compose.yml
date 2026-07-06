@@ -260,6 +260,7 @@ services:
 
   alert-realtime-forwarder:
     image: jeffail/benthos:4
+    profiles: ["debug-alert-forwarder"]
     mem_limit: 128m
     volumes:
       - ./pipelines/benthos/alerts/alerts-forwarder.yaml:/benthos.yaml

@@ -174,9 +174,15 @@ while True:
         try:
             payload = msg.value().decode('utf-8')
             log = json.loads(payload)
-            trace_id = log.get('trace_id')
+            
+            trace_id = log.get('trace_id') or log.get('Trace_ID')
+            app_name = log.get('application_name') or log.get('Application_Name')
+            msg_text = log.get('message') or log.get('Message')
+            
             if trace_id:
                 log['trace_id'] = trace_id
+                if app_name: log['application_name'] = app_name
+                if msg_text: log['message'] = msg_text
                 logs.append(log)
                 raw_msgs.append(msg)
             else:

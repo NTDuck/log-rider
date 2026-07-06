@@ -5,7 +5,8 @@
     "start": "bun run src/main.ts"
   },
   "dependencies": {
+    "@clickhouse/client": "^0.2.10",
     "kafkajs": "^2.2.4",
-    "@clickhouse/client": "^0.2.10"
+    "redis": "^6.1.0"
   }
 }
