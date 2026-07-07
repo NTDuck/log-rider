@@ -205,18 +205,14 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 
 	for {
 		now := time.Now().Unix()
-		// BZPOPMIN telegram:dirty_incidents 0
 		res, err := rdb.BZPopMin(ctx, 5*time.Second, "telegram:dirty_incidents").Result()
 		if err != nil {
-			// Timeout or error
 			continue
 		}
 
-		// res.Member is the incident key, res.Score is the timestamp
 		incKey := res.Member.(string)
 		score := res.Score
 
-		// If score is in the future, wait
 		if int64(score) > now {
 			diff := int64(score) - now
 			if diff > 0 {
@@ -226,10 +222,9 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 			}
 		}
 
-		// Read incident details
 		inc, err := rdb.HGetAll(ctx, incKey).Result()
 		if err != nil || len(inc) == 0 {
-			continue // Expired or deleted
+			continue
 		}
 
 		countStr := inc["count"]
@@ -244,22 +239,40 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 		lastNotifiedStr := inc["last_notified_count"]
 		lastNotified, _ := strconv.Atoi(lastNotifiedStr)
 
-		messageStr := inc["message"]
 		firstSeenStr := inc["first_seen"]
 		lastSeenStr := inc["last_seen"]
 		
-		// Parse first seen and last seen
 		firstSeen, _ := strconv.ParseInt(firstSeenStr, 10, 64)
 		lastSeen, _ := strconv.ParseInt(lastSeenStr, 10, 64)
 		firstSeenTime := time.Unix(firstSeen, 0).Format("15:04:05")
 		lastSeenTime := time.Unix(lastSeen, 0).Format("15:04:05")
 
-		// Extract app from incident key: incident:{app}:{hash}
-		parts := strings.Split(incKey, ":")
-		if len(parts) < 3 {
-			continue
+		appID := inc["application_name"]
+		logLevel := inc["log_level"]
+		representativeMessage := inc["representative_message"]
+		signature := inc["signature"]
+
+		// Legacy fallback
+		if appID == "" && strings.HasPrefix(incKey, "incident:") && !strings.HasPrefix(incKey, "incident:v2:") {
+			parts := strings.Split(incKey, ":")
+			if len(parts) >= 3 {
+				appID = parts[1]
+			}
+			logLevel = "ERROR" // Guess for legacy
+			representativeMessage = inc["message"]
+			if len(parts) >= 3 {
+				signature = parts[2]
+			}
 		}
-		appID := parts[1]
+
+		if appID == "" {
+			continue // Safely fail if application_name is absent and not a legacy key
+		}
+
+		displaySignature := signature
+		if len(displaySignature) > 12 {
+			displaySignature = displaySignature[:12]
+		}
 
 		telegramMsgIDsStr := inc["telegram_message_ids"]
 		var telegramMsgIDs map[string]int
@@ -269,7 +282,6 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 			telegramMsgIDs = make(map[string]int)
 		}
 
-		// Should we notify?
 		needsUpdate := false
 		if lastNotified == 0 {
 			needsUpdate = true
@@ -277,7 +289,6 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 			if now-lastEditAt >= minEditInterval {
 				needsUpdate = true
 			} else {
-				// Requeue for later
 				rdb.ZAdd(ctx, "telegram:dirty_incidents", redis.Z{Score: float64(lastEditAt + minEditInterval), Member: incKey})
 				continue
 			}
@@ -298,7 +309,8 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 			allChats[e] = true
 		}
 
-		text := fmt.Sprintf("🚨 CRITICAL ERROR\nApp: %s\nMessage: %s\nCount: %d\nFirst seen: %s\nLast seen: %s\nStatus: Active", appID, messageStr, count, firstSeenTime, lastSeenTime)
+		text := fmt.Sprintf("🚨 %s INCIDENT\n\nApplication: %s\nSeverity: %s\nMessage: %s\nOccurrences: %d\nFirst observed: %s\nLast observed: %s\nStatus: Active\nIncident: %s", 
+			logLevel, appID, logLevel, representativeMessage, count, firstSeenTime, lastSeenTime, displaySignature)
 
 		updatedMsgIDs := false
 		for chatIDStr := range allChats {
@@ -306,7 +318,6 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 			
 			msgID, exists := telegramMsgIDs[chatIDStr]
 			if !exists {
-				// Send new message
 				msg := tgbotapi.NewMessage(chatID, text)
 				sent, err := bot.Send(msg)
 				if err == nil {
@@ -314,17 +325,14 @@ func consumeDirtyIncidents(bot *tgbotapi.BotAPI, rdb *redis.Client) {
 					updatedMsgIDs = true
 				}
 			} else {
-				// Edit existing message
 				editMsg := tgbotapi.NewEditMessageText(chatID, msgID, text)
 				_, err := bot.Send(editMsg)
 				if err != nil {
 					log.Printf("Failed to edit message: %v", err)
-					// if message not found, we could resend, but let's just ignore for now
 				}
 			}
 		}
 
-		// Save state
 		pipeline := rdb.Pipeline()
 		pipeline.HSet(ctx, incKey, "last_notified_count", count)
 		pipeline.HSet(ctx, incKey, "last_edit_at", now)

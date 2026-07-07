@@ -173,3 +173,42 @@ You can run a benchmark scenario from anywhere:
 Results (including summaries, metrics, and raw logs) are generated in `benchmarks/results/<timestamp>-<scenario>/`.
 
 *Note: Benchmarks test both gRPC ingestion (via port 50051) as well as standard HTTP (via port 8082).*
+
+## Incident Fingerprinting v2
+
+LogRider has been upgraded to a v2 incident fingerprinting strategy that replaces the obsolete 32-bit MD5 truncation with a collision-resistant, semantic SHA-256 fingerprint.
+
+### Signature Version
+The `ALERT_SIGNATURE_VERSION` must be explicitly configured to `2`. There is no silent fallback to v1 behavior. This ensures identical failures group deterministically across all replicas.
+
+### Grouping Inputs
+Incidents are grouped according to the configured `alert.grouping_strategy`. The recommended strategy is `app_level_template`, which combines:
+1. Normalized Application Name
+2. Normalized Severity Level
+3. Conservatively Normalized Message Template
+
+### Normalization Rules
+To prevent volatile values from fragmenting single operational failures, the message template replaces the following with canonical placeholders (e.g., `<uuid>`, `<timestamp>`, `<id>`):
+- UUIDs
+- ISO-8601 Timestamps
+- Trace/Request/Correlation IDs (while preserving the field name)
+- Memory Addresses
+- Stack-frame Line Numbers (while preserving the file and function name)
+- IPv4/IPv6 Addresses
+- Long Generated Decimal Identifiers
+
+**Known Trade-offs:**
+- **Over-grouping:** The `message_template_only` strategy will group completely unrelated applications if they emit identical log text. This is why `app_level_template` is the recommended default.
+- **Under-grouping:** The normalizer deliberately leaves HTTP status codes, error codes, and short numeric values intact. As a result, `HTTP 404` and `HTTP 500` for the same route will produce distinct incidents, rather than a single grouped failure. This is generally preferred but should be noted.
+
+### Collision Properties
+By hashing a canonical JSON representation of the grouping inputs with full 256-bit SHA-256, accidental hash collisions are made practically impossible, preventing unrelated failures from merging and corrupting counts or timestamps.
+
+### TTL Semantics
+Redis key expiration relies on processing time, not log event timestamps. This prevents an old or malicious log timestamp from bypassing the configured alert TTL.
+
+### Migration Behavior
+A gradual migration strategy is supported:
+1. The Telegram bot worker processes both `incident:<app>:<hash>` (v1) and `incident:v2:<sha256>` (v2) keys.
+2. V2 introduces a canonical JSON structure internally; no routing data is derived by parsing the colon-separated key.
+3. Legacy v1 incident keys must be allowed to expire naturally according to their existing Redis TTL. Do not bulk-delete them during rollout to preserve active Telegram notification editing.

@@ -69,8 +69,8 @@ const CONFIG_REGISTRY = {
     label: "Alert grouping strategy",
     description: "Fields used to group repeated alerts into one signature.",
     type: "enum",
-    defaultValue: "app_message",
-    options: ["app_message", "app_level_message", "message_only"],
+    defaultValue: "app_level_template",
+    options: ["app_message_exact", "app_level_message_exact", "app_level_template", "message_template_only"],
     public: false,
   },
   "alert.popup_default_enabled": {

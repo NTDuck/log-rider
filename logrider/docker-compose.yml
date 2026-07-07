@@ -156,6 +156,7 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
       REDPANDA_BROKERS: redpanda:29092
+      ALERT_SIGNATURE_VERSION: 2
     deploy:
       replicas: 10
 
