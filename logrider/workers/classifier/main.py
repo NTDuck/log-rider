@@ -130,7 +130,7 @@ while True:
                 'Trace_ID': log['Trace_ID'],
                 'Application_Name': log.get('Application_Name', 'unknown'),
                 'Tags': tags,
-                'status': 'Classified'
+                'Status': 'Classified'
             }
             redis_client.publish('ws-events', json.dumps(classified_ws))
 

@@ -68,4 +68,4 @@ else
 fi
 
 echo "Restarting Benthos to drop bad buffered messages..."
-docker compose -f "$COMPOSE_FILE" restart benthos-pipeline benthos-persist
+docker compose -f "$COMPOSE_FILE" restart benthos-pipeline benthos-persist benthos-tags

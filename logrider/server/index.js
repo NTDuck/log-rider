@@ -1113,10 +1113,12 @@ bunServer = Bun.serve({
 
         if (traceIds.length > 0) {
           const tagsQuery = `
-            SELECT Trace_ID, Tags
+            SELECT
+              Trace_ID,
+              argMax(Tags, Timestamp) AS Tags
             FROM logrider.log_tags
             WHERE Trace_ID IN (${traceIds.map(quoteClickHouseString).join(",")})
-            ORDER BY Timestamp DESC
+            GROUP BY Trace_ID
             FORMAT JSON
           `;
 
@@ -1135,14 +1137,18 @@ bunServer = Bun.serve({
           );
         }
 
-        const logs = rows.map((row) => ({
-          Trace_ID: row.Trace_ID,
-          Application_Name: row.Application_Name,
-          Log_Level: row.Log_Level,
-          Message: row.Message,
-          Timestamp: row.Timestamp,
-          Tags: tagsByTraceId.get(row.Trace_ID) || row.Tags || [],
-        }));
+        const logs = rows.map((row) => {
+          const tags = tagsByTraceId.get(row.Trace_ID) || row.Tags || [];
+          return {
+            Trace_ID: row.Trace_ID,
+            Application_Name: row.Application_Name,
+            Log_Level: row.Log_Level,
+            Message: row.Message,
+            Timestamp: row.Timestamp,
+            Tags: tags,
+            Status: Array.isArray(tags) && tags.length > 0 ? "Classified" : "Persisted",
+          };
+        });
 
         return Response.json({ logs });
       } catch (err) {

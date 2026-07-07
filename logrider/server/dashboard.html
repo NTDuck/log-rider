@@ -279,14 +279,17 @@
                 ts = ts.replace(' ', 'T');
                 if (!ts.endsWith('Z')) ts += 'Z';
             }
+
+            const tags = Array.isArray(log.Tags) ? log.Tags : [];
+
             return {
                 Trace_ID: log.Trace_ID,
                 Application_Name: log.Application_Name || '-',
                 Log_Level: (log.Log_Level || 'INFO').toUpperCase(),
                 Message: log.Message || '',
                 Timestamp: ts,
-                Tags: Array.isArray(log.Tags) ? log.Tags : [],
-                Status: Array.isArray(log.Tags) && log.Tags.length > 0 ? 'Classified' : 'Persisted',
+                Tags: tags,
+                Status: log.Status || (tags.length > 0 ? 'Classified' : 'Persisted'),
                 pendingClassified: false,
                 pendingTags: [],
             };
