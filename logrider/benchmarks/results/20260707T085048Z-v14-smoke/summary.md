@@ -1,0 +1,25 @@
+# v14 Benchmark: smoke
+
+```json
+{
+  "scenario": "smoke",
+  "attempted_records": 100,
+  "accepted_records": 100,
+  "persisted_unique_records": 100,
+  "tag_records": 98,
+  "silent_loss": 0,
+  "accepted_to_durable_loss_percent": 0,
+  "http_request_count": 100,
+  "http_statuses": {
+    "202": 100
+  },
+  "http_p50_ms": 3.269014999999854,
+  "http_p95_ms": 4.9976129999995464,
+  "http_p99_ms": 8.462677999999869,
+  "http_mean_ms": 4.1009685799999716,
+  "drain_seconds": 0.4062978509999994,
+  "verdict": "PASS",
+  "elapsed_seconds": 16.750427331,
+  "result_dir": "benchmarks/results/20260707T085048Z-v14-smoke"
+}
+```

@@ -1,0 +1,11 @@
+{
+  "scenario": "websocket-rbac",
+  "user": "Benjamin",
+  "allowed_apps": "su(pam_unix),logrotate,syslogd 1.4.1",
+  "out_of_scope_app": "v14-secret-app",
+  "received_events": 1,
+  "unauthorized_events": 1,
+  "verdict": "FAIL",
+  "elapsed_seconds": 9.408726961000001,
+  "result_dir": "benchmarks/results/20260707T085823Z-v14-websocket-rbac"
+}

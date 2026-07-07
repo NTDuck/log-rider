@@ -1,0 +1,21 @@
+ingest-worker-1  | {"level":"WARN","timestamp":"2026-07-07T08:23:25.598Z","logger":"kafkajs","message":"KafkaJS v2.0.0 switched default partitioner. To retain the same partitioning behavior as in previous versions, create the producer with the option \"createPartitioner: Partitioners.LegacyPartitioner\". See the migration guide at https://kafka.js.org/docs/migration-guide-v2.0.0#producer-new-default-partitioner for details. Silence this warning by setting the environment variable \"KAFKAJS_NO_PARTITIONER_WARNING=1\""}
+ingest-worker-1  | TimeoutNegativeWarning: -1783412605624 is a negative number.
+ingest-worker-1  | Timeout duration was set to 1.
+ingest-worker-1  |       at scheduleCheckPendingRequests (/app/node_modules/kafkajs/src/network/requestQueue/index.js:317:37)
+ingest-worker-1  |       at checkPendingRequests (/app/node_modules/kafkajs/src/network/requestQueue/index.js:297:10)
+ingest-worker-1  |       at fulfillRequest (/app/node_modules/kafkajs/src/network/requestQueue/index.js:206:10)
+ingest-worker-1  |       at processData (/app/node_modules/kafkajs/src/network/connection.js:529:25)
+ingest-worker-1  |       at onData (/app/node_modules/kafkajs/src/network/connection.js:184:14)
+ingest-worker-1  |       at emit (node:events:95:22)
+ingest-worker-1  |       at addChunk (internal:streams/readable:264:47)
+ingest-worker-1  |       at readableAddChunkPushByteMode (internal:streams/readable:242:18)
+ingest-worker-1  |       at data (node:net:281:72)
+ingest-worker-1  | 
+ingest-worker-1  | HTTP ingest listening on :8080
+ingest-worker-1  | gRPC ingest listening on :50051
+ingest-worker-1  | DeprecationWarning: Calling start() is no longer necessary. It can be safely omitted.
+ingest-worker-1  |       at <anonymous> (internal:util/deprecate:11:28)
+ingest-worker-1  |       at deprecated (internal:util/deprecate:20:29)
+ingest-worker-1  |       at <anonymous> (/app/index.ts:218:14)
+ingest-worker-1  |       at <anonymous> (/app/node_modules/@grpc/grpc-js/build/src/server.js:614:25)
+ingest-worker-1  | 

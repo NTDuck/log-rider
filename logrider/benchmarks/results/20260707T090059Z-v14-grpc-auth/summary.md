@@ -1,0 +1,17 @@
+# v14 Benchmark: grpc-auth
+
+```json
+{
+  "verdict": "FAIL",
+  "response": {
+    "success": true,
+    "message": "Ingested",
+    "processed": 1
+  },
+  "scenario": "grpc-auth",
+  "request": "IngestLogs without metadata over insecure channel",
+  "expected": "UNAUTHENTICATED",
+  "actual": "success",
+  "result_dir": "benchmarks/results/20260707T090059Z-v14-grpc-auth"
+}
+```

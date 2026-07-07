@@ -1,0 +1,2 @@
+logs_enriched=20
+log_tags=20

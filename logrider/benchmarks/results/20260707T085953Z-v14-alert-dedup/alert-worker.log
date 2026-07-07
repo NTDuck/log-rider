@@ -1,0 +1,120 @@
+alert-worker-2  | file:///app/index.js:106
+alert-worker-9  | file:///app/index.js:106
+alert-worker-3  | file:///app/index.js:106
+alert-worker-8  | file:///app/index.js:106
+alert-worker-4  | file:///app/index.js:106
+alert-worker-9  |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-2  |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-2  |                                       ^
+alert-worker-9  |                                       ^
+alert-worker-9  | 
+alert-worker-2  | 
+alert-worker-2  | SyntaxError: Invalid or unexpected token
+alert-worker-9  | SyntaxError: Invalid or unexpected token
+alert-worker-2  |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-2  |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-9  |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-9  |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-2  |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-2  |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-2  |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-2  | 
+alert-worker-9  |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-9  |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-2  | Node.js v20.20.2
+alert-worker-9  |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-9  | 
+alert-worker-9  | Node.js v20.20.2
+alert-worker-6  | file:///app/index.js:106
+alert-worker-10  | file:///app/index.js:106
+alert-worker-7   | file:///app/index.js:106
+alert-worker-1   | file:///app/index.js:106
+alert-worker-5   | file:///app/index.js:106
+alert-worker-8   |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-8   |                                       ^
+alert-worker-8   | 
+alert-worker-8   | SyntaxError: Invalid or unexpected token
+alert-worker-8   |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-8   |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-8   |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-8   |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-8   |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-8   | 
+alert-worker-8   | Node.js v20.20.2
+alert-worker-3   |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-3   |                                       ^
+alert-worker-3   | 
+alert-worker-3   | SyntaxError: Invalid or unexpected token
+alert-worker-3   |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-3   |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-3   |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-3   |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-3   |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-3   | 
+alert-worker-3   | Node.js v20.20.2
+alert-worker-4   |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-4   |                                       ^
+alert-worker-4   | 
+alert-worker-4   | SyntaxError: Invalid or unexpected token
+alert-worker-4   |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-4   |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-4   |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-4   |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-4   |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-4   | 
+alert-worker-4   | Node.js v20.20.2
+alert-worker-6   |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-6   |                                       ^
+alert-worker-6   | 
+alert-worker-6   | SyntaxError: Invalid or unexpected token
+alert-worker-6   |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-6   |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-6   |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-6   |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-6   |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-6   | 
+alert-worker-6   | Node.js v20.20.2
+alert-worker-5   |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-5   |                                       ^
+alert-worker-5   | 
+alert-worker-5   | SyntaxError: Invalid or unexpected token
+alert-worker-5   |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-5   |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-5   |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-5   |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-5   |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-5   | 
+alert-worker-5   | Node.js v20.20.2
+alert-worker-1   |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-1   |                                       ^
+alert-worker-7   |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-1   | 
+alert-worker-1   | SyntaxError: Invalid or unexpected token
+alert-worker-1   |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-1   |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-1   |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-1   |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-10  |                         console.error(\`Invalid or missing grouping strategy: \${configuredStrategy}\`);
+alert-worker-1   |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-1   | 
+alert-worker-10  |                                       ^
+alert-worker-10  | 
+alert-worker-10  | SyntaxError: Invalid or unexpected token
+alert-worker-10  |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-10  |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-10  |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-1   | Node.js v20.20.2
+alert-worker-10  |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-10  |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-10  | 
+alert-worker-10  | Node.js v20.20.2
+alert-worker-7   |                                       ^
+alert-worker-7   | 
+alert-worker-7   | SyntaxError: Invalid or unexpected token
+alert-worker-7   |     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+alert-worker-7   |     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+alert-worker-7   |     at #translate (node:internal/modules/esm/loader:497:12)
+alert-worker-7   |     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+alert-worker-7   |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+alert-worker-7   | 
+alert-worker-7   | Node.js v20.20.2

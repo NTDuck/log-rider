@@ -1,0 +1,12 @@
+[
+  {
+    "log": {
+      "Application_Name": "v14-secret-app",
+      "Log_Level": "ERROR",
+      "Message": "v14 secret database timeout",
+      "Timestamp": "2026-07-07T08:58:31.987Z",
+      "Trace_ID": "2ecca3d7-21c6-4c26-8e6d-0e8d962bf472"
+    },
+    "type": "ALERT_STREAM"
+  }
+]

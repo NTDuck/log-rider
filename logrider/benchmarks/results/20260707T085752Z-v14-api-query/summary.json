@@ -1,0 +1,56 @@
+{
+  "scenario": "api-query",
+  "preloaded_records": 500,
+  "query_dataset_rows": 500,
+  "endpoints": [
+    "/api/analytics/health",
+    "/api/analytics/overview",
+    "/api/logs/recent",
+    "/api/alerts/recent"
+  ],
+  "results": {
+    "/api/analytics/health": {
+      "request_count": 120,
+      "statuses": {
+        "200": 120
+      },
+      "p50_ms": 8.117135000000417,
+      "p95_ms": 16.8074549999983,
+      "p99_ms": 26.086457999997947,
+      "mean_ms": 10.060572774999764
+    },
+    "/api/analytics/overview": {
+      "request_count": 120,
+      "statuses": {
+        "200": 120
+      },
+      "p50_ms": 7.050100000000384,
+      "p95_ms": 9.00244499999826,
+      "p99_ms": 10.07992000000013,
+      "mean_ms": 7.6411214250001045
+    },
+    "/api/logs/recent": {
+      "request_count": 120,
+      "statuses": {
+        "200": 120
+      },
+      "p50_ms": 24.029130000002624,
+      "p95_ms": 28.986876999999367,
+      "p99_ms": 32.41962799999965,
+      "mean_ms": 23.570624108333263
+    },
+    "/api/alerts/recent": {
+      "request_count": 120,
+      "statuses": {
+        "200": 120
+      },
+      "p50_ms": 6.791831999998976,
+      "p95_ms": 8.412018999999418,
+      "p99_ms": 9.092795999997179,
+      "mean_ms": 6.65983339166675
+    }
+  },
+  "verdict": "PASS",
+  "elapsed_seconds": 22.970975821,
+  "result_dir": "benchmarks/results/20260707T085752Z-v14-api-query"
+}

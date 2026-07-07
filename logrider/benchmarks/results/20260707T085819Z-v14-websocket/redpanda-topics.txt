@@ -1,0 +1,16 @@
+NAME                                     PARTITIONS  REPLICAS
+alerts-ingested                          11          1
+dlq-clickhouse                           3           1
+dlq-logs                                 3           1
+logrider.alerts.candidate-detected.v1    1           1
+logrider.alerts.candidate.detected.v1    2           1
+logrider.dlq.logs.persistence.failed.v1  2           1
+logrider.dlq.logs.tags.write.failed.v1   2           1
+logrider.logs.normalized.v1              17          1
+logrider.logs.persistence.requested.v1   2           1
+logrider.logs.received.v1                2           1
+logrider.logs.tags.assigned.v1           2           1
+logs-classified                          8           1
+logs-ingested                            128         1
+logs-normalized                          8           1
+logs-persist                             8           1

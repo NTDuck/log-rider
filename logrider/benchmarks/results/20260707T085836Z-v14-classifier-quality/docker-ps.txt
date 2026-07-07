@@ -1,0 +1,16 @@
+NAME                                  IMAGE                                               COMMAND                  SERVICE                    CREATED          STATUS                 PORTS
+logrider-benthos-alerts-forwarder-1   jeffail/benthos:latest                              "/benthos -c /bentho…"   benthos-alerts-forwarder   6 hours ago      Up 6 hours             4195/tcp
+logrider-benthos-persist-1            jeffail/benthos:latest                              "/benthos -c /bentho…"   benthos-persist            6 hours ago      Up 4 seconds           4195/tcp
+logrider-benthos-persist-2            jeffail/benthos:latest                              "/benthos -c /bentho…"   benthos-persist            6 hours ago      Up 4 seconds           4195/tcp
+logrider-benthos-persist-3            jeffail/benthos:latest                              "/benthos -c /bentho…"   benthos-persist            6 hours ago      Up 4 seconds           4195/tcp
+logrider-benthos-persist-4            jeffail/benthos:latest                              "/benthos -c /bentho…"   benthos-persist            6 hours ago      Up 4 seconds           4195/tcp
+logrider-benthos-pipeline-1           jeffail/benthos:latest                              "/benthos -c /bentho…"   benthos-pipeline           6 hours ago      Up 5 seconds           4195/tcp
+logrider-benthos-tags-1               jeffail/benthos:latest                              "/benthos -c /bentho…"   benthos-tags               6 hours ago      Up 4 seconds           4195/tcp
+logrider-classifier-worker-1          logrider-classifier-worker                          "python -u main.py"      classifier-worker          35 minutes ago   Up 35 minutes          
+logrider-clickhouse-1                 clickhouse/clickhouse-server:latest                 "/entrypoint.sh"         clickhouse                 6 hours ago      Up 6 hours (healthy)   8123/tcp, 9000/tcp, 9009/tcp
+logrider-ingest-worker-1              logrider-ingest-worker                              "/usr/local/bin/dock…"   ingest-worker              35 minutes ago   Up 35 minutes          0.0.0.0:50051->50051/tcp, [::]:50051->50051/tcp, 0.0.0.0:8085->8080/tcp, [::]:8085->8080/tcp
+logrider-postgres-1                   postgres:15-alpine                                  "docker-entrypoint.s…"   postgres                   6 hours ago      Up 6 hours (healthy)   5432/tcp
+logrider-redis-1                      redis:7-alpine                                      "docker-entrypoint.s…"   redis                      6 hours ago      Up 6 hours (healthy)   6379/tcp
+logrider-redpanda-1                   docker.redpanda.com/redpandadata/redpanda:v25.1.9   "/entrypoint.sh redp…"   redpanda                   6 hours ago      Up 6 hours (healthy)   8081-8082/tcp, 9092/tcp, 9644/tcp
+logrider-telegram-bot-1               logrider-telegram-bot                               "./bot"                  telegram-bot               35 minutes ago   Up 35 minutes          
+logrider-web-server-1                 logrider-web-server                                 "/usr/local/bin/dock…"   web-server                 35 minutes ago   Up 35 minutes          3000/tcp, 0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp

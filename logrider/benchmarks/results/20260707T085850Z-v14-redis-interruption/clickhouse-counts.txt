@@ -1,0 +1,2 @@
+timestamp,elapsed_ms,count
+2026-07-07T08:59:08.475Z,513,20

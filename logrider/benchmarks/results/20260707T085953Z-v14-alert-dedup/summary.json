@@ -1,0 +1,30 @@
+{
+  "scenario": "alert-dedup",
+  "attempted_records": 100,
+  "accepted_records": 100,
+  "persisted_unique_records": 100,
+  "tag_records": 100,
+  "silent_loss": 0,
+  "accepted_to_durable_loss_percent": 0,
+  "http_request_count": 100,
+  "http_statuses": {
+    "202": 100
+  },
+  "http_p50_ms": 3.579149000000143,
+  "http_p95_ms": 11.664826000000176,
+  "http_p99_ms": 33.75718300000062,
+  "http_mean_ms": 5.572223060000024,
+  "drain_seconds": 3.0572469920000005,
+  "alert_state": {
+    "incident_keys": [],
+    "incident_count": 0,
+    "notification_index_count": 0,
+    "notification_data_count": 0,
+    "dirty_queue_count": 0,
+    "incidents": {}
+  },
+  "verdict": "FAIL_ALERT_AGGREGATION",
+  "elapsed_seconds": 12.322876353,
+  "result_dir": "benchmarks/results/20260707T085953Z-v14-alert-dedup",
+  "alert_failure": "alert-worker replicas crash with SyntaxError before consuming alerts-ingested; alert_state incident_count=0"
+}
