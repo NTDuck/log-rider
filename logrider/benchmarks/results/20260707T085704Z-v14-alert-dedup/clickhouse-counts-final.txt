@@ -1,0 +1,2 @@
+logs_enriched=100
+log_tags=245
